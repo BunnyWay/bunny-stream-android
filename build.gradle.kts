@@ -23,9 +23,28 @@ plugins {
     // Documentation
     // https://kotlin.github.io/dokka
     id("org.jetbrains.dokka") version "2.0.0"
+
+    // Maven publishing
+    id("io.github.gradle-nexus.publish-plugin") version "1.3.0" apply true
+    id("maven-publish") apply true
+    id("signing") apply true
+
+}
+
+// Configure Nexus publishing
+nexusPublishing {
+    repositories {
+        sonatype {
+            nexusUrl.set(uri("https://s01.oss.sonatype.org/service/local/"))
+            snapshotRepositoryUrl.set(uri("https://s01.oss.sonatype.org/content/repositories/snapshots/"))
+            username.set(project.findProperty("ossrhUsername") as String? ?: System.getenv("OSSRH_USERNAME"))
+            password.set(project.findProperty("ossrhPassword") as String? ?: System.getenv("OSSRH_PASSWORD"))
+        }
+    }
 }
 
 tasks.dokkaGfmMultiModule {
     moduleName.set("Bunny Stream Android API")
     outputDirectory.set(file("docs"))
 }
+
