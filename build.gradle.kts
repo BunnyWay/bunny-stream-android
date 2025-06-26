@@ -25,7 +25,6 @@ plugins {
     id("org.jetbrains.dokka") version "2.0.0"
 
     // Maven publishing
-    id("maven-publish") apply false
     id("signing") apply false
     id("io.github.gradle-nexus.publish-plugin") version "1.3.0"
 }
