@@ -1,0 +1,85 @@
+name: Publish to Maven Central
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish'
+        required: true
+        default: '1.0.0'
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Make gradlew executable
+        run: chmod +x gradlew
+
+      - name: Set version from input or release
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "VERSION=${{ github.event.inputs.version }}" >> $GITHUB_ENV
+          else
+            echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_ENV
+          fi
+
+      - name: Update version in build files
+        run: |
+          sed -i "s/version = \"1.0.0\"/version = \"${{ env.VERSION }}\"/" build.gradle.kts
+
+      - name: Clean project
+        run: ./gradlew clean
+
+      - name: Run tests
+        run: ./gradlew :bunny-stream-api:testDebugUnitTest :bunny-stream-player:testDebugUnitTest :bunny-stream-camera-upload:testDebugUnitTest
+
+      - name: Lint check
+        run: ./gradlew :bunny-stream-api:detekt
+
+      - name: Build libraries
+        run: ./gradlew :bunny-stream-api:build :bunny-stream-player:build :bunny-stream-camera-upload:build
+
+      - name: Generate documentation
+        run: ./gradlew dokkaJavadoc
+
+      - name: Publish to Maven Central
+        env:
+          OSSRH_USERNAME: ${{ secrets.OSSRH_USERNAME }}
+          OSSRH_PASSWORD: ${{ secrets.OSSRH_PASSWORD }}
+          MAVEN_KEY: ${{ secrets.MAVEN_KEY }}
+          MAVEN_KEY_PASSWORD: ${{ secrets.MAVEN_KEY_PASSWORD }}
+        run: |
+          ./gradlew :bunny-stream-api:publishAllPublicationsToSonatypeRepository :bunny-stream-player:publishAllPublicationsToSonatypeRepository :bunny-stream-camera-upload:publishAllPublicationsToSonatypeRepository closeAndReleaseSonatypeStagingRepository
+
+      - name: Notify on success
+        if: success()
+        run: |
+          echo "✅ Successfully published Bunny Stream Android SDK v${{ env.VERSION }} to Maven Central"
+          echo "Libraries published:"
+          echo "- net.bunny:bunny-stream-api:${{ env.VERSION }}"
+          echo "- net.bunny:bunny-stream-player:${{ env.VERSION }}"
+          echo "- net.bunny:bunny-stream-camera-upload:${{ env.VERSION }}"
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "❌ Failed to publish Bunny Stream Android SDK v${{ env.VERSION }} to Maven Central"
+          echo "Please check the logs for more details."
