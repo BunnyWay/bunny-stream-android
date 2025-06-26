@@ -32,12 +32,6 @@ plugins {
 allprojects {
     group = "net.bunny"
     version = "1.0.0"
-
-    repositories {
-        google()
-        mavenCentral()
-        maven { url = uri("https://jitpack.io") }
-    }
 }
 
 tasks.dokkaGfmMultiModule {
