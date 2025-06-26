@@ -1,322 +1,136 @@
-# Bunny Stream Android
+# Bunny Stream Android SDK
 
-<p align="center">
-  <img src="resources/bunnynet.svg" width="70%" alt="BunnyNet" />
-</p>
-<p align="center">
-    <a href="./LICENSE" alt="License">
-        <img src="https://img.shields.io/badge/Licence-MIT-green.svg" />
-    </a>
-</p>
+The Bunny Stream Android SDK provides a comprehensive set of libraries for integrating video streaming and recording capabilities into your Android applications.
 
-## What is Bunny Stream?
+## 📦 Installation
 
-Bunny Stream is an Android library designed to seamlessly integrate Bunny's powerful video streaming capabilities into your Android applications. The package provides a robust set of tools for video management, playback, uploading, and camera-based video uploads, all through an intuitive Kotlin API.
-
-### Key Features
-
-- **Complete API Integration**: Full support for Bunny REST Stream API
-- **Efficient Video Upload**: TUS protocol implementation for reliable, resumable uploads
-- **Advanced Video Player**: Custom-built player with full Bunny CDN integration
-- **Camera Upload Support**: Built-in capabilities for recording and uploading videos directly from device camera
-
-## Modules
-
-The Bunny Stream is organized into several specialized modules, each focusing on specific functionality:
-
-| Module                                                                 | Description                                                                                                                                                                                                                                                                                                                               |
-|------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| **[bunny-stream-api](bunny-stream-api/README.md)**                     | The core module that provides interface to Bunny's REST Stream API. It handles all API communication, request authentication, and response parsing, allowing you to easily manage your video content, retrieve analytics, and control CDN settings. Features include video management, collection organization, and thumbnail generation. |
-| **[bunny-stream-camera-upload](bunny-stream-camera-upload/README.md)** | Integrated camera solution that enables recording and direct upload of videos from the device camera.                                                                                                                                                                                                                                     |
-| **[bunny-stream-player](bunny-stream-player/README.md)**                            | A feature-rich video player specifically optimized for Bunny's CDN. It provides smooth playback with adaptive bitrate streaming, customizable controls, support for multiple video formats, and integration with Bunny's analytics. The player includes features like Google Cast support, DRM support and customizable UI elements.      |
-
-## Minimum supported Android version
-
-- Android 8.0 (API level 26)
-
-## Installation
-
-You can choose to use only modules you need. For example, you could only declare `api` dependency if you plan to use your own player implementation and just want to get access to your library.
-
-If you plan to use `BunnyVideoPlayer` declare dependency on `api` and `player` modules.
-
-Declare desired dependencies in your project's `build.gradle.kts`:
-
-- You can use only `bunny-stream-api`:
-   ```
-   implementation("net.bunnystream.bunny-stream-api:1.0.0")
-   ```
-- If you also need `bunny-stream-player`:
-   ```
-   implementation("net.bunnystream.bunny-stream-player:1.0.0")
-   ```
-- If you need camera recording and live stream upload:
-   ```
-   implementation("net.bunnystream.bunny-stream-camera-upload:1.0.0")
-   ```
-
-## Initialization
-
-After installation, you'll need to configure the package with your Bunny credentials. Initialization is common for all modules.
+Add the following dependencies to your `build.gradle.kts` (Module: app) file:
 
 ```kotlin
-// Initialize with your access key (optional) and library ID
-BunnyStreamApi.initialize(context, accessKey, libraryId)
-```
-
-## 1. Getting Started with video management using BunnyStreamApi
-
-Initialize BunnyStreamApi:
-```
-BunnyStreamApi.initialize(context, accessKey, libraryId)
-```
-
-## Below are some BunnyStreamApi usage examples
-
-### List videos from library
- ```
- try {
-    val response: PaginationListOfVideoModel = BunnyStreamApi.videosApi.videoList(
-        libraryId = libraryId
-    )
-    println("response=$response")
-} catch (e: Exception) {
-    // handle exception
+dependencies {
+    // Core API library (required)
+    implementation("net.bunny:bunny-stream-api:1.0.0")
+    
+    // Video player (optional)
+    implementation("net.bunny:bunny-stream-player:1.0.0")
+    
+    // Camera recording and upload (optional)
+    implementation("net.bunny:bunny-stream-camera-upload:1.0.0")
 }
- ```
+```
 
-### Create a video
+Make sure your project's `build.gradle.kts` (Project) includes Maven Central:
 
- ```
- val createVideoRequest = VideoCreateVideoRequest(
-    title = title,
-    collectionId = collectionId,
-    thumbnailTime = thumbnailTime
+```kotlin
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+```
+
+## 📚 Libraries
+
+### bunny-stream-api
+Core API library providing:
+- Video management API
+- Upload functionality
+- Stream configuration
+- Authentication handling
+
+### bunny-stream-player
+Video player library featuring:
+- HLS streaming support
+- Adaptive bitrate streaming
+- Custom player controls
+- Subtitle support
+- Video quality selection
+
+### bunny-stream-camera-upload
+Camera recording and upload library including:
+- Camera recording functionality
+- Real-time streaming
+- File upload management
+- Recording state management
+
+## 🚀 Quick Start
+
+### Basic API Usage
+
+```kotlin
+import net.bunny.stream.api.*
+
+// Initialize the API client
+val bunnyStreamApi = BunnyStreamApi(
+    apiKey = "your-api-key",
+    libraryId = "your-library-id"
 )
-try {
-    val result: VideoModel = BunnyStreamApi.videosApi.videoCreateVideo(
-        libraryId = libraryId,
-        videoCreateVideoRequest = createVideoRequest
-    )
-    println("result=$result")
-} catch (e: Exception) {
-    // handle exception
-}
- ```
 
-### Upload video
+// Upload a video
+val uploadResult = bunnyStreamApi.uploadVideo(videoFile)
+```
 
-#### Uploading Using session uploader
+### Video Player
 
 ```kotlin
-BunnyStreamApi.getInstance().videoUploader.uploadVideo(libraryId, videoUri, object : UploadListener {
-    override fun onUploadError(error: UploadError, videoId: String?) {
-        Log.d(TAG, "onVideoUploadError: $error")
-    }
+import net.bunny.stream.player.*
 
-    override fun onUploadDone(videoId: String) {
-        Log.d(TAG, "onVideoUploadDone")
-    }
+// Add player view to your layout
+val playerView = BunnyPlayerView(context)
 
-    override fun onUploadStarted(uploadId: String, videoId: String) {
-        Log.d(TAG, "onVideoUploadStarted: uploadId=$uploadId")
-    }
-
-    override fun onProgressUpdated(percentage: Int, videoId: String) {
-        Log.d(TAG, "onUploadProgress: percentage=$percentage")
-    }
-
-    override fun onUploadCancelled(videoId: String) {
-        Log.d(TAG, "onUploadProgress: onVideoUploadCancelled")
-    }
-})
+// Initialize player
+val player = DefaultBunnyPlayer(context)
+player.setVideoUrl("https://your-video-url.m3u8")
+playerView.player = player
 ```
 
-#### Using TUS resumable uploader
-
-If TUS upload gets interrupted, calling `uploadVideo` with same parameters will resume upload.
+### Camera Recording
 
 ```kotlin
-BunnyStreamApi.getInstance().tusVideoUploader.uploadVideo(libraryId, videoUri, object : UploadListener {
-    override fun onUploadError(error: UploadError, videoId: String?) {
-        Log.d(TAG, "onVideoUploadError: $error")
-    }
+import net.bunny.stream.recording.*
 
-    override fun onUploadDone(videoId: String) {
-        Log.d(TAG, "onVideoUploadDone")
-    }
+// Initialize camera upload
+val cameraUpload = StreamCameraUploadView(context)
+cameraUpload.configure(
+    streamKey = "your-stream-key",
+    rtmpUrl = "your-rtmp-url"
+)
 
-    override fun onUploadStarted(uploadId: String, videoId: String) {
-        Log.d(TAG, "onVideoUploadStarted: uploadId=$uploadId")
-    }
-
-    override fun onProgressUpdated(percentage: Int, videoId: String) {
-        Log.d(TAG, "onUploadProgress: percentage=$percentage")
-    }
-
-    override fun onUploadCancelled(videoId: String) {
-        Log.d(TAG, "onUploadProgress: onVideoUploadCancelled")
-    }
-})
+// Start recording
+cameraUpload.startRecording()
 ```
 
-#### Cancel video upload
-```
-BunnyStreamApi.getInstance().videoUploader.cancelUpload(uploadId)
-```
-or
+## 📖 Documentation
 
-```
-BunnyStreamApi.getInstance().tusVideoUploader.cancelUpload(uploadId)
-```
+For detailed documentation and API reference, visit:
+- [API Documentation](docs/index.md)
+- [Player Documentation](docs/player/index.md)
+- [Recording Documentation](docs/recording/index.md)
 
-`uploadId` comes from `onUploadStarted(uploadId: String, videoId: String)` callback function.
+## 🔧 Requirements
 
-Full example can be found in demo app.
+- **Minimum SDK**: API 26 (Android 8.0)
+- **Target SDK**: API 35
+- **Kotlin**: 2.1.20+
+- **Java**: 11+
 
-Checkout full [API reference](api/README.md#full-api-reference) 
+## 📄 License
 
-## 2. BunnyStreamPlayer - Video Playback
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-Before attempting video playback, make sure `BunnyStreamApi` is initialized  with your access key (optional) and library ID:
-```
-BunnyStreamApi.initialize(context, accessKey, libraryId)
-```
+## 🤝 Support
 
-#### Using `BunnyVideoPlayer` in Compose
+For support and questions:
+- Email: support@bunny.net
+- Documentation: [Bunny.net Docs](https://docs.bunny.net)
+- GitHub Issues: [Create an issue](https://github.com/BunnyWay/bunny-stream-android/issues)
 
-```kotlin
-@Composable
-fun BunnyPlayerComposable(
-    videoId: String,
-    modifier: Modifier = Modifier
-) {
-    AndroidView(
-        factory = { context ->
-            BunnyVideoPlayer(context)
-        },
-        update = {
-            it.playVideo(videoId)
-        },
-        modifier = modifier.background(Color.Gray)
-    )
-}
-```
+## 🔄 Changelog
 
-Full usage example can be found in demo app.
-
-#### Using `BunnyVideoPlayer` in XML Views
-
-1. Add `BunnyVideoPlayer` into your layout:
-```
-<net.bunnystream.player.ui.BunnyVideoPlayer
-      android:id="@+id/videoPlayer"
-      android:layout_width="match_parent"
-      android:layout_height="match_parent"/>
-```
-2. Call `playVideo()`:
-```
-bunnyVideoPlayer.playVideo(videoId)
-```
-
-`bunnyVideoPlayer` comes from `findViewById()` or from View binding.
-
-**Customizing Player:**
-
-You can customize the BunnyVideoPlayer by passing custom icons. Other costumizations like primary color, font, handling control visibilty, captions, heatmap can be controlled from the Bunny dashboard.
-
-1. Override icons you want to change from `PlayerIconSet` class:
-
-```kotlin
-@Parcelize
-data class PlayerIconSet(
-    @DrawableRes
-    val playIcon: Int = R.drawable.ic_play_48dp,
-
-    @DrawableRes
-    val pauseIcon: Int = R.drawable.ic_pause_48dp,
-
-    @DrawableRes
-    val rewindIcon: Int = R.drawable.ic_replay_10s_48dp,
-
-    @DrawableRes
-    val forwardIcon: Int = R.drawable.ic_forward_10s_48dp,
-
-    @DrawableRes
-    val settingsIcon: Int = R.drawable.ic_settings_24dp,
-
-    @DrawableRes
-    val volumeOnIcon: Int = R.drawable.ic_volume_on_24dp,
-
-    @DrawableRes
-    val volumeOffIcon: Int = R.drawable.ic_volume_off_24dp,
-
-    @DrawableRes
-    val fullscreenOnIcon: Int = R.drawable.ic_fullscreen_24dp,
-
-    @DrawableRes
-    val fullscreenOffIcon: Int = R.drawable.ic_fullscreen_exit_24dp,
-) : Parcelable
-```
-2. Set new icon set:
-```
-bunnyVideoPlayer.iconSet = newIconSet
-```
-
-## 3. Camera recording and upload using BunnyStreamCameraUpload
-
-#### `BunnyStreamCameraUpload` requires `CAMERA` and `RECORD_AUDIO` permissions:
-
-```xml
-<uses-permission android:name="android.permission.CAMERA" />
-<uses-permission android:name="android.permission.RECORD_AUDIO" />
-```
-
-1. Add `BunnyStreamCameraUpload` to your layout
-
-```xml
-<net.bunnystream.recording.BunnyStreamCameraUpload
-      android:id="@+id/recordingView"
-      android:layout_width="match_parent"
-      android:layout_height="match_parent"
-      app:brvDefaultCamera="front"
-      />
-```
-
-2. Set close listener:
-```
-bunnyStreamCameraUpload.closeStreamClickListener = OnClickListener {
-    // Hanlde stream close event, e.g. finish currenty activity
-    finish()
-}
-```
-
-3. Check for mic and camera permissions and start preview:
-
-```
-private fun hasPermission(permissionId: String): Boolean {
-    val permission = ContextCompat.checkSelfPermission(this, permissionId)
-    return permission == PackageManager.PERMISSION_GRANTED
-}
-
-val camGranted = hasPermission(Manifest.permission.CAMERA)
-val micGranted = hasPermission(Manifest.permission.RECORD_AUDIO)
-
-if(camGranted && micGranted){
-    recordingView.startPreview()
-} else {
-    val permissions = listOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO)
-    requestPermissions(
-        permissions.toTypedArray(),
-        PERMISSIONS_REQUEST_CODE
-    )
-}
-```
-
-If you don't want to use default UI controls you can hide them using `hideDefaultControls()` and control the streaming by calling functions from `RecordingView` interface that `BunnyRecordingView` implements.
-
-Full usage example and permissions handling can be found in demo app.
-
-## License
-
-Bunny Stream Android is licensed under the [MIT License](LICENSE). See the LICENSE file for more details.
+### Version 1.0.0
+- Initial release
+- Core API functionality
+- Video player with HLS support
+- Camera recording and upload
+- Documentation and examples

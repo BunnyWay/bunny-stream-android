@@ -5,8 +5,11 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose") version "2.1.20"
 }
 
+// Apply publishing configuration
+apply(from = "$rootDir/publishing.gradle.kts")
+
 android {
-    namespace = "net.bunnystream.recording"
+    namespace = "net.bunny.stream.recording"
     compileSdk = 35
 
     viewBinding.enable = true

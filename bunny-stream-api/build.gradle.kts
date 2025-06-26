@@ -10,6 +10,9 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose") version "2.1.20"
 }
 
+// Apply publishing configuration
+apply(from = "$rootDir/publishing.gradle.kts")
+
 android {
     buildFeatures {
         buildConfig = true
@@ -17,7 +20,7 @@ android {
 
     sourceSets["main"].java.srcDir(layout.buildDirectory.dir("generated/api"))
 
-    namespace = "net.bunnystream.api"
+    namespace = "net.bunny.stream.api"
     compileSdk = 35
 
     defaultConfig {
@@ -130,7 +133,7 @@ specs.forEach {
         generatorName.set("kotlin")
         inputSpec.set(it.value)
         outputDir.set(layout.buildDirectory.dir("generated/api").get().asFile.absolutePath)
-        apiPackage.set("net.bunnystream.api.api")
+        apiPackage.set("net.bunny.stream.api.api")
         generateApiTests.set(false)
         generateModelTests.set(false)
 
@@ -145,7 +148,7 @@ specs.forEach {
         ))
 
         typeMappings.set(mapOf(
-            "VideoModelStatus" to "net.bunnystream.api.model.VideoModelStatus"
+            "VideoModelStatus" to "net.bunny.stream.api.model.VideoModelStatus"
         ))
     }
 }

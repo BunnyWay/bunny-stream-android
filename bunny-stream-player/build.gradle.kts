@@ -6,8 +6,11 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose") version "2.1.20"
 }
 
+// Apply publishing configuration
+apply(from = "$rootDir/publishing.gradle.kts")
+
 android {
-    namespace = "net.bunnystream.player"
+    namespace = "net.bunny.stream.player"
     compileSdk = 35
 
     defaultConfig {
