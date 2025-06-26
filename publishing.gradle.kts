@@ -59,7 +59,7 @@ tasks.register<Jar>("javadocJar") {
 // Generate sources JAR
 tasks.register<Jar>("sourcesJar") {
     archiveClassifier.set("sources")
-    from(android.sourceSets.named("main").get().java.srcDirs)
+    from(extensions.getByType<com.android.build.gradle.LibraryExtension>().sourceSets.named("main").get().java.srcDirs)
 }
 
 // Configure artifacts
