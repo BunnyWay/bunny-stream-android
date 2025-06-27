@@ -162,6 +162,10 @@ tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
     )
 }
 
+tasks.withType<io.gitlab.arturbosch.detekt.Detekt>().configureEach {
+    jvmTarget = "17" // or "21", depending on your project
+}
+
 tasks.withType<DokkaTaskPartial> {
     dependsOn(
         "openApiGenerateAll",

@@ -18,6 +18,7 @@ import net.bunnystream.api.upload.service.PauseState
 import net.bunnystream.api.upload.service.UploadListener
 import net.bunnystream.api.upload.service.UploadRequest
 import net.bunnystream.api.upload.service.UploadService
+import java.lang.Exception
 import java.net.URL
 import java.security.MessageDigest
 import java.util.UUID
@@ -77,7 +78,7 @@ class TusUploaderService(
         uploader.chunkSize = chunkSize
         val isPaused = AtomicBoolean(false)
         val isCanceled = AtomicBoolean(false)
-
+        var delayToUse = 250;
         scope.launch {
             var chunkNumber = 0
             try {
@@ -92,7 +93,7 @@ class TusUploaderService(
                     if (!isPaused.load()) {
                         chunkNumber = uploader.uploadChunk()
                     } else {
-                        delay(250)
+                        delay(delayToUse)
                     }
                     if (isCanceled.load()) {
                         Log.d(TAG, "upload cancelled")
@@ -104,12 +105,11 @@ class TusUploaderService(
                 uploader.finish()
                 Log.d(TAG, "upload done")
                 listener.onUploadDone(videoId)
-            } catch (e: Exception) {
-                if(e is CancellationException){
+            } catch (e: CancellationException) {
                     Log.d(TAG, "upload cancelled")
                     isCanceled.store(true)
                     listener.onUploadCancelled(videoId)
-                } else {
+            } catch (e: Exception) {
                     Log.w(TAG, "error uploading: ${e.message}")
                     e.printStackTrace()
                     listener.onUploadError(UploadError.UnknownError(e.message ?: e.toString()), videoId)

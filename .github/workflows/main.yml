@@ -19,7 +19,7 @@ jobs:
           java-version: '17'
 
       - name: Lint check
-        run: ./gradlew .detekt
+        run: ./gradlew detekt
         
   unit_tests:
     name: Run unit tests

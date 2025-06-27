@@ -36,7 +36,7 @@ class TusUploadRequest(
             pauseListener(true)
         } catch (e: Exception){
             Log.e("TusUploadRequest", "pause exception: ${e.message}")
-            e.printStackTrace()
+//            e.printStackTrace()
         }
     }
 
@@ -46,7 +46,7 @@ class TusUploadRequest(
             pauseListener(false)
         } catch (e: Exception){
             Log.e("TusUploadRequest", "pause exception: ${e.message}")
-            e.printStackTrace()
+//            e.printStackTrace()
         }
     }
 }
