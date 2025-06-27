@@ -46,6 +46,7 @@ class TusUploaderService(
     }
 
     private val scope = CoroutineScope(dispatcher + exceptionHandler + supervisorJob)
+    private val _uIANIMATIONDELAYINMS = 250L
 
     override suspend fun upload(
         libraryId: Long, videoId: String, fileInfo: FileInfo, listener: UploadListener
@@ -78,7 +79,6 @@ class TusUploaderService(
         uploader.chunkSize = chunkSize
         val isPaused = AtomicBoolean(false)
         val isCanceled = AtomicBoolean(false)
-        var delayToUse = 250;
         scope.launch {
             var chunkNumber = 0
             try {
@@ -93,7 +93,7 @@ class TusUploaderService(
                     if (!isPaused.load()) {
                         chunkNumber = uploader.uploadChunk()
                     } else {
-                        delay(delayToUse)
+                        delay(_uIANIMATIONDELAYINMS)
                     }
                     if (isCanceled.load()) {
                         Log.d(TAG, "upload cancelled")
@@ -113,7 +113,6 @@ class TusUploaderService(
                     Log.w(TAG, "error uploading: ${e.message}")
                     e.printStackTrace()
                     listener.onUploadError(UploadError.UnknownError(e.message ?: e.toString()), videoId)
-                }
             }
         }
 
