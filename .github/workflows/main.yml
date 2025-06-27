@@ -38,7 +38,7 @@ jobs:
 
   instrumentation_tests:
     name: Instrumentation tests
-    runs-on: macos-latest
+    runs-on: ubuntu-latest
     strategy:
       matrix:
         api-level: [29]
@@ -64,7 +64,7 @@ jobs:
         with:
           api-level: ${{ matrix.api-level }}
           target: google_apis  # or "google_apis" if you're using Play Services
-          arch: x86  # ensure you're using ARM on Apple Silicon or aarch64 hosts
+          arch: arm64-v8a  # ensure you're using ARM on Apple Silicon or aarch64 hosts
           force-avd-creation: true
           emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           disable-animations: true
