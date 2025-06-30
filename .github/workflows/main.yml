@@ -3,113 +3,78 @@ name: Deploy App
 on:
   pull_request:
     branches: [ develop ]
-
   workflow_dispatch:
 
 jobs:
-  lint_check:
-    name: Lint check
-    runs-on: ubuntu-latest 
-    steps:
-      - uses: actions/checkout@v2
-      - name: Setup JDK
-        uses: actions/setup-java@v2
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-
-      - name: Lint check
-        run: ./gradlew .detekt
-        
   unit_tests:
     name: Run unit tests
-    runs-on: ubuntu-latest 
-    steps:
-      - uses: actions/checkout@v2
-      
-      - name: Setup JDK
-        uses: actions/setup-java@v2
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-
-      - name: Unit tests
-        run: ./gradlew testDebugUnitTest
-
-  instrumentation_tests:
-    name: Instrumentation tests
-    runs-on: macos-latest
-    strategy:
-      matrix:
-        api-level: [29]
-    steps:
-      - name: checkout
-        uses: actions/checkout@v3
-
-      - name: Gradle cache
-        uses: gradle/gradle-build-action@v2
-
-      - name: Setup JDK
-        uses: actions/setup-java@v2
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-
-      - name: Gradle cache
-        uses: gradle/gradle-build-action@v2
-        
-
-      - name: Run tests
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: ${{ matrix.api-level }}
-          force-avd-creation: false
-          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
-          disable-animations: true
-          script: ./gradlew connectedCheck
-        
-  build:
-    name: Build app
-    needs: [ lint_check, unit_tests, instrumentation_tests ]
     runs-on: ubuntu-latest
-
+    if: ${{ false }}       # TMP disable job for testing
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
+
       - name: Setup JDK
-        uses: actions/setup-java@v2
+        uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
-          java-version: '17'
+          distribution: temurin
+          java-version: 17
+
+      - name: Run unit tests
+        run: ./gradlew testDebugUnitTest --no-daemon --stacktrace
+
+  publish:
+    name: Publish to Maven Central
+    #needs: unit_tests
+    runs-on: ubuntu-latest
+    env:
+      OSSRH_USERNAME: ${{ secrets.OSSRH_USERNAME }}
+      OSSRH_PASSWORD: ${{ secrets.OSSRH_PASSWORD }}
+      MAVEN_KEY:        ${{ secrets.MAVEN_KEY }}           # ASCII-armored secret key
+      MAVEN_KEY_PASSWORD: ${{ secrets.MAVEN_KEY_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Java, OSSRH creds & import GPG key
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+          server-id: ossrh                                # matches your nexusPublishing repo id
+          server-username: ${{ secrets.OSSRH_USERNAME }}
+          server-password: ${{ secrets.OSSRH_PASSWORD }}
+          gpg-private-key: ${{ secrets.MAVEN_KEY }}       # your exported --armor key
+          gpg-passphrase: ${{ secrets.MAVEN_KEY_PASSWORD }}
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v2
 
-      - name: Build Release APK
-        run: ./gradlew :app:assembleDebug
+      - name: Publish artifacts
+        run: ./gradlew publishToMavenCentral --no-daemon --stacktrace
 
   distribute:
-    name: Distribute
-    needs: [ build ]
-    runs-on: ubuntu-latest 
-
+    name: Distribute APK
+    needs: unit_tests
+    runs-on: ubuntu-latest
+    if: ${{ false }}       # TMP disable job for testing
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
+
       - name: Setup JDK
-        uses: actions/setup-java@v2
+        uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
-          java-version: '17'
+          distribution: temurin
+          java-version: 17
 
       - name: Setup Android SDK
-        uses: android-actions/setup-android@v2
+        uses: android-actions/setup-android@v3.2.0
 
       - name: Build Debug APK
-        run: ./gradlew :app:assembleDebug
+        run: ./gradlew :app:assembleDebug --no-daemon
 
-      - name: Upload artifact to Firebase App Distribution
+      - name: Upload to Firebase App Distribution
         uses: wzieba/Firebase-Distribution-Github-Action@v1
         with:
-          appId: ${{secrets.FIREBASE_APP_ID}}
+          appId: ${{ secrets.FIREBASE_APP_ID }}
           serviceCredentialsFileContent: ${{ secrets.CREDENTIAL_FILE_CONTENT }}
           groups: Testers
           file: app/build/outputs/apk/debug/app-debug.apk

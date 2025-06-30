@@ -3,6 +3,8 @@ plugins {
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.dokka")
     id("org.jetbrains.kotlin.plugin.compose") version "2.1.20"
+    id("maven-publish")
+    id("signing")
 }
 
 android {
@@ -45,6 +47,13 @@ android {
     }
     composeOptions {
         kotlinCompilerExtensionVersion = "1.5.14" // Replace with the correct version
+    }
+
+    publishing {
+        singleVariant("release") {
+            withSourcesJar()
+            withJavadocJar()
+        }
     }
 }
 
