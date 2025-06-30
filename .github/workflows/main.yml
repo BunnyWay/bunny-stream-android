@@ -1,8 +1,9 @@
 name: Deploy App
 
 on:
-  pull_request:
-    branches: [ develop ]
+  push:
+    branches:
+      - setup-publishing
   workflow_dispatch:
 
 jobs:
