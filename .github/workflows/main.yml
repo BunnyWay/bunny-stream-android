@@ -50,7 +50,7 @@ jobs:
         uses: android-actions/setup-android@v2
 
       - name: Publish artifacts
-        run: ./gradlew publishToMavenCentral --no-daemon --stacktrace
+        run: ./gradlew publishReleasePublicationToMavenCentralRepository --no-daemon --stacktrace
 
   distribute:
     name: Distribute APK
