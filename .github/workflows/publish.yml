@@ -57,8 +57,8 @@ jobs:
       - name: Build libraries
         run: ./gradlew :bunny-stream-api:build :bunny-stream-player:build :bunny-stream-camera-upload:build
 
-      - name: Generate documentation
-        run: ./gradlew dokkaJavadoc
+#      - name: Generate documentation
+#        run: ./gradlew dokkaJavadoc
 
       - name: Publish to Maven Central
         env:
