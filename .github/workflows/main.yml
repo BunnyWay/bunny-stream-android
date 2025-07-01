@@ -36,6 +36,44 @@ jobs:
           distribution: temurin
           java-version: 17
 
+      - name: Debug GPG key presence & format
+        shell: bash
+        env:
+          GPG_KEY: ${{ secrets.MAVEN_KEY }}
+        run: |
+          set -x  # show each command
+          
+          # 1) Check that the env var is non-empty and measure its length
+          if [[ -z "$GPG_KEY" ]]; then
+            echo "❌ GPG_KEY is empty!" >&2
+            exit 1
+          fi
+          echo "✅ GPG_KEY length: ${#GPG_KEY}"   #  [oai_citation:0‡stackoverflow.com](https://stackoverflow.com/questions/17368067/length-of-string-in-bash?utm_source=chatgpt.com)
+          
+          # 2) Preview header and footer to confirm proper armor
+          echo "----header----"
+          echo "$GPG_KEY" | head -n1
+          echo "----footer----"
+          echo "$GPG_KEY" | tail -n1
+          
+          # 3) Verify BEGIN/END markers
+          if echo "$GPG_KEY" | grep -q "BEGIN PGP PRIVATE KEY BLOCK"; then
+            echo "✅ Header OK"
+          else
+            echo "❌ Missing BEGIN marker" >&2
+          fi
+          if echo "$GPG_KEY" | grep -q "END PGP PRIVATE KEY BLOCK"; then
+            echo "✅ Footer OK"
+          else
+            echo "❌ Missing END marker" >&2
+          fi
+          
+          # 4) Try importing and list what you have
+          echo "----importing----"
+          echo "$GPG_KEY" | gpg --batch --import   #  [oai_citation:1‡unix.stackexchange.com](https://unix.stackexchange.com/questions/184947/how-to-import-secret-gpg-key-copied-from-one-machine-to-another?utm_source=chatgpt.com)
+          echo "----secret keys in keyring----"
+          gpg --list-secret-keys --keyid-format LONG  
+
       - name: Setup Android SDK
         uses: android-actions/setup-android@v2
 
