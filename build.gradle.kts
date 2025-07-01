@@ -52,6 +52,11 @@ subprojects {
         pluginManager.withPlugin("maven-publish") {
             afterEvaluate {
                 extensions.configure<PublishingExtension> {
+                    val ossrhUser = project.findProperty("ossrhUsername") as String?
+                    val ossrhPass = project.findProperty("ossrhPassword") as String?
+                    logger.lifecycle("🔑 OSSRH username present: ${!ossrhUser.isNullOrBlank()}, length=${ossrhUser?.length}")
+                    logger.lifecycle("🔑 OSSRH password present: ${!ossrhPass.isNullOrBlank()}, length=${ossrhPass?.length}")
+
                     publications {
                         create<MavenPublication>("release") {
                             from(components["release"])
@@ -62,11 +67,8 @@ subprojects {
                     }
                     configure<SigningExtension> {
                         val rawKey = project.findProperty("signing.key") as String?
-                        logger.lifecycle("👀 signing.key present=${rawKey != null}, length=${rawKey?.length ?: 0}")
-                        rawKey?.lines()?.take(2)?.forEachIndexed { i, line ->
-                            logger.lifecycle("  line ${i+1}: ${line.take(30)}…")
-                        }
-                        useInMemoryPgpKeys(rawKey.orEmpty(), project.findProperty("signing.password") as String?)
+                        val password = project.findProperty("signing.password") as String?
+                        useInMemoryPgpKeys(rawKey.orEmpty(), password.orEmpty())
                         sign(publications["release"])
                     }
                     repositories {
