@@ -61,10 +61,12 @@ subprojects {
                         }
                     }
                     configure<SigningExtension> {
-                        useInMemoryPgpKeys(
-                            project.findProperty("signing.key")     as String?,
-                            project.findProperty("signing.password") as String?
-                        )
+                        val rawKey = project.findProperty("signing.key") as String?
+                        logger.lifecycle("👀 signing.key present=${rawKey != null}, length=${rawKey?.length ?: 0}")
+                        rawKey?.lines()?.take(2)?.forEachIndexed { i, line ->
+                            logger.lifecycle("  line ${i+1}: ${line.take(30)}…")
+                        }
+                        useInMemoryPgpKeys(rawKey.orEmpty(), project.findProperty("signing.password") as String?)
                         sign(publications["release"])
                     }
                     repositories {
