@@ -1,8 +1,3 @@
-import org.gradle.api.publish.PublishingExtension
-import org.gradle.api.publish.maven.MavenPublication
-import org.gradle.kotlin.dsl.configure
-import org.gradle.plugins.signing.SigningExtension
-
 // Top-level build file where you can add configuration options common to all sub-projects/modules.
 plugins {
     // Android plugins
@@ -52,17 +47,12 @@ subprojects {
         pluginManager.withPlugin("maven-publish") {
             afterEvaluate {
                 extensions.configure<PublishingExtension> {
-                    val ossrhUser = project.findProperty("ossrhUsername") as String?
-                    val ossrhPass = project.findProperty("ossrhPassword") as String?
-                    logger.lifecycle("🔑 OSSRH username present: ${!ossrhUser.isNullOrBlank()}, length=${ossrhUser?.length}")
-                    logger.lifecycle("🔑 OSSRH password present: ${!ossrhPass.isNullOrBlank()}, length=${ossrhPass?.length}")
-
                     publications {
                         create<MavenPublication>("release") {
                             from(components["release"])
-                            groupId    = project.group.toString()
+                            groupId = project.group.toString()
                             artifactId = project.name
-                            version    = project.version.toString()
+                            version = project.version.toString()
                         }
                     }
                     configure<SigningExtension> {
@@ -73,11 +63,13 @@ subprojects {
                     }
                     repositories {
                         maven {
-                            name = "MavenCentral"
-                            url  = uri("https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/")
+                            name = "GitHubPackages"
+                            url = uri("https://maven.pkg.github.com/BunnyWay/bunny-stream-android")
                             credentials {
-                                username = findProperty("ossrhUsername") as String? ?: ""
-                                password = findProperty("ossrhPassword") as String? ?: ""
+                                username = project.findProperty("gpr.user") as String?
+                                    ?: System.getenv("GITHUB_ACTOR")
+                                password = project.findProperty("gpr.key") as String?
+                                    ?: System.getenv("GITHUB_TOKEN")
                             }
                         }
                     }

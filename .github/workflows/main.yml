@@ -24,7 +24,7 @@ jobs:
         run: ./gradlew testDebugUnitTest --no-daemon --stacktrace
 
   publish:
-    name: Publish to Maven Central
+    name: Publish to GitHub Packages
     #needs: unit_tests
     runs-on: ubuntu-latest
     steps:
@@ -39,18 +39,14 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v2
 
-      - name: Debug
-        run: |
-          echo "${{ secrets.OSSRH_USERNAME }}" | base64
-          echo "${{ secrets.OSSRH_PASSWORD }}" | base64
-
       - name: Publish artifacts
         run: |
-          ./gradlew publishReleasePublicationToMavenCentralRepository --no-daemon --stacktrace \
-            -PossrhUsername="${{ secrets.OSSRH_USERNAME }}" \
-            -PossrhPassword="${{ secrets.OSSRH_PASSWORD }}" \
+          ./gradlew publishReleasePublicationToGitHubPackagesRepository --no-daemon --stacktrace \
             -Psigning.key="${{ secrets.MAVEN_KEY }}" \
             -Psigning.password="${{ secrets.MAVEN_KEY_PASSWORD }}"
+        env:
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   distribute:
     name: Distribute APK
