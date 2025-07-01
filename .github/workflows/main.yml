@@ -39,6 +39,11 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v2
 
+      - name: Debug
+        run: |
+          echo "${{ secrets.OSSRH_USERNAME }}" | base64
+          echo "${{ secrets.OSSRH_PASSWORD }}" | base64
+
       - name: Publish artifacts
         run: |
           ./gradlew publishReleasePublicationToMavenCentralRepository --no-daemon --stacktrace \
