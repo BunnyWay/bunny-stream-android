@@ -71,7 +71,7 @@ tasks.dokkaGfm {
 dependencies {
     // Project Module
     // https://docs.gradle.org/current/userguide/java_plugin.html#sec:project_dependencies
-    implementation(project(":bunny-stream-api"))
+    implementation(project(":api"))
 
     // AndroidX and Material
     // https://developer.android.com/jetpack/androidx/releases/core

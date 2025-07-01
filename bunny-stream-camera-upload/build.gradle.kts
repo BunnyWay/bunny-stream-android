@@ -70,7 +70,7 @@ tasks.dokkaGfm {
 
 dependencies {
     // Project module dependency
-    implementation(project(":bunny-stream-api"))
+    implementation(project(":api"))
 
     // AndroidX and Material
     // https://developer.android.com/jetpack/androidx/releases/core

@@ -37,7 +37,7 @@ tasks.dokkaGfmMultiModule {
 
 // Default coordinates and plugin application for Android libraries
 allprojects {
-    group = "com.example.bunnystream"
+    group = "net.bunnystream"
     version = "1.0.0"
 }
 
