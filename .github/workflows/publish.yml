@@ -1,0 +1,64 @@
+# Workflow name shown in GitHub Actions UI
+name: Publish Libraries to GitHub Packages
+
+# When to run this workflow:
+on:
+  # Only trigger on SemVer tags prefixed with 'v', e.g. 'v1.2.3'
+  push:
+    tags:
+      - 'v*.*.*'
+  # Allow manual (button) dispatch from the Actions tab
+  workflow_dispatch:
+
+jobs:
+  # First job: run your unit tests on every trigger
+  unit_tests:
+    name: Run unit tests
+    runs-on: ubuntu-latest
+    steps:
+      # Check out your repo
+      - uses: actions/checkout@v4
+
+      # Set up JDK 17 (Temurin distribution)
+      - name: Setup JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      # Execute your Android unit tests
+      - name: Run unit tests
+        run: ./gradlew testDebugUnitTest --no-daemon --stacktrace
+
+  # Second job: publish artifacts, depends on successful unit_tests
+  publish:
+    name: Publish to GitHub Packages
+    needs: unit_tests
+    runs-on: ubuntu-latest
+    steps:
+      # Re-checkout code (always required at start of a job)
+      - uses: actions/checkout@v4
+
+      # Setup Java again, import GPG key for signing
+      - name: Setup Java, OSSRH creds & import GPG key
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      # Setup Android SDK so Gradle can build Android modules
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v2
+
+      # Publish your release publication to GitHub Packages
+      - name: Publish artifacts
+        run: |
+          ./gradlew \
+            publishReleasePublicationToGitHubPackagesRepository \
+            --no-daemon --stacktrace \
+            -Psigning.key="${{ secrets.MAVEN_KEY }}" \
+            -Psigning.password="${{ secrets.MAVEN_KEY_PASSWORD }}"
+        env:
+          # These environment variables are used by your settings.gradle.kts
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

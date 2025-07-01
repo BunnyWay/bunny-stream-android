@@ -35,12 +35,6 @@ tasks.dokkaGfmMultiModule {
     outputDirectory.set(file("docs"))
 }
 
-// Default coordinates and plugin application for Android libraries
-allprojects {
-    group = "net.bunnystream"
-    version = "1.0.0"
-}
-
 subprojects {
     // Only configure publishing in Android-library modules
     pluginManager.withPlugin("com.android.library") {

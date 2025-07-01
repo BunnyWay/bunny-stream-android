@@ -1,77 +1,64 @@
-name: Deploy App
+# Workflow name shown in GitHub Actions UI
+name: Test and Upload Artifact App
 
+# When to run this workflow:
 on:
+  # Trigger on any push to 'main'
   push:
     branches:
-      - setup-publishing
+      - main
+  # Allow manual triggering from the Actions tab
   workflow_dispatch:
 
 jobs:
+  # First job: run your unit tests
   unit_tests:
     name: Run unit tests
     runs-on: ubuntu-latest
-    if: ${{ false }}       # TMP disable job for testing
     steps:
+      # Check out the repository code
       - uses: actions/checkout@v4
 
+      # Set up JDK 17 (Temurin distribution)
       - name: Setup JDK
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 17
 
+      # Execute your Android unit tests
       - name: Run unit tests
         run: ./gradlew testDebugUnitTest --no-daemon --stacktrace
 
-  publish:
-    name: Publish to GitHub Packages
-    #needs: unit_tests
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Java, OSSRH creds & import GPG key
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: 17
-
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v2
-
-      - name: Publish artifacts
-        run: |
-          ./gradlew publishReleasePublicationToGitHubPackagesRepository --no-daemon --stacktrace \
-            -Psigning.key="${{ secrets.MAVEN_KEY }}" \
-            -Psigning.password="${{ secrets.MAVEN_KEY_PASSWORD }}"
-        env:
-          GITHUB_ACTOR: ${{ github.actor }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
+  # Second job: build the APK and upload it
   distribute:
-    name: Distribute APK
+    name: Upload APK as Artifact
     needs: unit_tests
     runs-on: ubuntu-latest
-    if: ${{ false }}       # TMP disable job for testing
     steps:
+      # Re-checkout code at the start of this job
       - uses: actions/checkout@v4
 
+      # Set up JDK again for Gradle
       - name: Setup JDK
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 17
 
+      # Install the Android SDK to build the app
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3.2.0
 
+      # Build the Debug APK with Gradle
       - name: Build Debug APK
         run: ./gradlew :app:assembleDebug --no-daemon
 
-      - name: Upload to Firebase App Distribution
-        uses: wzieba/Firebase-Distribution-Github-Action@v1
+      # Upload the generated Debug APK as a GitHub Actions artifact
+      - name: Upload Debug APK
+        uses: actions/upload-artifact@v3
         with:
-          appId: ${{ secrets.FIREBASE_APP_ID }}
-          serviceCredentialsFileContent: ${{ secrets.CREDENTIAL_FILE_CONTENT }}
-          groups: Testers
-          file: app/build/outputs/apk/debug/app-debug.apk
+          # The name shown in the Actions UI for this artifact
+          name: app-debug-apk
+          # Path to the APK file produced by the build
+          path: app/build/outputs/apk/debug/app-debug.apk

@@ -44,16 +44,72 @@ Declare desired dependencies in your project's `build.gradle.kts`:
 
 - You can use only `bunny-stream-api`:
    ```
-   implementation("net.bunnystream.bunny-stream-api:1.0.0")
+   implementation("net.bunnystream:api:1.0.0")
    ```
 - If you also need `bunny-stream-player`:
    ```
-   implementation("net.bunnystream.bunny-stream-player:1.0.0")
+   implementation("net.bunnystream:player:1.0.0")
    ```
 - If you need camera recording and live stream upload:
    ```
-   implementation("net.bunnystream.bunny-stream-camera-upload:1.0.0")
+   implementation("net.bunnystream:recording:1.0.0")
    ```
+
+1. Go to [Your Profile] => [Developer settings] => [Personal access token] => [Generate new token] on github.com
+2. Check read:packages
+3. Click Generate token
+4. Copy the generated token
+5. Add below lines to your ~/.gradle/gradle.properties (the path may be different on Windows) or export as environment variables:
+  ```
+  GITHUB_ACTOR={your github id}
+  GITHUB_TOKEN={the generated token}
+  ```
+6. Merge below lines to your <project root>/settings.gradle (If you are using the recent version of Android Gradle Plugin)
+  ```
+  dependencyResolutionManagement {
+    repositories {
+        maven {
+            url = uri("https://maven.pkg.github.com/BunnyWay/bunny-stream-android")
+            credentials {
+                // Use environment variables for GitHub Packages authentication
+                // Ensure GITHUB_ACTOR and GITHUB_TOKEN are set in your environment
+                // or gradle.properties file
+                username = providers.gradleProperty("gpr.user").orNull
+                    ?: providers.environmentVariable("GITHUB_ACTOR").orNull
+                    ?: System.getenv("GITHUB_ACTOR")
+                    ?: ""
+                password = providers.gradleProperty("gpr.key").orNull
+                    ?: providers.environmentVariable("GITHUB_TOKEN").orNull
+                    ?: System.getenv("GITHUB_TOKEN")
+                    ?: ""
+            }
+        }
+    }
+  }
+  ```
+or to your <project root>/build.gradle
+  ```
+  allprojects {
+      repositories {
+        maven {
+            url = uri("https://maven.pkg.github.com/BunnyWay/bunny-stream-android")
+            credentials {
+                // Use environment variables for GitHub Packages authentication
+                // Ensure GITHUB_ACTOR and GITHUB_TOKEN are set in your environment 
+                // or gradle.properties file
+                username = providers.gradleProperty("gpr.user").orNull
+                    ?: providers.environmentVariable("GITHUB_ACTOR").orNull
+                    ?: System.getenv("GITHUB_ACTOR")
+                    ?: ""
+                password = providers.gradleProperty("gpr.key").orNull
+                    ?: providers.environmentVariable("GITHUB_TOKEN").orNull
+                    ?: System.getenv("GITHUB_TOKEN")
+                    ?: ""
+            }
+        }
+    }
+  }
+  ```
 
 ## Initialization
 
