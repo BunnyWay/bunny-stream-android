@@ -6,6 +6,7 @@ import kotlinx.coroutines.Dispatchers
 import net.bunnystream.api.api.ManageCollectionsApi
 import net.bunnystream.api.api.ManageVideosApi
 import net.bunnystream.api.ktor.initHttpClient
+import net.bunnystream.api.progress.DefaultProgressRepository
 import net.bunnystream.api.settings.data.DefaultSettingsRepository
 import net.bunnystream.api.settings.domain.model.PlayerSettings
 import net.bunnystream.api.upload.DefaultVideoUploader
@@ -69,7 +70,10 @@ class BunnyStreamApi private constructor(
         ktorClient,
         Dispatchers.IO
     )
-
+    override val progressRepository = DefaultProgressRepository(
+        httpClient = ktorClient,
+        coroutineDispatcher = Dispatchers.IO
+    )
     private val tusVideoUploaderService = TusUploaderService(
         preferences = prefs,
         chunkSize = 1024,

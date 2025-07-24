@@ -18,27 +18,32 @@ import androidx.media3.common.Tracks
 import androidx.media3.common.util.Util
 import androidx.media3.datasource.DataSource
 import androidx.media3.datasource.DataSpec
-import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.datasource.HttpDataSource
 import androidx.media3.datasource.TransferListener
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.analytics.AnalyticsListener
-import androidx.media3.exoplayer.drm.DefaultDrmSessionManager
-import androidx.media3.exoplayer.drm.DrmSessionManagerProvider
-import androidx.media3.exoplayer.drm.FrameworkMediaDrm
-import androidx.media3.exoplayer.drm.HttpMediaDrmCallback
-import androidx.media3.exoplayer.ima.ImaAdsLoader
-import androidx.media3.exoplayer.ima.ImaServerSideAdInsertionMediaSource
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
-import androidx.media3.exoplayer.trackselection.AdaptiveTrackSelection
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import androidx.media3.ui.PlayerView
 import com.google.android.gms.cast.framework.CastState
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 import net.bunnystream.api.BunnyStreamApi
+import net.bunnystream.api.playback.DefaultPlaybackPositionManager
+import net.bunnystream.api.playback.PlaybackPosition
+import net.bunnystream.api.playback.PlaybackPositionManager
+import net.bunnystream.api.playback.ResumeConfig
+import net.bunnystream.api.playback.ResumePositionListener
+import net.bunnystream.api.settings.PlaybackSpeedManager
 import net.bunnystream.api.settings.domain.model.PlayerSettings
 import net.bunnystream.api.settings.toUri
 import net.bunnystream.bunnystreamplayer.common.BunnyPlayer
+import net.bunnystream.bunnystreamplayer.config.PlaybackSpeedConfig
+import net.bunnystream.bunnystreamplayer.config.PlaybackSpeedPreferences
 import net.bunnystream.bunnystreamplayer.context.AppCastContext
 import net.bunnystream.bunnystreamplayer.model.AudioTrackInfo
 import net.bunnystream.bunnystreamplayer.model.AudioTrackInfoOptions
@@ -54,7 +59,9 @@ import org.openapitools.client.models.VideoModel
 import kotlin.math.ceil
 import kotlin.math.round
 import kotlin.time.Duration.Companion.seconds
-
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.withContext
 
 @SuppressLint("UnsafeOptInUsageError")
 class DefaultBunnyPlayer private constructor(private val context: Context) : BunnyPlayer {
@@ -74,17 +81,35 @@ class DefaultBunnyPlayer private constructor(private val context: Context) : Bun
             }
     }
 
+    // Speed Variables
+    private var speedConfig = PlaybackSpeedConfig()
+    private val speedPreferences = PlaybackSpeedPreferences(context)
+    private val speedManager = PlaybackSpeedManager()
+
+    // Player Position Variables
+    private var currentLibraryId: Long? = null
+    private var resumePosition: Long = 0L
+    private var progressSaveJob: Job? = null
+
     private var localPlayer: Player? = null
     private val castContext = AppCastContext.get()
     private var castPlayer: Player? = null
     override var currentPlayer: Player? = null
 
     private var currentVideo: VideoModel? = null
+    private var currentVideoId: String? = null
     private var selectedSubtitle: SubtitleInfo? = null
     private var subtitlesEnabled = false
 
     override var autoPaused = false
 
+    // Resume position functionality
+    override var positionManager: PlaybackPositionManager? = null
+    private var resumePositionListener: ResumePositionListener? = null
+    private val coroutineScope = CoroutineScope(Dispatchers.Main)
+
+    private var autoSaveJob: Job? = null
+    private val autoSaveInterval = 10_000L // 10 seconds
     private var chapters = listOf<Chapter>()
         set(value) {
             field = value
@@ -129,8 +154,6 @@ class DefaultBunnyPlayer private constructor(private val context: Context) : Bun
     }
 
     private val drmConfig = MediaItem.DrmConfiguration.Builder(C.WIDEVINE_UUID)
-
-    private var serverSideAdLoader: ImaServerSideAdInsertionMediaSource.AdsLoader? = null
 
     private val playerListener = object : Player.Listener {
         override fun onIsPlayingChanged(isPlaying: Boolean) {
@@ -225,6 +248,152 @@ class DefaultBunnyPlayer private constructor(private val context: Context) : Bun
         }
     }
 
+    // Resume position methods
+    override fun enableResumePosition(config: ResumeConfig) {
+        positionManager = DefaultPlaybackPositionManager(context, config)
+
+        // Start auto-save if enabled
+        if (config.enableAutoSave) {
+            startAutoSavePosition(config.saveInterval)
+        }
+    }
+    override fun disableResumePosition() {
+        positionManager = null
+        resumePositionListener = null
+        stopAutoSavePosition()
+    }
+
+    override fun clearSavedPosition(videoId: String) {
+        positionManager?.let { manager ->
+            coroutineScope.launch {
+                manager.clearPosition(videoId)
+            }
+        }
+    }
+    override fun setResumePositionListener(listener: ResumePositionListener) {
+        resumePositionListener = listener
+    }
+    override fun clearAllSavedPositions() {
+        positionManager?.let { manager ->
+            coroutineScope.launch {
+                manager.clearAllPositions()
+            }
+        }
+    }
+
+    override fun getAllSavedPositions(callback: (List<PlaybackPosition>) -> Unit) {
+        positionManager?.let { manager ->
+            coroutineScope.launch {
+                val positions = manager.getAllPositions()
+                withContext(Dispatchers.Main) {
+                    callback(positions)
+                }
+            }
+        } ?: callback(emptyList())
+    }
+
+    override fun exportPositions(callback: (String) -> Unit) {
+        positionManager?.let { manager ->
+            coroutineScope.launch {
+                val jsonData = manager.exportPositions()
+                withContext(Dispatchers.Main) {
+                    callback(jsonData)
+                }
+            }
+        } ?: callback("[]")
+    }
+
+    override fun importPositions(jsonData: String, callback: (Boolean) -> Unit) {
+        positionManager?.let { manager ->
+            coroutineScope.launch {
+                val success = manager.importPositions(jsonData)
+                withContext(Dispatchers.Main) {
+                    callback(success)
+                }
+            }
+        } ?: callback(false)
+    }
+
+    override fun cleanupExpiredPositions() {
+        positionManager?.let { manager ->
+            coroutineScope.launch {
+                manager.cleanupExpiredPositions()
+            }
+        }
+    }
+
+    private fun startAutoSavePosition(interval: Long = autoSaveInterval) {
+        stopAutoSavePosition()
+
+        autoSaveJob = coroutineScope.launch {
+            while (isActive) {
+                delay(interval)
+                if (isPlaying()) {
+                    saveCurrentPosition()
+                }
+            }
+        }
+        Log.d(TAG, "Auto-save position started with interval: ${interval}ms")
+    }
+
+    private fun stopAutoSavePosition() {
+        autoSaveJob?.cancel()
+        autoSaveJob = null
+        Log.d(TAG, "Auto-save position stopped")
+    }
+
+    private fun checkForSavedPosition(videoId: String) {
+        positionManager?.let { manager ->
+            coroutineScope.launch {
+                val savedPosition = manager.getPosition(videoId)
+                if (savedPosition != null) {
+                    resumePositionListener?.onResumePositionAvailable(videoId, savedPosition)
+                }
+            }
+        }
+    }
+    private fun saveCurrentPosition() {
+        currentVideoId?.let { videoId ->
+            positionManager?.let { manager ->
+                coroutineScope.launch {
+                    val position = getCurrentPosition()
+                    val duration = getDuration()
+                    if (position > 0 && duration > 0) {
+                        manager.savePosition(videoId, position, duration)
+                        val savedPosition = PlaybackPosition(
+                            videoId = videoId,
+                            position = position,
+                            duration = duration,
+                            timestamp = System.currentTimeMillis(),
+                            watchPercentage = position.toFloat() / duration.toFloat()
+                        )
+                        resumePositionListener?.onResumePositionSaved(videoId, savedPosition)
+                    }
+                }
+            }
+        }
+    }
+
+
+
+    // Add configuration method
+    override fun setPlaybackSpeedConfig(config: PlaybackSpeedConfig) {
+        this.speedConfig = config
+        if (config.rememberLastSpeed) {
+            loadSavedSpeed()
+        }
+    }
+
+    override fun loadSavedSpeed() {
+        if (speedConfig.rememberLastSpeed && currentPlayer != null) {
+            val savedSpeed = speedPreferences.getLastSpeed(speedConfig.defaultSpeed)
+            Log.d(TAG, "Loading saved speed: $savedSpeed")
+            if (savedSpeed != speedConfig.defaultSpeed) {
+                currentPlayer?.setPlaybackSpeed(savedSpeed)
+            }
+        }
+    }
+
     @SuppressLint("UnsafeOptInUsageError")
     override fun playVideo(
         playerView: PlayerView,
@@ -234,8 +403,15 @@ class DefaultBunnyPlayer private constructor(private val context: Context) : Bun
     ) {
         Log.d(TAG, "playVideo(video=$video, retentionData=$retentionData, playerSettings=$playerSettings)")
 
+        // Save position of previous video before switching
+        saveCurrentPosition()
+
         this.playerSettings = playerSettings
         currentVideo = video
+        currentVideoId = video.guid
+
+        currentLibraryId = video.videoLibraryId
+        resumePosition = playerSettings.resumePosition
 
         // Set up TransferListener for debugging
         val transferListener = object : TransferListener {
@@ -329,6 +505,13 @@ class DefaultBunnyPlayer private constructor(private val context: Context) : Bun
             .setMediaSourceFactory(mediaSourceFactory)
             .build().also {
                 it.addListener(playerListener)
+                it.addListener(object : Player.Listener {
+                    override fun onPlaybackStateChanged(playbackState: Int) {
+                        if (playbackState == Player.STATE_READY && speedConfig.rememberLastSpeed) {
+                            loadSavedSpeed()
+                        }
+                    }
+                })
                 it.addAnalyticsListener(object : AnalyticsListener {
                     override fun onRenderedFirstFrame(eventTime: AnalyticsListener.EventTime, output: Any, renderTimeMs: Long) {
                         Log.d(TAG, "✅ First frame rendered after ${renderTimeMs}ms")
@@ -371,8 +554,27 @@ class DefaultBunnyPlayer private constructor(private val context: Context) : Bun
         this.mediaItem = mediaItem
         currentPlayer!!.setMediaItem(mediaItem)
         currentPlayer!!.prepare()
+
+        // Check for saved position before starting playback
+        checkForSavedPosition(video.guid ?: "")
+        currentVideoId?.let { videoId ->
+            checkForSavedPosition(videoId)
+        }
+
+        // Start playback
         currentPlayer!!.playWhenReady = true
 
+        if (speedConfig.rememberLastSpeed) {
+            loadSavedSpeed()
+        }
+
+        if (resumePosition > 0) {
+            currentPlayer!!.seekTo(resumePosition)
+        }
+
+
+        startProgressSaving(playerSettings.saveProgressInterval)
+        startAutoSavePosition()
         // Init seek thumbnails and metadata
         initSeekThumbnailPreview(video, playerSettings.seekPath)
 
@@ -391,6 +593,48 @@ class DefaultBunnyPlayer private constructor(private val context: Context) : Bun
         if (playerSettings.showHeatmap) {
             this.retentionData = retentionData.map { (ms, pct) ->
                 RetentionGraphEntry(ms, pct)
+            }
+        }
+    }
+
+    override fun setResumePosition(position: Long) {
+        resumePosition = position
+    }
+
+    override fun saveCurrentProgress() {
+        currentVideoId?.let { videoId ->
+            currentLibraryId?.let { libraryId ->
+                val position = getCurrentPosition()
+                if (position > 0) {
+                    // Save progress in background
+                    GlobalScope.launch {
+                        BunnyStreamApi.getInstance().progressRepository
+                            .saveProgress(libraryId, videoId, position)
+                    }
+                }
+            }
+        }
+    }
+
+    override fun clearProgress() {
+        currentVideoId?.let { videoId ->
+            currentLibraryId?.let { libraryId ->
+                GlobalScope.launch {
+                    BunnyStreamApi.getInstance().progressRepository
+                        .clearProgress(libraryId, videoId)
+                }
+            }
+        }
+    }
+
+    private fun startProgressSaving(intervalMs: Long) {
+        progressSaveJob?.cancel()
+        progressSaveJob = GlobalScope.launch {
+            while (isActive) {
+                delay(intervalMs)
+                if (isPlaying()) {
+                    saveCurrentProgress()
+                }
             }
         }
     }
@@ -431,7 +675,16 @@ class DefaultBunnyPlayer private constructor(private val context: Context) : Bun
     }
 
     override fun setSpeed(speed: Float) {
+        Log.d(TAG, "Setting speed to: $speed")
         currentPlayer?.setPlaybackSpeed(speed)
+
+        if (speedConfig.rememberLastSpeed) {
+            speedPreferences.saveLastSpeed(speed)
+            Log.d(TAG, "Saved speed: $speed")
+        }
+
+        // Notify listener for UI updates
+        playerStateListener?.onPlaybackSpeedChanged(speed)
     }
 
     override fun getSpeed(): Float {
@@ -515,10 +768,15 @@ class DefaultBunnyPlayer private constructor(private val context: Context) : Bun
     }
 
     override fun getPlaybackSpeeds(): List<Float> {
-        return playerSettings?.playbackSpeeds ?: listOf()
+        return speedConfig.allowedSpeeds
+            ?: playerSettings?.playbackSpeeds
+            ?: PlaybackSpeedManager.DEFAULT_SPEEDS
     }
 
     override fun release() {
+        saveCurrentPosition()
+        stopAutoSavePosition()
+        progressSaveJob?.cancel()
         currentPlayer?.stop()
 
         localPlayer?.release()
@@ -533,26 +791,37 @@ class DefaultBunnyPlayer private constructor(private val context: Context) : Bun
     override fun play() {
         val current = currentPlayer?.currentPosition ?: 0
         val duration = currentPlayer?.duration ?: 0
-        // There can be few ms difference
         if(current >= duration) {
             currentPlayer?.seekTo(0)
         }
         currentPlayer?.play()
-    }
 
+        // Start auto-save when playing starts
+        positionManager?.let {
+            startAutoSavePosition()
+        }
+    }
     override fun pause(autoPaused: Boolean) {
         this.autoPaused = autoPaused
+        saveCurrentPosition()
+        stopAutoSavePosition()
         currentPlayer?.pause()
     }
 
     override fun stop() {
+        saveCurrentPosition()
+        stopAutoSavePosition()
         currentPlayer?.stop()
     }
 
     override fun seekTo(positionMs: Long) {
         currentPlayer?.seekTo(positionMs)
+        // Save new position after seek
+        coroutineScope.launch {
+            delay(1000) // Wait a bit for seek to complete
+            saveCurrentPosition()
+        }
     }
-
     override fun setVolume(volume: Float) {
         currentPlayer?.volume = volume
     }

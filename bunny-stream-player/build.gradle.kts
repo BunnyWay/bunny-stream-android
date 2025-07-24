@@ -72,7 +72,8 @@ dependencies {
     // Project Module
     // https://docs.gradle.org/current/userguide/java_plugin.html#sec:project_dependencies
     implementation(project(":api"))
-
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.6.4")
+    implementation("com.google.code.gson:gson:2.8.9")
     // AndroidX and Material
     // https://developer.android.com/jetpack/androidx/releases/core
     implementation("androidx.core:core-ktx:1.15.0")

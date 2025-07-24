@@ -26,4 +26,29 @@
     <string name="button_save_settings">Save</string>
     <string name="bunnystream_demo">BunnyStream Demo</string>
     <string name="video_list">Video List</string>
+
+
+    <!-- Resume Position Strings -->
+    <string name="resume_position_settings">Resume Position Settings</string>
+    <string name="enable_resume_position">Enable Resume Position</string>
+    <string name="resume_position_description">Automatically save and resume video playback from where you left off</string>
+    <string name="retention_days">Retention Days</string>
+    <string name="retention_days_description">How many days to keep resume positions</string>
+    <string name="minimum_watch_time">Minimum Watch Time (seconds)</string>
+    <string name="minimum_watch_time_description">Minimum time to watch before saving position</string>
+    <string name="resume_threshold">Resume Threshold (%)</string>
+    <string name="resume_threshold_description">Don\'t resume if less than this percentage watched</string>
+    <string name="near_end_threshold">Near End Threshold (%)</string>
+    <string name="near_end_threshold_description">Don\'t resume if more than this percentage watched</string>
+
+    <!-- Resume Dialog -->
+    <string name="resume_playback">Resume Playback</string>
+    <string name="continue_watching_from">Continue watching from %s?</string>
+    <string name="progress_percentage">Progress: %d%%</string>
+    <string name="resume">Resume</string>
+    <string name="start_over">Start Over</string>
+
+    <!-- Position Saved Messages -->
+    <string name="position_saved">Position saved</string>
+    <string name="position_cleared">Resume position cleared</string>
 </resources>

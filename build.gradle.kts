@@ -2,8 +2,8 @@
 plugins {
     // Android plugins
     // https://developer.android.com/studio/releases/gradle-plugin
-    id("com.android.application") version "8.8.1" apply false
-    id("com.android.library") version "8.8.1" apply false
+    id("com.android.application") version "8.7.3" apply false
+    id("com.android.library") version "8.7.3" apply false
 
     // Kotlin plugins
     // https://kotlinlang.org/docs/gradle.html

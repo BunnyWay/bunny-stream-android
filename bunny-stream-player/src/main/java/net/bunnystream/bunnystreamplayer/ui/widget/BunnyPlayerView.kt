@@ -7,6 +7,7 @@ import android.os.Handler
 import android.os.HandlerThread
 import android.util.AttributeSet
 import android.util.Log
+import android.view.Gravity
 import android.view.Menu
 import android.view.View
 import android.view.ViewGroup
@@ -46,6 +47,9 @@ import net.bunnystream.bunnystreamplayer.model.SubtitleInfo
 import net.bunnystream.bunnystreamplayer.model.VideoQuality
 import net.bunnystream.player.R
 import kotlin.time.Duration.Companion.seconds
+import net.bunnystream.api.settings.PlaybackSpeedManager
+import net.bunnystream.bunnystreamplayer.config.PlaybackSpeedConfig
+import kotlin.math.abs
 
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 class BunnyPlayerView @JvmOverloads constructor(
@@ -455,8 +459,9 @@ class BunnyPlayerView @JvmOverloads constructor(
 
     private fun setupSpeedPopupMenu(popupMenu: PopupMenu): Map<Int, Float> {
         val speedMenuIds: MutableMap<Int, Float> = mutableMapOf()
-        val speed = bunnyPlayer?.getSpeed()
+        val currentSpeed = bunnyPlayer?.getSpeed() ?: 1.0f
         val speeds = bunnyPlayer?.getPlaybackSpeeds()
+        val speedManager = PlaybackSpeedManager()
 
         val speedMenuId = View.generateViewId()
 
@@ -468,23 +473,85 @@ class BunnyPlayerView @JvmOverloads constructor(
                 i18n.getTranslation(R.string.label_video_settings_speed)
             )
 
-            speeds.forEach { option ->
+            speeds.forEach { speed ->
                 val id = generateViewId()
-                speedMenuIds[id] = option
+                speedMenuIds[id] = speed
 
                 val item = speedOptionsMenu.add(
                     Menu.NONE,
                     id,
                     Menu.NONE,
-                    option.toString()
+                    speedManager.getSpeedDisplayText(speed)
                 )
                 item.isCheckable = true
-                item.isChecked = speed == option
+                item.isChecked = abs(currentSpeed - speed) < 0.01f // Float comparison
+
+                // Add visual indicator for current speed
+                if (item.isChecked) {
+                    item.setIcon(R.drawable.ic_check) // You'll need to add this icon
+                }
             }
 
             speedOptionsMenu.setGroupCheckable(Menu.NONE, true, true)
         }
         return speedMenuIds
+    }
+
+    private fun showSpeedBadge(speed: Float) {
+        if (speed == 1.0f) {
+            hideSpeedBadge()
+            return
+        }
+
+        val speedBadge = findViewById<TextView>(R.id.speed_badge) ?: createSpeedBadge()
+        speedBadge.text = PlaybackSpeedManager().getSpeedDisplayText(speed).replace("×", "x")
+        speedBadge.isVisible = true
+
+        // Auto-hide after 2 seconds
+        speedBadge.animate()
+            .alpha(1.0f)
+            .setDuration(200)
+            .withEndAction {
+                speedBadge.postDelayed({
+                    speedBadge.animate()
+                        .alpha(0.0f)
+                        .setDuration(1000)
+                        .withEndAction { speedBadge.isVisible = false }
+                }, 2000)
+            }
+    }
+
+    private fun createSpeedBadge(): TextView {
+        val speedBadge = TextView(context).apply {
+            id = R.id.speed_badge
+            setTextColor(Color.WHITE)
+            setBackgroundResource(R.drawable.speed_badge_background) // You'll need to create this
+            setPadding(dpToPx(8), dpToPx(4), dpToPx(8), dpToPx(4))
+            textSize = 14f
+            alpha = 0.0f
+            isVisible = false
+        }
+
+        // Add to overlay
+        val overlay = findViewById<FrameLayout>(androidx.media3.ui.R.id.exo_overlay)
+        val layoutParams = FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.WRAP_CONTENT,
+            FrameLayout.LayoutParams.WRAP_CONTENT
+        ).apply {
+            gravity = Gravity.TOP or Gravity.END
+            setMargins(0, dpToPx(60), dpToPx(16), 0)
+        }
+
+        overlay.addView(speedBadge, layoutParams)
+        return speedBadge
+    }
+
+    private fun hideSpeedBadge() {
+        findViewById<TextView>(R.id.speed_badge)?.isVisible = false
+    }
+
+    private fun dpToPx(dp: Int): Int {
+        return (dp * resources.displayMetrics.density).toInt()
     }
 
     private fun updatePlayer(player: Player, playerType: PlayerType) {
