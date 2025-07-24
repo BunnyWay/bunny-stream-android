@@ -4,7 +4,11 @@ import android.content.Intent
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.navigation.NavController
+import androidx.navigation.NavGraphBuilder
+import androidx.navigation.NavOptions
 import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
 import net.bunnystream.android.demo.home.HOME_ROUTE
 import net.bunnystream.android.demo.home.homeScreen
 import net.bunnystream.android.demo.library.libraryScreen
@@ -12,6 +16,8 @@ import net.bunnystream.android.demo.library.navigateToLibrary
 import net.bunnystream.android.demo.player.navigateToPlayer
 import net.bunnystream.android.demo.player.playerScreen
 import net.bunnystream.android.demo.recording.RecordingActivity
+import net.bunnystream.android.demo.resume.ResumePositionManagementRoute
+import net.bunnystream.android.demo.settings.ResumePositionSettingsRoute
 import net.bunnystream.android.demo.settings.navigateToSettings
 import net.bunnystream.android.demo.settings.settingsScreen
 import net.bunnystream.android.demo.ui.AppState
@@ -38,7 +44,10 @@ fun AppNavHost(
             navigateToPlayer = navController::navigateToPlayer,
             navigateToStreaming = {
                 context.startActivity(Intent(context, RecordingActivity::class.java))
-            }
+            },
+            navigateToResumeSettings = navController::navigateToResumeSettings,
+            navigateToResumeManagement = navController::navigateToResumeManagement,
+            modifier = modifier
         )
         libraryScreen(
             appState = appState,
@@ -47,5 +56,38 @@ fun AppNavHost(
         )
         settingsScreen(appState = appState)
         playerScreen(appState = appState)
+        resumePositionSettingsScreen(appState = appState)
+        resumePositionManagementScreen(
+            appState = appState,
+            onPlayVideo = navController::navigateToPlayer
+        )
+    }
+}
+
+// Navigation extension functions
+fun NavController.navigateToResumeSettings(navOptions: NavOptions? = null) {
+    this.navigate("resume_settings", navOptions)
+}
+
+fun NavController.navigateToResumeManagement(navOptions: NavOptions? = null) {
+    this.navigate("resume_management", navOptions)
+}
+
+// Navigation destination functions
+fun NavGraphBuilder.resumePositionSettingsScreen(appState: AppState) {
+    composable("resume_settings") {
+        ResumePositionSettingsRoute(appState = appState)
+    }
+}
+
+fun NavGraphBuilder.resumePositionManagementScreen(
+    appState: AppState,
+    onPlayVideo: (String, Long?) -> Unit
+) {
+    composable("resume_management") {
+        ResumePositionManagementRoute(
+            appState = appState,
+            onPlayVideo = onPlayVideo
+        )
     }
 }

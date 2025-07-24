@@ -3,8 +3,13 @@ package net.bunnystream.bunnystreamplayer.common
 import androidx.annotation.FloatRange
 import androidx.media3.common.Player
 import androidx.media3.ui.PlayerView
+import net.bunnystream.api.playback.PlaybackPosition
+import net.bunnystream.api.playback.PlaybackPositionManager
+import net.bunnystream.api.playback.ResumeConfig
+import net.bunnystream.api.playback.ResumePositionListener
 import net.bunnystream.api.settings.domain.model.PlayerSettings
 import net.bunnystream.bunnystreamplayer.PlayerStateListener
+import net.bunnystream.bunnystreamplayer.config.PlaybackSpeedConfig
 import net.bunnystream.bunnystreamplayer.model.AudioTrackInfo
 import net.bunnystream.bunnystreamplayer.model.AudioTrackInfoOptions
 import net.bunnystream.bunnystreamplayer.model.SeekThumbnail
@@ -25,6 +30,8 @@ interface BunnyPlayer {
     var autoPaused: Boolean
 
     var playerSettings: PlayerSettings?
+
+    var positionManager: PlaybackPositionManager?
 
     /* Releases the resources held by the player, such as codecs. */
     fun release()
@@ -74,6 +81,8 @@ interface BunnyPlayer {
 
     fun replay()
 
+    fun setPlaybackSpeedConfig(config: PlaybackSpeedConfig)
+    fun loadSavedSpeed()
     fun setSpeed(speed: Float)
 
     fun getSpeed(): Float
@@ -95,4 +104,19 @@ interface BunnyPlayer {
     fun selectAudioTrack(audioTrackInfo: AudioTrackInfo)
 
     fun getPlaybackSpeeds(): List<Float>
+
+    // New resume position methods
+    fun enableResumePosition(config: ResumeConfig = ResumeConfig())
+    fun disableResumePosition()
+    fun clearSavedPosition(videoId: String)
+    fun setResumePositionListener(listener: ResumePositionListener)
+
+    fun clearAllSavedPositions()
+    fun getAllSavedPositions(callback: (List<PlaybackPosition>)-> Unit)
+    fun exportPositions(callback: (String) -> Unit)
+    fun importPositions(jsonData: String, callback: (Boolean) -> Unit)
+    fun cleanupExpiredPositions()
+    fun setResumePosition(position: Long)
+    fun saveCurrentProgress()
+    fun clearProgress()
 }

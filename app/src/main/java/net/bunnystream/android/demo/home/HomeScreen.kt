@@ -64,6 +64,16 @@ sealed class HomeOption(
         "Bunny Stream Configuration",
         textColor = { MaterialTheme.colorScheme.primary }
     )
+
+    object ResumePositionSettings : HomeOption(
+        "Resume Position Settings",
+        textColor = { MaterialTheme.colorScheme.primary }
+    )
+
+    object ResumePositionManagement : HomeOption(
+        "Manage Resume Positions",
+        textColor = { MaterialTheme.colorScheme.primary }
+    )
 }
 
 @ExperimentalMaterial3Api
@@ -76,10 +86,11 @@ fun HomeScreenRoute(
     navigateToUpload: () -> Unit,
     navigateToStreaming: () -> Unit,
     navigateToPlayer: (String, Long) -> Unit,
+    navigateToResumeSettings: () -> Unit,
+    navigateToResumeManagement: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var showDialog by remember { mutableStateOf(false) }
-
     HomeScreenContent(
         modifier = modifier,
         showDialog,
@@ -104,11 +115,19 @@ fun HomeScreenRoute(
                 HomeOption.BunnyStreamConfiguration -> {
                     navigateToSettings()
                 }
+
+                HomeOption.ResumePositionSettings -> {
+                    navigateToResumeSettings()
+                }
+
+                HomeOption.ResumePositionManagement -> {
+                    navigateToResumeManagement()
+                }
             }
         },
         onPlayDirect = { videoId, libraryId ->
             showDialog = false
-            navigateToPlayer(videoId, libraryId.toLong()) // fire the navigation
+            navigateToPlayer(videoId, libraryId.toLong())
         },
         onDismiss = {
             showDialog = false
@@ -158,7 +177,6 @@ fun HomeScreenContent(
         }
     }
 }
-
 @Composable
 fun OptionsList(
     onOptionClick: (HomeOption) -> Unit,
@@ -170,6 +188,12 @@ fun OptionsList(
         HomeOption.CameraUpload,
         HomeOption.DirectVideoPlay
     )
+
+    val resumeItems = listOf(
+        HomeOption.ResumePositionSettings,
+        HomeOption.ResumePositionManagement
+    )
+
     val configItems = listOf(
         HomeOption.BunnyStreamConfiguration
     )
@@ -183,6 +207,13 @@ fun OptionsList(
             OptionsCategory(title = "Actions")
             OptionsGroupCard(items = actionItems, onItemClick = onOptionClick)
         }
+
+        item {
+            Spacer(modifier = Modifier.height(24.dp))
+            OptionsCategory(title = "Resume Positions")
+            OptionsGroupCard(items = resumeItems, onItemClick = onOptionClick)
+        }
+
         item {
             Spacer(modifier = Modifier.height(24.dp))
             OptionsCategory(title = "Configuration")
@@ -190,6 +221,7 @@ fun OptionsList(
         }
     }
 }
+
 
 @Composable
 fun OptionsGroupCard(

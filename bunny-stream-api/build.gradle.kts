@@ -124,6 +124,9 @@ dependencies {
     implementation("io.tus.java.client:tus-java-client:0.5.0")
     // https://github.com/tus/tus-android-client
     implementation("io.tus.android.client:tus-android-client:0.1.11")
+    implementation("com.google.code.gson:gson:2.8.9")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.6.4")
+
 }
 
 detekt {

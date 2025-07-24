@@ -3,6 +3,7 @@ package net.bunnystream.api
 import arrow.core.Either
 import net.bunnystream.api.api.ManageCollectionsApi
 import net.bunnystream.api.api.ManageVideosApi
+import net.bunnystream.api.progress.ProgressRepository
 import net.bunnystream.api.settings.domain.SettingsRepository
 import net.bunnystream.api.settings.domain.model.PlayerSettings
 import net.bunnystream.api.upload.VideoUploader
@@ -33,6 +34,12 @@ interface StreamApi {
     val tusVideoUploader: VideoUploader
 
     val settingsRepository: SettingsRepository
+
+    /**
+     * Component for managing progress of video
+     * @see ProgressRepository
+     */
+    val progressRepository: ProgressRepository
 
     suspend fun fetchPlayerSettings(libraryId: Long, videoId: String): Either<String, PlayerSettings>
 }
