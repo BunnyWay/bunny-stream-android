@@ -5,8 +5,6 @@ name: Test and Upload Artifact App
 on:
   # Trigger on any push to 'main'
   push:
-    branches:
-      - main
   # Allow manual triggering from the Actions tab
   workflow_dispatch:
 
