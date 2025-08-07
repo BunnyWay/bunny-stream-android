@@ -23,9 +23,9 @@ plugins {
     // https://kotlin.github.io/dokka
     id("org.jetbrains.dokka") version "2.0.0"
 
-    //id("signing")                      apply false
-    // Update to latest Nexus Publish Plugin for Central support
-    id("io.github.gradle-nexus.publish-plugin") version "1.3.0" apply false
+    // Use the new Central Portal publishing with better alternative plugin
+    id("com.gradleup.nmcp") version "1.0.2" apply false
+    id("com.gradleup.nmcp.aggregation") version "1.0.2"
     
     `maven-publish`
     signing
@@ -39,6 +39,8 @@ tasks.dokkaGfmMultiModule {
 subprojects {
     // Only configure publishing in Android-library modules
     pluginManager.withPlugin("com.android.library") {
+        // Apply the NMCP plugin to each library module for Central Portal publishing
+        pluginManager.apply("com.gradleup.nmcp")
         pluginManager.withPlugin("maven-publish") {
             afterEvaluate {
                 extensions.configure<PublishingExtension> {
@@ -78,12 +80,14 @@ subprojects {
                             }
                         }
                     }
+                    
                     configure<SigningExtension> {
                         val rawKey = project.findProperty("signing.key") as String?
                         val password = project.findProperty("signing.password") as String?
                         useInMemoryPgpKeys(rawKey.orEmpty(), password.orEmpty())
                         sign(publications["release"])
                     }
+                    
                     repositories {
                         maven {
                             name = "GitHubPackages"
@@ -93,18 +97,6 @@ subprojects {
                                     ?: System.getenv("GITHUB_ACTOR")
                                 password = project.findProperty("gpr.key") as String?
                                     ?: System.getenv("GITHUB_TOKEN")
-                            }
-                        }
-                        
-                        // Add Nexus Publishing configuration for Central Portal
-                        nexusPublishing {
-                            repositories {
-                                sonatype {
-                                    nexusUrl.set(uri("https://central.sonatype.com/api/v1/publisher/"))
-                                    snapshotRepositoryUrl.set(uri("https://central.sonatype.com/api/v1/publisher/"))
-                                    username = System.getenv("CENTRAL_PORTAL_TOKEN_USERNAME") ?: project.findProperty("sonatypeUsername") as String?
-                                    password = System.getenv("CENTRAL_PORTAL_TOKEN_PASSWORD") ?: project.findProperty("sonatypePassword") as String?
-                                }
                             }
                         }
                     }
@@ -134,6 +126,18 @@ if (enforceReleaseVersion) {
     require(!resolvedVersion.isNullOrBlank()) {
         "Project version is empty. Provide VERSION env var (from tag) or -PreleaseVersion/-Pversion."
     }
+}
+
+// Configure NMCP aggregation for Central Portal publishing
+nmcpAggregation {
+    centralPortal {
+        username = System.getenv("CENTRAL_PORTAL_TOKEN_USERNAME")
+        password = System.getenv("CENTRAL_PORTAL_TOKEN_PASSWORD")
+        publishingType = "AUTOMATIC"
+    }
+    
+    // Publish all projects that apply the 'maven-publish' plugin
+    publishAllProjectsProbablyBreakingProjectIsolation()
 }
 
 allprojects {

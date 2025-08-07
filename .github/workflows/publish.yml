@@ -79,7 +79,7 @@ jobs:
       - name: Publish artifacts to Maven Central
         run: |
           ./gradlew \
-            publishToSonatype closeAndReleaseSonatypeStagingRepository \
+            publishAggregationToCentralPortal \
             -PenforceVersion=true \
             --no-daemon --stacktrace \
             -Psigning.key="${{ secrets.MAVEN_KEY }}" \
