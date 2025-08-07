@@ -62,8 +62,8 @@ jobs:
           fi
           echo "VERSION=${VERSION}" >> "$GITHUB_ENV"
         
-      # Publish your release publication to GitHub Packages
-      - name: Publish artifacts
+      # Publish your release publication to GitHub Packages and Maven Central
+      - name: Publish artifacts to GitHub Packages
         run: |
           ./gradlew \
             publishReleasePublicationToGitHubPackagesRepository \
@@ -75,3 +75,15 @@ jobs:
           # These environment variables are used by your settings.gradle.kts
           GITHUB_ACTOR: ${{ github.actor }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: Publish artifacts to Maven Central
+        run: |
+          ./gradlew \
+            publishReleasePublicationToMavenCentralRepository \
+            -PenforceVersion=true \
+            --no-daemon --stacktrace \
+            -Psigning.key="${{ secrets.MAVEN_KEY }}" \
+            -Psigning.password="${{ secrets.MAVEN_KEY_PASSWORD }}"
+        env:
+          SONATYPE_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
+          SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}

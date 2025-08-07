@@ -47,6 +47,34 @@ subprojects {
                             groupId = project.group.toString()
                             artifactId = project.name
                             version = project.version.toString()
+                            
+                            // POM metadata required for Maven Central
+                            pom {
+                                name.set(project.name)
+                                description.set("Bunny Stream Android SDK - ${project.name} module")
+                                url.set("https://github.com/BunnyWay/bunny-stream-android")
+                                
+                                licenses {
+                                    license {
+                                        name.set("MIT License")
+                                        url.set("https://github.com/BunnyWay/bunny-stream-android/blob/main/LICENSE")
+                                    }
+                                }
+                                
+                                developers {
+                                    developer {
+                                        id.set("bunnyway")
+                                        name.set("BunnyWay")
+                                        email.set("support@bunny.net")
+                                    }
+                                }
+                                
+                                scm {
+                                    connection.set("scm:git:git://github.com/BunnyWay/bunny-stream-android.git")
+                                    developerConnection.set("scm:git:ssh://github.com/BunnyWay/bunny-stream-android.git")
+                                    url.set("https://github.com/BunnyWay/bunny-stream-android")
+                                }
+                            }
                         }
                     }
                     configure<SigningExtension> {
@@ -64,6 +92,19 @@ subprojects {
                                     ?: System.getenv("GITHUB_ACTOR")
                                 password = project.findProperty("gpr.key") as String?
                                     ?: System.getenv("GITHUB_TOKEN")
+                            }
+                        }
+                        
+                        maven {
+                            name = "MavenCentral"
+                            val releasesRepoUrl = uri("https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/")
+                            val snapshotsRepoUrl = uri("https://s01.oss.sonatype.org/content/repositories/snapshots/")
+                            url = if (version.toString().endsWith("SNAPSHOT")) snapshotsRepoUrl else releasesRepoUrl
+                            credentials {
+                                username = project.findProperty("sonatype.user") as String?
+                                    ?: System.getenv("SONATYPE_USERNAME")
+                                password = project.findProperty("sonatype.password") as String?
+                                    ?: System.getenv("SONATYPE_PASSWORD")
                             }
                         }
                     }
