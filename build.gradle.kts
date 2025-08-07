@@ -80,14 +80,27 @@ subprojects {
                             }
                         }
                     }
+                }
+                
+                // Configure signing extension separately for better compatibility
+                extensions.configure<SigningExtension> {
+                    // Get signing key and password from properties (preferred) or environment
+                    val signingKey = project.findProperty("signing.key") as String?
+                        ?: System.getenv("MAVEN_KEY")
+                    val signingPassword = project.findProperty("signing.password") as String?
+                        ?: System.getenv("MAVEN_KEY_PASSWORD")
                     
-                    configure<SigningExtension> {
-                        val rawKey = project.findProperty("signing.key") as String?
-                        val password = project.findProperty("signing.password") as String?
-                        useInMemoryPgpKeys(rawKey.orEmpty(), password.orEmpty())
-                        sign(publications["release"])
+                    if (!signingKey.isNullOrBlank() && !signingPassword.isNullOrBlank()) {
+                        // Ensure the key is properly formatted (remove any extra whitespace)
+                        val cleanKey = signingKey.trim()
+                        useInMemoryPgpKeys(cleanKey, signingPassword)
+                        sign(extensions.getByType<PublishingExtension>().publications["release"])
+                    } else {
+                        logger.warn("Signing credentials not found. Artifacts will not be signed.")
                     }
-                    
+                }
+                
+                extensions.configure<PublishingExtension> {
                     repositories {
                         maven {
                             name = "GitHubPackages"
