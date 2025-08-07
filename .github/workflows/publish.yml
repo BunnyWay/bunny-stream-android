@@ -79,13 +79,11 @@ jobs:
       - name: Publish artifacts to Maven Central
         run: |
           ./gradlew \
-            publishReleasePublicationToMavenCentralRepository \
+            publishToSonatype closeAndReleaseSonatypeStagingRepository \
             -PenforceVersion=true \
             --no-daemon --stacktrace \
             -Psigning.key="${{ secrets.MAVEN_KEY }}" \
             -Psigning.password="${{ secrets.MAVEN_KEY_PASSWORD }}"
         env:
-          SONATYPE_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
-          SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
-          ORG_GRADLE_PROJECT_sonatypeUsername: ${{ secrets.SONATYPE_USERNAME }}
-          ORG_GRADLE_PROJECT_sonatypePassword: ${{ secrets.SONATYPE_PASSWORD }}
+          CENTRAL_PORTAL_TOKEN_USERNAME: ${{ secrets.CENTRAL_PORTAL_TOKEN_USERNAME }}
+          CENTRAL_PORTAL_TOKEN_PASSWORD: ${{ secrets.CENTRAL_PORTAL_TOKEN_PASSWORD }}

@@ -24,8 +24,9 @@ plugins {
     id("org.jetbrains.dokka") version "2.0.0"
 
     //id("signing")                      apply false
-    id("io.github.gradle-nexus.publish-plugin") version "1.3.0" apply false
-
+    // Update to latest Nexus Publish Plugin for Central support
+    id("io.github.gradle-nexus.publish-plugin") version "1.4.0" apply false
+    
     `maven-publish`
     signing
 }
@@ -95,17 +96,15 @@ subprojects {
                             }
                         }
                         
-                        maven {
-                            name = "MavenCentral"
-                            val base = "https://ossrh-staging-api.central.sonatype.com"
-                            val releases = uri("$base/service/local/staging/deploy/maven2/")
-                            val snapshots = uri("https://central.sonatype.com/repository/maven-snapshots/")
-                            url = if (version.toString().endsWith("SNAPSHOT")) snapshots else releases
-                            credentials {
-                                username = project.findProperty("sonatypeUsername") as String?
-                                    ?: System.getenv("SONATYPE_USERNAME")
-                                password = project.findProperty("sonatypePassword") as String?
-                                    ?: System.getenv("SONATYPE_PASSWORD")
+                        // Add Nexus Publishing configuration for Central Portal
+                        nexusPublishing {
+                            repositories {
+                                sonatype {
+                                    nexusUrl.set(uri("https://central.sonatype.com/api/v1/publisher/"))
+                                    snapshotRepositoryUrl.set(uri("https://central.sonatype.com/api/v1/publisher/"))
+                                    username = System.getenv("CENTRAL_PORTAL_TOKEN_USERNAME") ?: project.findProperty("sonatypeUsername") as String?
+                                    password = System.getenv("CENTRAL_PORTAL_TOKEN_PASSWORD") ?: project.findProperty("sonatypePassword") as String?
+                                }
                             }
                         }
                     }
