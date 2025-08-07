@@ -25,7 +25,7 @@ plugins {
 
     //id("signing")                      apply false
     // Update to latest Nexus Publish Plugin for Central support
-    id("io.github.gradle-nexus.publish-plugin") version "1.4.0" apply false
+    id("io.github.gradle-nexus.publish-plugin") version "1.3.0" apply false
     
     `maven-publish`
     signing
