@@ -6,7 +6,7 @@ Integrated camera solution that enables recording and direct upload of videos fr
 
 Declare dependency in your project's `build.gradle.kts`:
 ```
-implementation("net.bunnystream.bunny-stream-camera-upload:1.0.0")
+implementation("net.bunny:recording:1.0.0")
 ```
 
 ## Initialization

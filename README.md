@@ -44,15 +44,15 @@ Declare desired dependencies in your project's `build.gradle.kts`:
 
 - You can use only `bunny-stream-api`:
    ```
-   implementation("net.bunnystream:api:1.0.0")
+   implementation("net.bunny:api:1.0.0")
    ```
 - If you also need `bunny-stream-player`:
    ```
-   implementation("net.bunnystream:player:1.0.0")
+   implementation("net.bunny:player:1.0.0")
    ```
 - If you need camera recording and live stream upload:
    ```
-   implementation("net.bunnystream:recording:1.0.0")
+   implementation("net.bunny:recording:1.0.0")
    ```
 
 1. Go to [Your Profile] => [Developer settings] => [Personal access token] => [Generate new token] on github.com

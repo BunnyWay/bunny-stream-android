@@ -16,7 +16,7 @@ This library simplifies video playback in Android applications by providing:
 
 Declare dependency in your project's `build.gradle.kts`:
 ```
-implementation("net.bunnystream.bunny-stream-player:1.0.0")
+implementation("net.bunny:player:1.0.0")
 ```
 
 ## Initialization

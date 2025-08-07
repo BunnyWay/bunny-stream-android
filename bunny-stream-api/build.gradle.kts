@@ -19,7 +19,7 @@ android {
 
     sourceSets["main"].java.srcDir(layout.buildDirectory.dir("generated/api"))
 
-    namespace = "net.bunnystream.api"
+    namespace = "net.bunny.api"
     compileSdk = 35
 
     defaultConfig {
@@ -142,7 +142,7 @@ specs.forEach {
         generatorName.set("kotlin")
         inputSpec.set(it.value)
         outputDir.set(layout.buildDirectory.dir("generated/api").get().asFile.absolutePath)
-        apiPackage.set("net.bunnystream.api.api")
+        apiPackage.set("net.bunny.api.api")
         generateApiTests.set(false)
         generateModelTests.set(false)
 
@@ -157,7 +157,7 @@ specs.forEach {
         ))
 
         typeMappings.set(mapOf(
-            "VideoModelStatus" to "net.bunnystream.api.model.VideoModelStatus"
+            "VideoModelStatus" to "net.bunny.api.model.VideoModelStatus"
         ))
     }
 }
@@ -191,7 +191,7 @@ tasks.register<Copy>("copyGeneratedDocs") {
 }
 
 // Needed to remove VideoModelStatus class which gets generated incorrectly.
-// Correct implementation is supplied from net.bunnystream.api.model.VideoModelStatus.
+// Correct implementation is supplied from net.bunny.api.model.VideoModelStatus.
 tasks.register("fixGeneratedFiles") {
     doLast {
         val fileToFix = file("${layout.buildDirectory.dir("generated/api/").get().asFile.absolutePath}/src/main/kotlin/org/openapitools/client/models/VideoModelStatus.kt")

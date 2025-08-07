@@ -96,7 +96,7 @@ if (enforceReleaseVersion) {
 }
 
 allprojects {
-    group = "net.bunnystream"
+    group = "net.bunny"
     version = resolvedVersion ?: "1.0.0-SNAPSHOT"     // safe default for tests/other jobs
 }
 

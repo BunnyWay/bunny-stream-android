@@ -8,7 +8,7 @@ plugins {
 }
 
 android {
-    namespace = "net.bunnystream.recording"
+    namespace = "net.bunny.recording"
     compileSdk = 35
 
     viewBinding.enable = true

@@ -9,7 +9,7 @@ plugins {
 }
 
 android {
-    namespace = "net.bunnystream.player"
+    namespace = "net.bunny.player"
     compileSdk = 35
 
     defaultConfig {
