@@ -1,9 +1,0 @@
-//[sdk](../../index.md)/[net.bunnystream.androidsdk.settings.data.model](index.md)
-
-# Package-level declarations
-
-## Types
-
-| Name | Summary |
-|---|---|
-| [PlayerSettingsResponse](-player-settings-response/index.md) | [androidJvm]<br>@Serializable<br>data class [PlayerSettingsResponse](-player-settings-response/index.md)(val thumbnailUrl: [String](https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-string/index.html), val controls: [String](https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-string/index.html), val keyColor: [String](https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-string/index.html), val captionsFontSize: [Int](https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-int/index.html), val captionsFontColor: [String](https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-string/index.html)?, val captionsBackgroundColor: [String](https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-string/index.html)?, val uiLanguage: [String](https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-string/index.html), val showHeatmap: [Boolean](https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-boolean/index.html), val fontFamily: [String](https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-string/index.html), val playbackSpeeds: [String](https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-string/index.html)?, val drmEnabled: [Boolean](https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-boolean/index.html), val vastTagUrl: [String](https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-string/index.html)?, val captionsPath: [String](https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-string/index.html), val seekPath: [String](https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-string/index.html), val videoUrl: [String](https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-string/index.html)) |

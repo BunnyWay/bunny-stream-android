@@ -54,7 +54,7 @@ Full usage example can be found in demo app.
 
 1. Add `BunnyStreamPlayer` into your layout:
 ```
-<net.bunnystream.player.ui.BunnyStreamPlayer
+<net.bunny.bunnystreamplayer.ui.BunnyStreamPlayer
       android:id="@+id/videoPlayer"
       android:layout_width="match_parent"
       android:layout_height="match_parent"/>

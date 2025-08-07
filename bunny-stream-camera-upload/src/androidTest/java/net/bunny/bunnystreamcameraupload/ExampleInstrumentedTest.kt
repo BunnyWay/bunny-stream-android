@@ -19,6 +19,6 @@ class ExampleInstrumentedTest {
     fun useAppContext() {
         // Context of the app under test.
         val appContext = InstrumentationRegistry.getInstrumentation().targetContext
-        assertEquals("net.bunnystream.stream.test", appContext.packageName)
+        assertEquals("net.bunny.recording.test", appContext.packageName)
     }
 }

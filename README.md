@@ -265,7 +265,7 @@ Full usage example can be found in demo app.
 
 1. Add `BunnyVideoPlayer` into your layout:
 ```
-<net.bunnystream.player.ui.BunnyVideoPlayer
+<net.bunny.bunnystreamplayer.ui.BunnyStreamPlayer
       android:id="@+id/videoPlayer"
       android:layout_width="match_parent"
       android:layout_height="match_parent"/>
@@ -331,7 +331,7 @@ bunnyVideoPlayer.iconSet = newIconSet
 1. Add `BunnyStreamCameraUpload` to your layout
 
 ```xml
-<net.bunnystream.recording.BunnyStreamCameraUpload
+<net.bunny.bunnystreamcameraupload.BunnyStreamCameraUpload
       android:id="@+id/recordingView"
       android:layout_width="match_parent"
       android:layout_height="match_parent"

@@ -1,0 +1,74 @@
+$dokka.format:html-v1
+$dokka.linkExtension:html
+$dokka.location:net.bunny.bunnystreamcameraupload.data////PointingToDeclaration/recording/net.bunny.bunnystreamcameraupload.data/index.html
+$dokka.location:net.bunny.bunnystreamcameraupload.data/DefaultRecordingRepository.Companion///PointingToDeclaration/recording/net.bunny.bunnystreamcameraupload.data/-default-recording-repository/-companion/index.html
+$dokka.location:net.bunny.bunnystreamcameraupload.data/DefaultRecordingRepository///PointingToDeclaration/recording/net.bunny.bunnystreamcameraupload.data/-default-recording-repository/index.html
+$dokka.location:net.bunny.bunnystreamcameraupload.data/DefaultRecordingRepository/DefaultRecordingRepository/#kotlinx.coroutines.CoroutineDispatcher/PointingToDeclaration/recording/net.bunny.bunnystreamcameraupload.data/-default-recording-repository/-default-recording-repository.html
+$dokka.location:net.bunny.bunnystreamcameraupload.data/DefaultRecordingRepository/prepareRecording/#kotlin.Long/PointingToDeclaration/recording/net.bunny.bunnystreamcameraupload.data/-default-recording-repository/prepare-recording.html
+$dokka.location:net.bunny.bunnystreamcameraupload.domain////PointingToDeclaration/recording/net.bunny.bunnystreamcameraupload.domain/index.html
+$dokka.location:net.bunny.bunnystreamcameraupload.domain//toFormattedDuration/kotlin.Long#/PointingToDeclaration/recording/net.bunny.bunnystreamcameraupload.domain/to-formatted-duration.html
+$dokka.location:net.bunny.bunnystreamcameraupload.domain/DefaultStreamHandler.Companion///PointingToDeclaration/recording/net.bunny.bunnystreamcameraupload.domain/-default-stream-handler/-companion/index.html
+$dokka.location:net.bunny.bunnystreamcameraupload.domain/DefaultStreamHandler///PointingToDeclaration/recording/net.bunny.bunnystreamcameraupload.domain/-default-stream-handler/index.html
+$dokka.location:net.bunny.bunnystreamcameraupload.domain/DefaultStreamHandler/DefaultStreamHandler/#net.bunny.bunnystreamcameraupload.domain.RecordingRepository#kotlinx.coroutines.CoroutineDispatcher/PointingToDeclaration/recording/net.bunny.bunnystreamcameraupload.domain/-default-stream-handler/-default-stream-handler.html
+$dokka.location:net.bunny.bunnystreamcameraupload.domain/DefaultStreamHandler/initialize/#android.view.ViewGroup#net.bunny.bunnystreamcameraupload.DeviceCamera/PointingToDeclaration/recording/net.bunny.bunnystreamcameraupload.domain/-default-stream-handler/initialize.html
+$dokka.location:net.bunny.bunnystreamcameraupload.domain/DefaultStreamHandler/isMuted/#/PointingToDeclaration/recording/net.bunny.bunnystreamcameraupload.domain/-default-stream-handler/is-muted.html
+$dokka.location:net.bunny.bunnystreamcameraupload.domain/DefaultStreamHandler/isStreaming/#/PointingToDeclaration/recording/net.bunny.bunnystreamcameraupload.domain/-default-stream-handler/is-streaming.html
+$dokka.location:net.bunny.bunnystreamcameraupload.domain/DefaultStreamHandler/recordingDurationListener/#/PointingToDeclaration/recording/net.bunny.bunnystreamcameraupload.domain/-default-stream-handler/recording-duration-listener.html
+$dokka.location:net.bunny.bunnystreamcameraupload.domain/DefaultStreamHandler/recordingStateListener/#/PointingToDeclaration/recording/net.bunny.bunnystreamcameraupload.domain/-default-stream-handler/recording-state-listener.html
+$dokka.location:net.bunny.bunnystreamcameraupload.domain/DefaultStreamHandler/selectCamera/#net.bunny.bunnystreamcameraupload.DeviceCamera/PointingToDeclaration/recording/net.bunny.bunnystreamcameraupload.domain/-default-stream-handler/select-camera.html
+$dokka.location:net.bunny.bunnystreamcameraupload.domain/DefaultStreamHandler/setMuted/#kotlin.Boolean/PointingToDeclaration/recording/net.bunny.bunnystreamcameraupload.domain/-default-stream-handler/set-muted.html
+$dokka.location:net.bunny.bunnystreamcameraupload.domain/DefaultStreamHandler/startStreaming/#kotlin.Long/PointingToDeclaration/recording/net.bunny.bunnystreamcameraupload.domain/-default-stream-handler/start-streaming.html
+$dokka.location:net.bunny.bunnystreamcameraupload.domain/DefaultStreamHandler/stopStreaming/#/PointingToDeclaration/recording/net.bunny.bunnystreamcameraupload.domain/-default-stream-handler/stop-streaming.html
+$dokka.location:net.bunny.bunnystreamcameraupload.domain/DefaultStreamHandler/switchCamera/#/PointingToDeclaration/recording/net.bunny.bunnystreamcameraupload.domain/-default-stream-handler/switch-camera.html
+$dokka.location:net.bunny.bunnystreamcameraupload.domain/RecordingRepository///PointingToDeclaration/recording/net.bunny.bunnystreamcameraupload.domain/-recording-repository/index.html
+$dokka.location:net.bunny.bunnystreamcameraupload.domain/RecordingRepository/prepareRecording/#kotlin.Long/PointingToDeclaration/recording/net.bunny.bunnystreamcameraupload.domain/-recording-repository/prepare-recording.html
+$dokka.location:net.bunny.bunnystreamcameraupload.util////PointingToDeclaration/recording/net.bunny.bunnystreamcameraupload.util/index.html
+$dokka.location:net.bunny.bunnystreamcameraupload.util/ScreenUtil.Companion///PointingToDeclaration/recording/net.bunny.bunnystreamcameraupload.util/-screen-util/-companion/index.html
+$dokka.location:net.bunny.bunnystreamcameraupload.util/ScreenUtil.Companion/lockCurrentOrientation/#android.view.View/PointingToDeclaration/recording/net.bunny.bunnystreamcameraupload.util/-screen-util/-companion/lock-current-orientation.html
+$dokka.location:net.bunny.bunnystreamcameraupload.util/ScreenUtil.Companion/unlockScreenOrientation/#android.view.View/PointingToDeclaration/recording/net.bunny.bunnystreamcameraupload.util/-screen-util/-companion/unlock-screen-orientation.html
+$dokka.location:net.bunny.bunnystreamcameraupload.util/ScreenUtil///PointingToDeclaration/recording/net.bunny.bunnystreamcameraupload.util/-screen-util/index.html
+$dokka.location:net.bunny.bunnystreamcameraupload.util/ScreenUtil/ScreenUtil/#/PointingToDeclaration/recording/net.bunny.bunnystreamcameraupload.util/-screen-util/-screen-util.html
+$dokka.location:net.bunny.bunnystreamcameraupload////PointingToDeclaration/recording/net.bunny.bunnystreamcameraupload/index.html
+$dokka.location:net.bunny.bunnystreamcameraupload/BunnyStreamCameraUpload.Companion///PointingToDeclaration/recording/net.bunny.bunnystreamcameraupload/-bunny-stream-camera-upload/-companion/index.html
+$dokka.location:net.bunny.bunnystreamcameraupload/BunnyStreamCameraUpload///PointingToDeclaration/recording/net.bunny.bunnystreamcameraupload/-bunny-stream-camera-upload/index.html
+$dokka.location:net.bunny.bunnystreamcameraupload/BunnyStreamCameraUpload/BunnyStreamCameraUpload/#android.content.Context#android.util.AttributeSet?#kotlin.Int/PointingToDeclaration/recording/net.bunny.bunnystreamcameraupload/-bunny-stream-camera-upload/-bunny-stream-camera-upload.html
+$dokka.location:net.bunny.bunnystreamcameraupload/BunnyStreamCameraUpload/closeStreamClickListener/#/PointingToDeclaration/recording/net.bunny.bunnystreamcameraupload/-bunny-stream-camera-upload/close-stream-click-listener.html
+$dokka.location:net.bunny.bunnystreamcameraupload/BunnyStreamCameraUpload/hideDefaultControls/#/PointingToDeclaration/recording/net.bunny.bunnystreamcameraupload/-bunny-stream-camera-upload/hide-default-controls.html
+$dokka.location:net.bunny.bunnystreamcameraupload/BunnyStreamCameraUpload/isRecording/#/PointingToDeclaration/recording/net.bunny.bunnystreamcameraupload/-bunny-stream-camera-upload/is-recording.html
+$dokka.location:net.bunny.bunnystreamcameraupload/BunnyStreamCameraUpload/setAudioMuted/#kotlin.Boolean/PointingToDeclaration/recording/net.bunny.bunnystreamcameraupload/-bunny-stream-camera-upload/set-audio-muted.html
+$dokka.location:net.bunny.bunnystreamcameraupload/BunnyStreamCameraUpload/startPreview/#/PointingToDeclaration/recording/net.bunny.bunnystreamcameraupload/-bunny-stream-camera-upload/start-preview.html
+$dokka.location:net.bunny.bunnystreamcameraupload/BunnyStreamCameraUpload/stopRecording/#/PointingToDeclaration/recording/net.bunny.bunnystreamcameraupload/-bunny-stream-camera-upload/stop-recording.html
+$dokka.location:net.bunny.bunnystreamcameraupload/BunnyStreamCameraUpload/streamDurationListener/#/PointingToDeclaration/recording/net.bunny.bunnystreamcameraupload/-bunny-stream-camera-upload/stream-duration-listener.html
+$dokka.location:net.bunny.bunnystreamcameraupload/BunnyStreamCameraUpload/streamStateListener/#/PointingToDeclaration/recording/net.bunny.bunnystreamcameraupload/-bunny-stream-camera-upload/stream-state-listener.html
+$dokka.location:net.bunny.bunnystreamcameraupload/BunnyStreamCameraUpload/switchCamera/#/PointingToDeclaration/recording/net.bunny.bunnystreamcameraupload/-bunny-stream-camera-upload/switch-camera.html
+$dokka.location:net.bunny.bunnystreamcameraupload/DeviceCamera.BACK///PointingToDeclaration/{"org.jetbrains.dokka.links.EnumEntryDRIExtra":{"key":"org.jetbrains.dokka.links.EnumEntryDRIExtra"}}recording/net.bunny.bunnystreamcameraupload/-device-camera/-b-a-c-k/index.html
+$dokka.location:net.bunny.bunnystreamcameraupload/DeviceCamera.FRONT///PointingToDeclaration/{"org.jetbrains.dokka.links.EnumEntryDRIExtra":{"key":"org.jetbrains.dokka.links.EnumEntryDRIExtra"}}recording/net.bunny.bunnystreamcameraupload/-device-camera/-f-r-o-n-t/index.html
+$dokka.location:net.bunny.bunnystreamcameraupload/DeviceCamera///PointingToDeclaration/recording/net.bunny.bunnystreamcameraupload/-device-camera/index.html
+$dokka.location:net.bunny.bunnystreamcameraupload/DeviceCamera/entries/#/PointingToDeclaration/recording/net.bunny.bunnystreamcameraupload/-device-camera/entries.html
+$dokka.location:net.bunny.bunnystreamcameraupload/DeviceCamera/valueOf/#kotlin.String/PointingToDeclaration/recording/net.bunny.bunnystreamcameraupload/-device-camera/value-of.html
+$dokka.location:net.bunny.bunnystreamcameraupload/DeviceCamera/values/#/PointingToDeclaration/recording/net.bunny.bunnystreamcameraupload/-device-camera/values.html
+$dokka.location:net.bunny.bunnystreamcameraupload/RecordingDurationListener///PointingToDeclaration/recording/net.bunny.bunnystreamcameraupload/-recording-duration-listener/index.html
+$dokka.location:net.bunny.bunnystreamcameraupload/RecordingDurationListener/onDurationUpdated/#kotlin.Long#kotlin.String/PointingToDeclaration/recording/net.bunny.bunnystreamcameraupload/-recording-duration-listener/on-duration-updated.html
+$dokka.location:net.bunny.bunnystreamcameraupload/RecordingStateListener///PointingToDeclaration/recording/net.bunny.bunnystreamcameraupload/-recording-state-listener/index.html
+$dokka.location:net.bunny.bunnystreamcameraupload/RecordingStateListener/onAudioMuted/#kotlin.Boolean/PointingToDeclaration/recording/net.bunny.bunnystreamcameraupload/-recording-state-listener/on-audio-muted.html
+$dokka.location:net.bunny.bunnystreamcameraupload/RecordingStateListener/onCameraChanged/#net.bunny.bunnystreamcameraupload.DeviceCamera/PointingToDeclaration/recording/net.bunny.bunnystreamcameraupload/-recording-state-listener/on-camera-changed.html
+$dokka.location:net.bunny.bunnystreamcameraupload/RecordingStateListener/onStreamAuthError/#/PointingToDeclaration/recording/net.bunny.bunnystreamcameraupload/-recording-state-listener/on-stream-auth-error.html
+$dokka.location:net.bunny.bunnystreamcameraupload/RecordingStateListener/onStreamConnected/#/PointingToDeclaration/recording/net.bunny.bunnystreamcameraupload/-recording-state-listener/on-stream-connected.html
+$dokka.location:net.bunny.bunnystreamcameraupload/RecordingStateListener/onStreamConnectionFailed/#kotlin.String/PointingToDeclaration/recording/net.bunny.bunnystreamcameraupload/-recording-state-listener/on-stream-connection-failed.html
+$dokka.location:net.bunny.bunnystreamcameraupload/RecordingStateListener/onStreamDisconnected/#/PointingToDeclaration/recording/net.bunny.bunnystreamcameraupload/-recording-state-listener/on-stream-disconnected.html
+$dokka.location:net.bunny.bunnystreamcameraupload/RecordingStateListener/onStreamInitializing/#/PointingToDeclaration/recording/net.bunny.bunnystreamcameraupload/-recording-state-listener/on-stream-initializing.html
+$dokka.location:net.bunny.bunnystreamcameraupload/RecordingStateListener/onStreamStopped/#/PointingToDeclaration/recording/net.bunny.bunnystreamcameraupload/-recording-state-listener/on-stream-stopped.html
+$dokka.location:net.bunny.bunnystreamcameraupload/StreamCameraUploadView///PointingToDeclaration/recording/net.bunny.bunnystreamcameraupload/-stream-camera-upload-view/index.html
+$dokka.location:net.bunny.bunnystreamcameraupload/StreamCameraUploadView/closeStreamClickListener/#/PointingToDeclaration/recording/net.bunny.bunnystreamcameraupload/-stream-camera-upload-view/close-stream-click-listener.html
+$dokka.location:net.bunny.bunnystreamcameraupload/StreamCameraUploadView/hideDefaultControls/#/PointingToDeclaration/recording/net.bunny.bunnystreamcameraupload/-stream-camera-upload-view/hide-default-controls.html
+$dokka.location:net.bunny.bunnystreamcameraupload/StreamCameraUploadView/isRecording/#/PointingToDeclaration/recording/net.bunny.bunnystreamcameraupload/-stream-camera-upload-view/is-recording.html
+$dokka.location:net.bunny.bunnystreamcameraupload/StreamCameraUploadView/setAudioMuted/#kotlin.Boolean/PointingToDeclaration/recording/net.bunny.bunnystreamcameraupload/-stream-camera-upload-view/set-audio-muted.html
+$dokka.location:net.bunny.bunnystreamcameraupload/StreamCameraUploadView/startPreview/#/PointingToDeclaration/recording/net.bunny.bunnystreamcameraupload/-stream-camera-upload-view/start-preview.html
+$dokka.location:net.bunny.bunnystreamcameraupload/StreamCameraUploadView/stopRecording/#/PointingToDeclaration/recording/net.bunny.bunnystreamcameraupload/-stream-camera-upload-view/stop-recording.html
+$dokka.location:net.bunny.bunnystreamcameraupload/StreamCameraUploadView/streamDurationListener/#/PointingToDeclaration/recording/net.bunny.bunnystreamcameraupload/-stream-camera-upload-view/stream-duration-listener.html
+$dokka.location:net.bunny.bunnystreamcameraupload/StreamCameraUploadView/streamStateListener/#/PointingToDeclaration/recording/net.bunny.bunnystreamcameraupload/-stream-camera-upload-view/stream-state-listener.html
+$dokka.location:net.bunny.bunnystreamcameraupload/StreamCameraUploadView/switchCamera/#/PointingToDeclaration/recording/net.bunny.bunnystreamcameraupload/-stream-camera-upload-view/switch-camera.html
+net.bunny.bunnystreamcameraupload
+net.bunny.bunnystreamcameraupload.data
+net.bunny.bunnystreamcameraupload.domain
+net.bunny.bunnystreamcameraupload.util

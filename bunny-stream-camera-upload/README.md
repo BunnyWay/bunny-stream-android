@@ -28,7 +28,7 @@ BunnyStreamApi.initialize(context, accessKey, libraryId)
 1. Add `BunnyRecordingView` to your layout
 
 ```xml
-<net.bunnystream.recording.BunnyStreamCameraUpload
+<net.bunny.bunnystreamcameraupload.BunnyStreamCameraUpload
       android:id="@+id/recordingView"
       android:layout_width="match_parent"
       android:layout_height="match_parent"
