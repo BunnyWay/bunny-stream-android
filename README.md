@@ -36,80 +36,45 @@ The Bunny Stream is organized into several specialized modules, each focusing on
 
 ## Installation
 
-You can choose to use only modules you need. For example, you could only declare `api` dependency if you plan to use your own player implementation and just want to get access to your library.
+The Bunny Stream Android SDK is available on Maven Central. You can choose to use only the modules you need.
 
-If you plan to use `BunnyVideoPlayer` declare dependency on `api` and `player` modules.
+### Adding Dependencies
 
-Declare desired dependencies in your project's `build.gradle.kts`:
+Declare the desired dependencies in your project's `build.gradle.kts`:
 
-- You can use only `bunny-stream-api`:
-   ```
-   implementation("net.bunny:api:1.0.0")
-   ```
-- If you also need `bunny-stream-player`:
-   ```
-   implementation("net.bunny:player:1.0.0")
-   ```
-- If you need camera recording and live stream upload:
-   ```
-   implementation("net.bunny:recording:1.0.0")
+- **API only** (if you plan to use your own player implementation):
+   ```kotlin
+   implementation("net.bunny:api:latest.release")
    ```
 
-1. Go to [Your Profile] => [Developer settings] => [Personal access token] => [Generate new token] on github.com
-2. Check read:packages
-3. Click Generate token
-4. Copy the generated token
-5. Add below lines to your ~/.gradle/gradle.properties (the path may be different on Windows) or export as environment variables:
-  ```
-  GITHUB_ACTOR={your github id}
-  GITHUB_TOKEN={the generated token}
-  ```
-6. Merge below lines to your <project root>/settings.gradle (If you are using the recent version of Android Gradle Plugin)
-  ```
-  dependencyResolutionManagement {
-    repositories {
-        maven {
-            url = uri("https://maven.pkg.github.com/BunnyWay/bunny-stream-android")
-            credentials {
-                // Use environment variables for GitHub Packages authentication
-                // Ensure GITHUB_ACTOR and GITHUB_TOKEN are set in your environment
-                // or gradle.properties file
-                username = providers.gradleProperty("gpr.user").orNull
-                    ?: providers.environmentVariable("GITHUB_ACTOR").orNull
-                    ?: System.getenv("GITHUB_ACTOR")
-                    ?: ""
-                password = providers.gradleProperty("gpr.key").orNull
-                    ?: providers.environmentVariable("GITHUB_TOKEN").orNull
-                    ?: System.getenv("GITHUB_TOKEN")
-                    ?: ""
-            }
-        }
-    }
-  }
-  ```
-or to your <project root>/build.gradle
-  ```
-  allprojects {
-      repositories {
-        maven {
-            url = uri("https://maven.pkg.github.com/BunnyWay/bunny-stream-android")
-            credentials {
-                // Use environment variables for GitHub Packages authentication
-                // Ensure GITHUB_ACTOR and GITHUB_TOKEN are set in your environment 
-                // or gradle.properties file
-                username = providers.gradleProperty("gpr.user").orNull
-                    ?: providers.environmentVariable("GITHUB_ACTOR").orNull
-                    ?: System.getenv("GITHUB_ACTOR")
-                    ?: ""
-                password = providers.gradleProperty("gpr.key").orNull
-                    ?: providers.environmentVariable("GITHUB_TOKEN").orNull
-                    ?: System.getenv("GITHUB_TOKEN")
-                    ?: ""
-            }
-        }
-    }
-  }
-  ```
+- **Player** (includes API dependency):
+   ```kotlin
+   implementation("net.bunny:player:latest.release")
+   ```
+
+- **Camera recording and upload**:
+   ```kotlin
+   implementation("net.bunny:recording:latest.release")
+   ```
+
+- **All modules**:
+   ```kotlin
+   implementation("net.bunny:api:latest.release")
+   implementation("net.bunny:player:latest.release")
+   implementation("net.bunny:recording:latest.release")
+   ```
+
+### Repository Configuration
+
+Since the artifacts are published to Maven Central, no additional repository configuration is needed. Maven Central is included by default in most Android projects.
+
+If for some reason Maven Central is not configured in your project, add it to your `build.gradle.kts`:
+
+```kotlin
+repositories {
+    mavenCentral()
+}
+```
 
 ## Initialization
 

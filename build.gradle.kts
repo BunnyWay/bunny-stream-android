@@ -23,11 +23,9 @@ plugins {
     // https://kotlin.github.io/dokka
     id("org.jetbrains.dokka") version "2.0.0"
 
-    //id("signing")                      apply false
-    id("io.github.gradle-nexus.publish-plugin") version "1.3.0" apply false
-
-    `maven-publish`
-    signing
+    // Maven publishing
+    // https://github.com/vanniktech/gradle-maven-publish-plugin
+    id("com.vanniktech.maven.publish") version "0.34.0" apply false
 }
 
 tasks.dokkaGfmMultiModule {
@@ -38,76 +36,42 @@ tasks.dokkaGfmMultiModule {
 subprojects {
     // Only configure publishing in Android-library modules
     pluginManager.withPlugin("com.android.library") {
-        pluginManager.withPlugin("maven-publish") {
-            afterEvaluate {
-                extensions.configure<PublishingExtension> {
-                    publications {
-                        create<MavenPublication>("release") {
-                            from(components["release"])
-                            groupId = project.group.toString()
-                            artifactId = project.name
-                            version = project.version.toString()
-                            
-                            // POM metadata required for Maven Central
-                            pom {
-                                name.set(project.name)
-                                description.set("Bunny Stream Android SDK - ${project.name} module")
-                                url.set("https://github.com/BunnyWay/bunny-stream-android")
-                                
-                                licenses {
-                                    license {
-                                        name.set("MIT License")
-                                        url.set("https://github.com/BunnyWay/bunny-stream-android/blob/main/LICENSE")
-                                    }
-                                }
-                                
-                                developers {
-                                    developer {
-                                        id.set("bunnyway")
-                                        name.set("BunnyWay")
-                                        email.set("support@bunny.net")
-                                    }
-                                }
-                                
-                                scm {
-                                    connection.set("scm:git:git://github.com/BunnyWay/bunny-stream-android.git")
-                                    developerConnection.set("scm:git:ssh://github.com/BunnyWay/bunny-stream-android.git")
-                                    url.set("https://github.com/BunnyWay/bunny-stream-android")
-                                }
-                            }
-                        }
+        // Apply the vanniktech maven publish plugin to each library module
+        pluginManager.apply("com.vanniktech.maven.publish")
+        
+        // Configure the plugin with common settings
+        extensions.configure<com.vanniktech.maven.publish.MavenPublishBaseExtension> {
+            // Configure publishing to Maven Central via Sonatype Central Portal with automatic release
+            publishToMavenCentral(automaticRelease = true)
+            
+            // Enable GPG signing for all publications
+            signAllPublications()
+            
+            // Configure POM metadata
+            pom {
+                name.set("Bunny Stream Android SDK - ${project.name}")
+                description.set("Bunny Stream Android SDK - ${project.name} module")
+                url.set("https://github.com/BunnyWay/bunny-stream-android")
+                
+                licenses {
+                    license {
+                        name.set("MIT License")
+                        url.set("https://github.com/BunnyWay/bunny-stream-android/blob/main/LICENSE")
                     }
-                    configure<SigningExtension> {
-                        val rawKey = project.findProperty("signing.key") as String?
-                        val password = project.findProperty("signing.password") as String?
-                        useInMemoryPgpKeys(rawKey.orEmpty(), password.orEmpty())
-                        sign(publications["release"])
+                }
+                
+                developers {
+                    developer {
+                        id.set("bunnyway")
+                        name.set("BunnyWay")
+                        email.set("support@bunny.net")
                     }
-                    repositories {
-                        maven {
-                            name = "GitHubPackages"
-                            url = uri("https://maven.pkg.github.com/BunnyWay/bunny-stream-android")
-                            credentials {
-                                username = project.findProperty("gpr.user") as String?
-                                    ?: System.getenv("GITHUB_ACTOR")
-                                password = project.findProperty("gpr.key") as String?
-                                    ?: System.getenv("GITHUB_TOKEN")
-                            }
-                        }
-                        
-                        maven {
-                            name = "MavenCentral"
-                            val releasesRepoUrl = uri("https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/")
-                            val snapshotsRepoUrl = uri("https://s01.oss.sonatype.org/content/repositories/snapshots/")
-                            url = if (version.toString().endsWith("SNAPSHOT")) snapshotsRepoUrl else releasesRepoUrl
-                            credentials {
-                                username = project.findProperty("sonatype.user") as String?
-                                    ?: System.getenv("SONATYPE_USERNAME")
-                                password = project.findProperty("sonatype.password") as String?
-                                    ?: System.getenv("SONATYPE_PASSWORD")
-                            }
-                        }
-                    }
+                }
+                
+                scm {
+                    connection.set("scm:git:git://github.com/BunnyWay/bunny-stream-android.git")
+                    developerConnection.set("scm:git:ssh://github.com/BunnyWay/bunny-stream-android.git")
+                    url.set("https://github.com/BunnyWay/bunny-stream-android")
                 }
             }
         }
@@ -135,6 +99,15 @@ if (enforceReleaseVersion) {
         "Project version is empty. Provide VERSION env var (from tag) or -PreleaseVersion/-Pversion."
     }
 }
+
+// Configuration for vanniktech maven publish plugin
+// The plugin will automatically handle Maven Central publishing via Sonatype Central Portal
+// Environment variables needed:
+// - ORG_GRADLE_PROJECT_mavenCentralUsername: Central Portal username 
+// - ORG_GRADLE_PROJECT_mavenCentralPassword: Central Portal password 
+// - ORG_GRADLE_PROJECT_signingInMemoryKey: PGP key 
+// - ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: PGP key password 
+// - ORG_GRADLE_PROJECT_signingInMemoryKeyId: PGP key ID
 
 allprojects {
     group = "net.bunny"
