@@ -4,8 +4,6 @@ plugins {
     id("kotlin-parcelize")
     id("org.jetbrains.dokka")
     id("org.jetbrains.kotlin.plugin.compose") version "2.1.20"
-    id("maven-publish")
-    id("signing")
 }
 
 android {
@@ -48,12 +46,7 @@ android {
     }
     viewBinding.enable = true
 
-    publishing {
-        singleVariant("release") {
-            withSourcesJar()
-            withJavadocJar()
-        }
-    }
+
 }
 
 tasks.dokkaGfm {
