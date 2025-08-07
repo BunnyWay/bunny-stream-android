@@ -89,12 +89,42 @@ subprojects {
                         ?: System.getenv("MAVEN_KEY")
                     val signingPassword = project.findProperty("signing.password") as String?
                         ?: System.getenv("MAVEN_KEY_PASSWORD")
+                    val signingKeyId = project.findProperty("signing.keyId") as String?
+                        ?: System.getenv("MAVEN_KEY_ID")
+                        ?: "111"  // Default key ID
                     
                     if (!signingKey.isNullOrBlank() && !signingPassword.isNullOrBlank()) {
-                        // Ensure the key is properly formatted (remove any extra whitespace)
-                        val cleanKey = signingKey.trim()
-                        useInMemoryPgpKeys(cleanKey, signingPassword)
-                        sign(extensions.getByType<PublishingExtension>().publications["release"])
+                        try {
+                            // Clean up and format the key properly - handle both base64 and armored formats
+                            var cleanKey = signingKey.trim()
+                            
+                            // If key doesn't start with the armor header, it might be base64 encoded
+                            if (!cleanKey.startsWith("-----BEGIN PGP PRIVATE KEY BLOCK-----")) {
+                                // Try to decode from base64 if it appears to be encoded
+                                try {
+                                    cleanKey = String(java.util.Base64.getDecoder().decode(cleanKey))
+                                } catch (e: Exception) {
+                                    logger.warn("Key doesn't appear to be base64 encoded, using as-is: ${e.message}")
+                                }
+                            }
+                            
+                            // Normalize line endings - be more aggressive about fixing line ending issues
+                            cleanKey = cleanKey
+                                .replace("\\n", "\n")     // Handle escaped newlines from env vars
+                                .replace("\r\n", "\n")    // Windows line endings
+                                .replace("\r", "\n")      // Old Mac line endings
+                            
+                            // Ensure proper PGP block structure
+                            if (!cleanKey.endsWith("\n")) {
+                                cleanKey += "\n"
+                            }
+                            
+                            // Use in-memory keys without explicit key ID for better compatibility
+                            useInMemoryPgpKeys(cleanKey, signingPassword)
+                            sign(extensions.getByType<PublishingExtension>().publications["release"])
+                        } catch (e: Exception) {
+                            logger.error("Failed to configure signing: ${e.message}. Artifacts will not be signed.", e)
+                        }
                     } else {
                         logger.warn("Signing credentials not found. Artifacts will not be signed.")
                     }
@@ -144,8 +174,9 @@ if (enforceReleaseVersion) {
 // Configure NMCP aggregation for Central Portal publishing
 nmcpAggregation {
     centralPortal {
-        username = System.getenv("CENTRAL_PORTAL_TOKEN_USERNAME")
-        password = System.getenv("CENTRAL_PORTAL_TOKEN_PASSWORD")
+        // Use the actual username and password from the credentials
+        username = System.getenv("CENTRAL_PORTAL_TOKEN_USERNAME") ?: "local-user"
+        password = System.getenv("CENTRAL_PORTAL_TOKEN_PASSWORD") ?: "local-password"
         publishingType = "AUTOMATIC"
     }
     
