@@ -10,7 +10,7 @@
             android:exported="false"
             tools:node="merge">
             <meta-data
-                android:name="net.bunnystream.bunnystreamplayer.context.CastContextInitializer"
+                android:name="net.bunny.bunnystreamplayer.context.CastContextInitializer"
                 android:value="androidx.startup"
                 />
         </provider>
@@ -19,7 +19,7 @@
             android:name="com.google.android.gms.cast.framework.OPTIONS_PROVIDER_CLASS_NAME"
             android:value="androidx.media3.cast.DefaultCastOptionsProvider"/>
         <activity
-            android:name="net.bunnystream.bunnystreamplayer.ui.fullscreen.FullScreenPlayerActivity"
+            android:name="net.bunny.bunnystreamplayer.ui.fullscreen.FullScreenPlayerActivity"
             android:screenOrientation="sensorLandscape"/>
     </application>
 

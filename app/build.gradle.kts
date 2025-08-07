@@ -6,13 +6,13 @@ plugins {
 }
 
 android {
-    namespace = "net.bunnystream.android.demo"
+    namespace = "net.bunny.android.demo"
     compileSdk = 35
 
     viewBinding.enable = true
 
     defaultConfig {
-        applicationId = "net.bunnystream.android.demo"
+        applicationId = "net.bunny.android.demo"
         minSdk = 26
         targetSdk = 35
         versionCode = 7

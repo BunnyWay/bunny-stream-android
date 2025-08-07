@@ -11,7 +11,7 @@ Name | Type | Description | Notes
 **views** | **kotlin.Long** | The number of views the video has received. |  [optional]
 **isPublic** | **kotlin.Boolean** | Determines if the video is publicly accessible. |  [optional]
 **length** | **kotlin.Int** | The duration of the video in seconds. |  [optional]
-**status** | [**net.bunnystream.api.model.VideoModelStatus**](VideoModelStatus.md) |  |  [optional]
+**status** | [**net.bunny.api.model.VideoModelStatus**](VideoModelStatus.md) |  |  [optional]
 **framerate** | **kotlin.Double** | The framerate of the video. |  [optional]
 **rotation** | **kotlin.Int** | The rotation (in degrees) of the video if applicable. |  [optional]
 **width** | **kotlin.Int** | The width of the original video in pixels. |  [optional]

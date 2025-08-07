@@ -6,7 +6,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:fitsSystemWindows="true">
 
-  <net.bunnystream.bunnystreamcameraupload.BunnyStreamCameraUpload
+  <net.bunny.bunnystreamcameraupload.BunnyStreamCameraUpload
       android:id="@+id/recordingView"
       android:layout_width="match_parent"
       android:layout_height="match_parent"
