@@ -4,9 +4,9 @@ import android.util.Log
 import arrow.core.Either
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
-import net.bunnystream.api.BuildConfig
-import net.bunnystream.api.BunnyStreamApi
-import net.bunnystream.bunnystreamcameraupload.domain.RecordingRepository
+import net.bunny.api.BuildConfig
+import net.bunny.api.BunnyStreamApi
+import net.bunny.bunnystreamcameraupload.domain.RecordingRepository
 import org.openapitools.client.infrastructure.ApiClient
 import org.openapitools.client.models.VideoCreateVideoRequest
 

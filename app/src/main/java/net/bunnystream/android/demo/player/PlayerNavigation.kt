@@ -6,7 +6,7 @@ import androidx.navigation.NavOptions
 import androidx.navigation.NavType
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
-import net.bunnystream.android.demo.ui.AppState
+import net.bunny.android.demo.ui.AppState
 import java.net.URLEncoder
 
 const val PLAYER_ROUTE = "player"

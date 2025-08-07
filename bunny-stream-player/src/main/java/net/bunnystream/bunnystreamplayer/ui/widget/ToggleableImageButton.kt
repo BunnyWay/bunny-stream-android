@@ -6,7 +6,7 @@ import android.util.AttributeSet
 import androidx.annotation.DrawableRes
 import androidx.appcompat.widget.AppCompatImageButton
 import androidx.core.content.res.use
-import net.bunnystream.player.R
+import net.bunny.player.R
 
 class ToggleableImageButton @JvmOverloads constructor(
     context: Context,

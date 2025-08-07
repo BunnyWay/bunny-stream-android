@@ -9,18 +9,18 @@ import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavOptions
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
-import net.bunnystream.android.demo.home.HOME_ROUTE
-import net.bunnystream.android.demo.home.homeScreen
-import net.bunnystream.android.demo.library.libraryScreen
-import net.bunnystream.android.demo.library.navigateToLibrary
-import net.bunnystream.android.demo.player.navigateToPlayer
-import net.bunnystream.android.demo.player.playerScreen
-import net.bunnystream.android.demo.recording.RecordingActivity
-import net.bunnystream.android.demo.resume.ResumePositionManagementRoute
-import net.bunnystream.android.demo.settings.ResumePositionSettingsRoute
-import net.bunnystream.android.demo.settings.navigateToSettings
-import net.bunnystream.android.demo.settings.settingsScreen
-import net.bunnystream.android.demo.ui.AppState
+import net.bunny.android.demo.home.HOME_ROUTE
+import net.bunny.android.demo.home.homeScreen
+import net.bunny.android.demo.library.libraryScreen
+import net.bunny.android.demo.library.navigateToLibrary
+import net.bunny.android.demo.player.navigateToPlayer
+import net.bunny.android.demo.player.playerScreen
+import net.bunny.android.demo.recording.RecordingActivity
+import net.bunny.android.demo.resume.ResumePositionManagementRoute
+import net.bunny.android.demo.settings.ResumePositionSettingsRoute
+import net.bunny.android.demo.settings.navigateToSettings
+import net.bunny.android.demo.settings.settingsScreen
+import net.bunny.android.demo.ui.AppState
 
 @Composable
 fun AppNavHost(

@@ -31,9 +31,9 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import net.bunnystream.android.demo.R
-import net.bunnystream.android.demo.ui.AppState
-import net.bunnystream.android.demo.ui.theme.BunnyStreamTheme
+import net.bunny.android.demo.R
+import net.bunny.android.demo.ui.AppState
+import net.bunny.android.demo.ui.theme.BunnyStreamTheme
 
 @Composable
 fun SettingsRoute(

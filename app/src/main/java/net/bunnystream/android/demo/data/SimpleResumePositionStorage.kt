@@ -6,7 +6,7 @@ import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import net.bunnystream.api.playback.PlaybackPosition
+import net.bunny.api.playback.PlaybackPosition
 
 class SimpleResumePositionStorage(context: Context) {
     

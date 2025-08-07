@@ -6,8 +6,8 @@ import androidx.navigation.NavOptions
 import androidx.navigation.NavType
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
-import net.bunnystream.android.demo.App
-import net.bunnystream.android.demo.ui.AppState
+import net.bunny.android.demo.App
+import net.bunny.android.demo.ui.AppState
 
 const val LIBRARY_ROUTE = "library"
 const val SHOW_UPLOAD = "library"

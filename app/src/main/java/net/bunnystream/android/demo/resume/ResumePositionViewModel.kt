@@ -5,11 +5,11 @@ import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import net.bunnystream.android.demo.App
-import net.bunnystream.api.playback.DefaultPlaybackPositionManager
-import net.bunnystream.api.playback.PlaybackPosition
-import net.bunnystream.api.playback.ResumeConfig
-import net.bunnystream.bunnystreamplayer.DefaultBunnyPlayer
+import net.bunny.android.demo.App
+import net.bunny.api.playback.DefaultPlaybackPositionManager
+import net.bunny.api.playback.PlaybackPosition
+import net.bunny.api.playback.ResumeConfig
+import net.bunny.bunnystreamplayer.DefaultBunnyPlayer
 
 class ResumePositionViewModel : ViewModel() {
 

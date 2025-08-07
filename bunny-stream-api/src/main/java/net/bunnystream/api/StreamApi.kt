@@ -1,12 +1,12 @@
 package net.bunnystream.api
 
 import arrow.core.Either
-import net.bunnystream.api.api.ManageCollectionsApi
-import net.bunnystream.api.api.ManageVideosApi
-import net.bunnystream.api.progress.ProgressRepository
-import net.bunnystream.api.settings.domain.SettingsRepository
-import net.bunnystream.api.settings.domain.model.PlayerSettings
-import net.bunnystream.api.upload.VideoUploader
+import net.bunny.api.api.ManageCollectionsApi
+import net.bunny.api.api.ManageVideosApi
+import net.bunny.api.progress.ProgressRepository
+import net.bunny.api.settings.domain.SettingsRepository
+import net.bunny.api.settings.domain.model.PlayerSettings
+import net.bunny.api.upload.VideoUploader
 
 interface StreamApi {
     /**

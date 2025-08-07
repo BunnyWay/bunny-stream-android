@@ -48,16 +48,16 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import net.bunnystream.android.demo.App
-import net.bunnystream.android.demo.R
-import net.bunnystream.android.demo.ui.AppState
-import net.bunnystream.android.demo.ui.theme.BunnyStreamTheme
-import net.bunnystream.android.demo.library.model.Video
-import net.bunnystream.android.demo.library.model.VideoStatus
-import net.bunnystream.api.playback.PlaybackPosition
-import net.bunnystream.api.playback.ResumeConfig
-import net.bunnystream.bunnystreamplayer.config.PlaybackSpeedConfig
-import net.bunnystream.bunnystreamplayer.ui.BunnyStreamPlayer
+import net.bunny.android.demo.App
+import net.bunny.android.demo.R
+import net.bunny.android.demo.ui.AppState
+import net.bunny.android.demo.ui.theme.BunnyStreamTheme
+import net.bunny.android.demo.library.model.Video
+import net.bunny.android.demo.library.model.VideoStatus
+import net.bunny.api.playback.PlaybackPosition
+import net.bunny.api.playback.ResumeConfig
+import net.bunny.bunnystreamplayer.config.PlaybackSpeedConfig
+import net.bunny.bunnystreamplayer.ui.BunnyStreamPlayer
 import java.util.Locale
 import java.util.concurrent.TimeUnit
 

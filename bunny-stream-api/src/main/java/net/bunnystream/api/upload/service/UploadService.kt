@@ -1,6 +1,6 @@
 package net.bunnystream.api.upload.service
 
-import net.bunnystream.api.upload.model.FileInfo
+import net.bunny.api.upload.model.FileInfo
 import java.io.InputStream
 
 /**

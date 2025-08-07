@@ -7,10 +7,10 @@ import io.ktor.client.request.get
 import io.ktor.http.HttpStatusCode
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
-import net.bunnystream.api.BunnyStreamApi
-import net.bunnystream.api.settings.data.model.PlayerSettingsResponse
-import net.bunnystream.api.settings.domain.SettingsRepository
-import net.bunnystream.api.settings.domain.model.PlayerSettings
+import net.bunny.api.BunnyStreamApi
+import net.bunny.api.settings.data.model.PlayerSettingsResponse
+import net.bunny.api.settings.domain.SettingsRepository
+import net.bunny.api.settings.domain.model.PlayerSettings
 
 class DefaultSettingsRepository(
     private val httpClient: HttpClient,

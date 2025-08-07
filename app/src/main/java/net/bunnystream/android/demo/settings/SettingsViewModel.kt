@@ -5,7 +5,7 @@ import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
-import net.bunnystream.android.demo.App
+import net.bunny.android.demo.App
 
 class SettingsViewModel : ViewModel() {
 

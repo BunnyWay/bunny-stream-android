@@ -10,7 +10,7 @@ import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
-import net.bunnystream.api.BunnyStreamApi
+import net.bunny.api.BunnyStreamApi
 
 class DefaultProgressRepository(
     private val httpClient: HttpClient,

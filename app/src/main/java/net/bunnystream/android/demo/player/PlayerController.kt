@@ -1,7 +1,7 @@
 package net.bunnystream.android.demo.player
 
 import android.util.Log
-import net.bunnystream.bunnystreamplayer.ui.BunnyStreamPlayer
+import net.bunny.bunnystreamplayer.ui.BunnyStreamPlayer
 
 /**
  * Controller to handle player operations including speed control

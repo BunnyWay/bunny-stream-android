@@ -15,15 +15,15 @@ import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
-import net.bunnystream.api.BuildConfig
-import net.bunnystream.api.upload.model.FileInfo
-import net.bunnystream.api.upload.model.HttpStatusCodes
-import net.bunnystream.api.upload.model.StreamContent
-import net.bunnystream.api.upload.model.UploadError
-import net.bunnystream.api.upload.service.PauseState
-import net.bunnystream.api.upload.service.UploadListener
-import net.bunnystream.api.upload.service.UploadRequest
-import net.bunnystream.api.upload.service.UploadService
+import net.bunny.api.BuildConfig
+import net.bunny.api.upload.model.FileInfo
+import net.bunny.api.upload.model.HttpStatusCodes
+import net.bunny.api.upload.model.StreamContent
+import net.bunny.api.upload.model.UploadError
+import net.bunny.api.upload.service.PauseState
+import net.bunny.api.upload.service.UploadListener
+import net.bunny.api.upload.service.UploadRequest
+import net.bunny.api.upload.service.UploadService
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.Duration
 

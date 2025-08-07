@@ -2,11 +2,11 @@ package net.bunnystream.android.demo.di
 
 import android.annotation.SuppressLint
 import android.content.Context
-import net.bunnystream.android.demo.library.DefaultVideoUploadService
-import net.bunnystream.android.demo.settings.LocalPrefs
-import net.bunnystream.android.demo.settings.ResumePositionPreferences
-import net.bunnystream.api.BunnyStreamApi
-import net.bunnystream.api.StreamApi
+import net.bunny.android.demo.library.DefaultVideoUploadService
+import net.bunny.android.demo.settings.LocalPrefs
+import net.bunny.android.demo.settings.ResumePositionPreferences
+import net.bunny.api.BunnyStreamApi
+import net.bunny.api.StreamApi
 
 @SuppressLint("StaticFieldLeak")
 class Di(val context: Context) {

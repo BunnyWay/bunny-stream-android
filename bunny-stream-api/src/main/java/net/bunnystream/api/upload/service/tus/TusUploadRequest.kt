@@ -4,8 +4,8 @@ import android.util.Log
 import io.tus.java.client.TusUploader
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
-import net.bunnystream.api.upload.service.UploadListener
-import net.bunnystream.api.upload.service.UploadRequest
+import net.bunny.api.upload.service.UploadListener
+import net.bunny.api.upload.service.UploadRequest
 
 class TusUploadRequest(
     override val libraryId: Long,

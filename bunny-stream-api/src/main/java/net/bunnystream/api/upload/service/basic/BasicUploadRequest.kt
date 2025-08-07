@@ -2,8 +2,8 @@ package net.bunnystream.api.upload.service.basic
 
 import android.util.Log
 import kotlinx.coroutines.Job
-import net.bunnystream.api.upload.service.UploadListener
-import net.bunnystream.api.upload.service.UploadRequest
+import net.bunny.api.upload.service.UploadListener
+import net.bunny.api.upload.service.UploadRequest
 
 class BasicUploadRequest(
     override val libraryId: Long,

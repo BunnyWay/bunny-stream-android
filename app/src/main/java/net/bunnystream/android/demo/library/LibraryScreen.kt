@@ -72,16 +72,16 @@ import coil3.request.ImageRequest
 import coil3.request.crossfade
 import com.google.accompanist.swiperefresh.SwipeRefresh
 import com.google.accompanist.swiperefresh.rememberSwipeRefreshState
-import net.bunnystream.android.demo.R
-import net.bunnystream.android.demo.library.model.Error
-import net.bunnystream.android.demo.library.model.Video
-import net.bunnystream.android.demo.library.model.VideoListUiState
-import net.bunnystream.android.demo.library.model.VideoStatus
-import net.bunnystream.android.demo.library.model.VideoUploadUiState
-import net.bunnystream.android.demo.settings.LocalPrefs
-import net.bunnystream.android.demo.ui.AppState
-import net.bunnystream.android.demo.ui.theme.BunnyStreamTheme
-import net.bunnystream.api.upload.service.PauseState
+import net.bunny.android.demo.R
+import net.bunny.android.demo.library.model.Error
+import net.bunny.android.demo.library.model.Video
+import net.bunny.android.demo.library.model.VideoListUiState
+import net.bunny.android.demo.library.model.VideoStatus
+import net.bunny.android.demo.library.model.VideoUploadUiState
+import net.bunny.android.demo.settings.LocalPrefs
+import net.bunny.android.demo.ui.AppState
+import net.bunny.android.demo.ui.theme.BunnyStreamTheme
+import net.bunny.api.upload.service.PauseState
 import java.util.Locale
 
 @Composable

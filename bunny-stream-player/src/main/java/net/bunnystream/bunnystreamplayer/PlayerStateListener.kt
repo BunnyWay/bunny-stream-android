@@ -1,9 +1,9 @@
 package net.bunnystream.bunnystreamplayer
 
 import androidx.media3.common.Player
-import net.bunnystream.bunnystreamplayer.model.Chapter
-import net.bunnystream.bunnystreamplayer.model.Moment
-import net.bunnystream.bunnystreamplayer.model.RetentionGraphEntry
+import net.bunny.bunnystreamplayer.model.Chapter
+import net.bunny.bunnystreamplayer.model.Moment
+import net.bunny.bunnystreamplayer.model.RetentionGraphEntry
 
 interface PlayerStateListener {
     fun onPlayerTypeChanged(player: Player, playerType: PlayerType)

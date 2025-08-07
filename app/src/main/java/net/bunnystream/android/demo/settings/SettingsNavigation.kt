@@ -4,7 +4,7 @@ import androidx.navigation.NavController
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavOptions
 import androidx.navigation.compose.composable
-import net.bunnystream.android.demo.ui.AppState
+import net.bunny.android.demo.ui.AppState
 
 const val SETTINGS_ROUTE = "settings"
 

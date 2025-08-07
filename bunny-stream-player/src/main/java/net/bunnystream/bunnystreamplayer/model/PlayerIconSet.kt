@@ -3,7 +3,7 @@ package net.bunnystream.bunnystreamplayer.model
 import android.os.Parcelable
 import androidx.annotation.DrawableRes
 import kotlinx.parcelize.Parcelize
-import net.bunnystream.player.R
+import net.bunny.player.R
 
 @Parcelize
 data class PlayerIconSet(

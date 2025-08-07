@@ -3,20 +3,20 @@ package net.bunnystream.bunnystreamplayer.common
 import androidx.annotation.FloatRange
 import androidx.media3.common.Player
 import androidx.media3.ui.PlayerView
-import net.bunnystream.api.playback.PlaybackPosition
-import net.bunnystream.api.playback.PlaybackPositionManager
-import net.bunnystream.api.playback.ResumeConfig
-import net.bunnystream.api.playback.ResumePositionListener
-import net.bunnystream.api.settings.domain.model.PlayerSettings
-import net.bunnystream.bunnystreamplayer.PlayerStateListener
-import net.bunnystream.bunnystreamplayer.config.PlaybackSpeedConfig
-import net.bunnystream.bunnystreamplayer.model.AudioTrackInfo
-import net.bunnystream.bunnystreamplayer.model.AudioTrackInfoOptions
-import net.bunnystream.bunnystreamplayer.model.SeekThumbnail
-import net.bunnystream.bunnystreamplayer.model.SubtitleInfo
-import net.bunnystream.bunnystreamplayer.model.Subtitles
-import net.bunnystream.bunnystreamplayer.model.VideoQuality
-import net.bunnystream.bunnystreamplayer.model.VideoQualityOptions
+import net.bunny.api.playback.PlaybackPosition
+import net.bunny.api.playback.PlaybackPositionManager
+import net.bunny.api.playback.ResumeConfig
+import net.bunny.api.playback.ResumePositionListener
+import net.bunny.api.settings.domain.model.PlayerSettings
+import net.bunny.bunnystreamplayer.PlayerStateListener
+import net.bunny.bunnystreamplayer.config.PlaybackSpeedConfig
+import net.bunny.bunnystreamplayer.model.AudioTrackInfo
+import net.bunny.bunnystreamplayer.model.AudioTrackInfoOptions
+import net.bunny.bunnystreamplayer.model.SeekThumbnail
+import net.bunny.bunnystreamplayer.model.SubtitleInfo
+import net.bunny.bunnystreamplayer.model.Subtitles
+import net.bunny.bunnystreamplayer.model.VideoQuality
+import net.bunny.bunnystreamplayer.model.VideoQualityOptions
 import org.openapitools.client.models.VideoModel
 
 interface BunnyPlayer {

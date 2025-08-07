@@ -1,7 +1,7 @@
 package net.bunnystream.android.demo.settings
 
 import android.content.SharedPreferences
-import net.bunnystream.api.playback.ResumeConfig
+import net.bunny.api.playback.ResumeConfig
 
 class ResumePositionPreferences(private val prefs: SharedPreferences) {
 

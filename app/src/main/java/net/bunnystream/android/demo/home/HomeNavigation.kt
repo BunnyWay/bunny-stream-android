@@ -7,8 +7,8 @@ import androidx.navigation.NavController
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavOptions
 import androidx.navigation.compose.composable
-import net.bunnystream.android.demo.App
-import net.bunnystream.android.demo.ui.AppState
+import net.bunny.android.demo.App
+import net.bunny.android.demo.ui.AppState
 import androidx.compose.ui.Modifier
 
 const val HOME_ROUTE = "home"

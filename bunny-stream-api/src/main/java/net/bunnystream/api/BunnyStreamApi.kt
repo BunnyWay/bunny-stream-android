@@ -3,15 +3,15 @@ package net.bunnystream.api
 import android.content.Context
 import arrow.core.Either
 import kotlinx.coroutines.Dispatchers
-import net.bunnystream.api.api.ManageCollectionsApi
-import net.bunnystream.api.api.ManageVideosApi
-import net.bunnystream.api.ktor.initHttpClient
-import net.bunnystream.api.progress.DefaultProgressRepository
-import net.bunnystream.api.settings.data.DefaultSettingsRepository
-import net.bunnystream.api.settings.domain.model.PlayerSettings
-import net.bunnystream.api.upload.DefaultVideoUploader
-import net.bunnystream.api.upload.service.basic.BasicUploaderService
-import net.bunnystream.api.upload.service.tus.TusUploaderService
+import net.bunny.api.api.ManageCollectionsApi
+import net.bunny.api.api.ManageVideosApi
+import net.bunny.api.ktor.initHttpClient
+import net.bunny.api.progress.DefaultProgressRepository
+import net.bunny.api.settings.data.DefaultSettingsRepository
+import net.bunny.api.settings.domain.model.PlayerSettings
+import net.bunny.api.upload.DefaultVideoUploader
+import net.bunny.api.upload.service.basic.BasicUploaderService
+import net.bunny.api.upload.service.tus.TusUploaderService
 import org.openapitools.client.infrastructure.ApiClient
 
 class BunnyStreamApi private constructor(

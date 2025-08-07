@@ -1,6 +1,6 @@
 package net.bunnystream.api.upload.service
 
-import net.bunnystream.api.upload.model.UploadError
+import net.bunny.api.upload.model.UploadError
 
 /**
  * Collection of callbacks to get info about video uploads

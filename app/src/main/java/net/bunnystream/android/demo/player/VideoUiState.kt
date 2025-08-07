@@ -1,6 +1,6 @@
 package net.bunnystream.android.demo.player
 
-import net.bunnystream.android.demo.library.model.Video
+import net.bunny.android.demo.library.model.Video
 
 sealed class VideoUiState {
 

@@ -5,8 +5,8 @@ import android.widget.ImageView
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.model.GlideUrl
 import com.bumptech.glide.request.target.Target
-import net.bunnystream.bunnystreamplayer.common.GlideThumbnailTransformation
-import net.bunnystream.bunnystreamplayer.model.SeekThumbnail
+import net.bunny.bunnystreamplayer.common.GlideThumbnailTransformation
+import net.bunny.bunnystreamplayer.model.SeekThumbnail
 
 class PreviewLoader(
     private val context: Context,

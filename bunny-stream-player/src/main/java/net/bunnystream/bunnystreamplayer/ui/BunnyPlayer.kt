@@ -1,6 +1,6 @@
 package net.bunnystream.bunnystreamplayer.ui
 
-import net.bunnystream.bunnystreamplayer.model.PlayerIconSet
+import net.bunny.bunnystreamplayer.model.PlayerIconSet
 
 interface BunnyPlayer {
 

@@ -1,9 +1,9 @@
 package net.bunnystream.bunnystreamcameraupload.domain
 
 import android.view.ViewGroup
-import net.bunnystream.bunnystreamcameraupload.DeviceCamera
-import net.bunnystream.bunnystreamcameraupload.RecordingDurationListener
-import net.bunnystream.bunnystreamcameraupload.RecordingStateListener
+import net.bunny.bunnystreamcameraupload.DeviceCamera
+import net.bunny.bunnystreamcameraupload.RecordingDurationListener
+import net.bunny.bunnystreamcameraupload.RecordingStateListener
 
 internal interface StreamHandler {
     var recordingStateListener: RecordingStateListener?

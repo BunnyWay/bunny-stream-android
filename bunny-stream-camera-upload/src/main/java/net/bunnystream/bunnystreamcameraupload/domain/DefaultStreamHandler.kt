@@ -20,10 +20,10 @@ import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import net.bunnystream.bunnystreamcameraupload.DeviceCamera
-import net.bunnystream.bunnystreamcameraupload.RecordingDurationListener
-import net.bunnystream.bunnystreamcameraupload.RecordingStateListener
-import net.bunnystream.bunnystreamcameraupload.util.ScreenUtil
+import net.bunny.bunnystreamcameraupload.DeviceCamera
+import net.bunny.bunnystreamcameraupload.RecordingDurationListener
+import net.bunny.bunnystreamcameraupload.RecordingStateListener
+import net.bunny.bunnystreamcameraupload.util.ScreenUtil
 
 class DefaultStreamHandler(
     private val streamRepository: RecordingRepository,

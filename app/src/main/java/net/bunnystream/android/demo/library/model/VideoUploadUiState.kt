@@ -1,6 +1,6 @@
 package net.bunnystream.android.demo.library.model
 
-import net.bunnystream.api.upload.service.PauseState
+import net.bunny.api.upload.service.PauseState
 
 sealed class VideoUploadUiState {
 

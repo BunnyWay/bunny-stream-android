@@ -2,10 +2,10 @@ package net.bunnystream.android.demo.library
 
 import android.net.Uri
 import android.util.Log
-import net.bunnystream.api.upload.VideoUploader
-import net.bunnystream.api.upload.model.UploadError
-import net.bunnystream.api.upload.service.PauseState
-import net.bunnystream.api.upload.service.UploadListener
+import net.bunny.api.upload.VideoUploader
+import net.bunny.api.upload.model.UploadError
+import net.bunny.api.upload.service.PauseState
+import net.bunny.api.upload.service.UploadListener
 
 class DefaultVideoUploadService(
     private val videoUploader: VideoUploader

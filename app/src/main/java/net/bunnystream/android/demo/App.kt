@@ -2,8 +2,8 @@ package net.bunnystream.android.demo
 
 import android.annotation.SuppressLint
 import android.app.Application
-import net.bunnystream.android.demo.di.Di
-import net.bunnystream.android.demo.worker.PositionCleanupWorker
+import net.bunny.android.demo.di.Di
+import net.bunny.android.demo.worker.PositionCleanupWorker
 
 class App : Application() {
     companion object {

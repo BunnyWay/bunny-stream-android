@@ -17,7 +17,7 @@ import androidx.core.content.res.use
 import androidx.interpolator.view.animation.FastOutSlowInInterpolator
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.common.util.Util
-import net.bunnystream.player.R
+import net.bunny.player.R
 import java.util.Formatter
 import java.util.Locale
 import java.util.concurrent.TimeUnit

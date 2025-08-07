@@ -13,10 +13,10 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
-import net.bunnystream.bunnystreamplayer.DefaultBunnyPlayer
-import net.bunnystream.bunnystreamplayer.model.PlayerIconSet
-import net.bunnystream.bunnystreamplayer.ui.widget.BunnyPlayerView
-import net.bunnystream.player.R
+import net.bunny.bunnystreamplayer.DefaultBunnyPlayer
+import net.bunny.bunnystreamplayer.model.PlayerIconSet
+import net.bunny.bunnystreamplayer.ui.widget.BunnyPlayerView
+import net.bunny.player.R
 
 /**
  * @suppress

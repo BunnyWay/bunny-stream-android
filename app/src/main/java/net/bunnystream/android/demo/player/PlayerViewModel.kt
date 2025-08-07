@@ -10,10 +10,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import net.bunnystream.android.demo.library.model.Error
-import net.bunnystream.android.demo.library.model.Video
-import net.bunnystream.android.demo.library.model.VideoStatus
-import net.bunnystream.api.BunnyStreamApi
+import net.bunny.android.demo.library.model.Error
+import net.bunny.android.demo.library.model.Video
+import net.bunny.android.demo.library.model.VideoStatus
+import net.bunny.api.BunnyStreamApi
 import org.openapitools.client.models.VideoModel
 import org.openapitools.client.models.VideoPlayDataModelVideo
 import java.util.UUID

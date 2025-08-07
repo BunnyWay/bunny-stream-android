@@ -3,8 +3,8 @@ package net.bunnystream.android.demo.worker
 import android.content.Context
 import androidx.work.*
 import kotlinx.coroutines.coroutineScope
-import net.bunnystream.api.playback.DefaultPlaybackPositionManager
-import net.bunnystream.api.playback.ResumeConfig
+import net.bunny.api.playback.DefaultPlaybackPositionManager
+import net.bunny.api.playback.ResumeConfig
 import java.util.concurrent.TimeUnit
 
 class PositionCleanupWorker(

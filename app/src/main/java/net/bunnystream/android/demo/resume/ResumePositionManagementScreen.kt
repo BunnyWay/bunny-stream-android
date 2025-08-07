@@ -18,9 +18,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import net.bunnystream.android.demo.ui.AppState
-import net.bunnystream.android.demo.ui.theme.BunnyStreamTheme
-import net.bunnystream.api.playback.PlaybackPosition
+import net.bunny.android.demo.ui.AppState
+import net.bunny.android.demo.ui.theme.BunnyStreamTheme
+import net.bunny.api.playback.PlaybackPosition
 import java.text.SimpleDateFormat
 import java.util.*
 import java.util.concurrent.TimeUnit

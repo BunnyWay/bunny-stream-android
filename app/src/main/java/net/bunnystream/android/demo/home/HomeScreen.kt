@@ -34,10 +34,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import net.bunnystream.android.demo.R
-import net.bunnystream.android.demo.settings.LocalPrefs
-import net.bunnystream.android.demo.ui.AppState
-import net.bunnystream.android.demo.ui.theme.BunnyStreamTheme
+import net.bunny.android.demo.R
+import net.bunny.android.demo.settings.LocalPrefs
+import net.bunny.android.demo.ui.AppState
+import net.bunny.android.demo.ui.theme.BunnyStreamTheme
 
 /**
  * The sealed class that describes each button, with an optional override for its text color.

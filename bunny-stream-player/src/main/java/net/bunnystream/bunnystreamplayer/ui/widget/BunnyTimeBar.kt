@@ -22,9 +22,9 @@ import androidx.media3.common.C
 import androidx.media3.common.util.Assertions
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.ui.TimeBar
-import net.bunnystream.bunnystreamplayer.model.Chapter
-import net.bunnystream.bunnystreamplayer.model.Moment
-import net.bunnystream.bunnystreamplayer.model.RetentionGraphEntry
+import net.bunny.bunnystreamplayer.model.Chapter
+import net.bunny.bunnystreamplayer.model.Moment
+import net.bunny.bunnystreamplayer.model.RetentionGraphEntry
 import java.util.*
 import java.util.concurrent.TimeUnit
 import kotlin.math.max

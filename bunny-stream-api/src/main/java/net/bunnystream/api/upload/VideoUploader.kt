@@ -1,7 +1,7 @@
 package net.bunnystream.api.upload
 
 import android.net.Uri
-import net.bunnystream.api.upload.service.UploadListener
+import net.bunny.api.upload.service.UploadListener
 
 /**
  * Component that manages video uploads

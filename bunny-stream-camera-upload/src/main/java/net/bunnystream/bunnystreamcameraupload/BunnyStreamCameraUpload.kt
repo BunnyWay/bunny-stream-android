@@ -13,13 +13,13 @@ import androidx.core.content.ContextCompat
 import androidx.core.content.res.use
 import androidx.core.view.isVisible
 import kotlinx.coroutines.Dispatchers
-import net.bunnystream.api.BunnyStreamApi
-import net.bunnystream.bunnystreamcameraupload.data.DefaultRecordingRepository
-import net.bunnystream.bunnystreamcameraupload.domain.DefaultStreamHandler
-import net.bunnystream.bunnystreamcameraupload.domain.RecordingRepository
-import net.bunnystream.bunnystreamcameraupload.domain.StreamHandler
-import net.bunnystream.recording.R
-import net.bunnystream.recording.databinding.RecordingViewBinding
+import net.bunny.api.BunnyStreamApi
+import net.bunny.bunnystreamcameraupload.data.DefaultRecordingRepository
+import net.bunny.bunnystreamcameraupload.domain.DefaultStreamHandler
+import net.bunny.bunnystreamcameraupload.domain.RecordingRepository
+import net.bunny.bunnystreamcameraupload.domain.StreamHandler
+import net.bunny.recording.R
+import net.bunny.recording.databinding.RecordingViewBinding
 
 class BunnyStreamCameraUpload @JvmOverloads constructor(
     context: Context,

@@ -3,9 +3,9 @@ package net.bunnystream.api.settings.data.model
 import android.graphics.Color
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import net.bunnystream.api.settings.domain.model.PlayerSettings
-import net.bunnystream.api.settings.toColorOrDefault
-import net.bunnystream.api.settings.PlaybackSpeedManager
+import net.bunny.api.settings.domain.model.PlayerSettings
+import net.bunny.api.settings.toColorOrDefault
+import net.bunny.api.settings.PlaybackSpeedManager
 
 @Serializable
 data class PlayerSettingsResponse(
