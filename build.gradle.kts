@@ -25,7 +25,7 @@ plugins {
 
     // Maven publishing
     // https://github.com/vanniktech/gradle-maven-publish-plugin
-    id("com.vanniktech.maven.publish") version "0.32.0" apply false
+    id("com.vanniktech.maven.publish") version "0.34.0" apply false
 }
 
 tasks.dokkaGfmMultiModule {
