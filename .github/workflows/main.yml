@@ -48,6 +48,8 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3.2.0
 
+      - uses: gradle/actions/setup-gradle@v4
+
       # Build the Debug APK with Gradle
       - name: Build Debug APK
         run: ./gradlew :app:assembleDebug --no-daemon
