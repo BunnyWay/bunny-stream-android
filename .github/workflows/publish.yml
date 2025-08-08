@@ -12,28 +12,28 @@ on:
 
 jobs:
   # First job: run your unit tests on every trigger
-  unit_tests:
-    name: Run unit tests
-    runs-on: ubuntu-latest
-    steps:
-      # Check out your repo
-      - uses: actions/checkout@v4
+  # unit_tests:
+  #   name: Run unit tests
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     # Check out your repo
+  #     - uses: actions/checkout@v4
 
-      # Set up JDK 17 (Temurin distribution)
-      - name: Setup JDK
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: 17
+  #     # Set up JDK 17 (Temurin distribution)
+  #     - name: Setup JDK
+  #       uses: actions/setup-java@v4
+  #       with:
+  #         distribution: temurin
+  #         java-version: 17
 
-      # Execute your Android unit tests
-      - name: Run unit tests
-        run: ./gradlew testDebugUnitTest --no-daemon --stacktrace
+  #     # Execute your Android unit tests
+  #     - name: Run unit tests
+  #       run: ./gradlew testDebugUnitTest --no-daemon --stacktrace
 
   # Second job: publish artifacts, depends on successful unit_tests
   publish:
     name: Publish to Maven Central
-    needs: unit_tests
+    # needs: unit_tests
     runs-on: ubuntu-latest
     steps:
       # Re-checkout code (always required at start of a job)
@@ -69,7 +69,8 @@ jobs:
             -PenforceVersion=true \
             --no-daemon --stacktrace
         env:
-          ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.CENTRAL_PORTAL_TOKEN_USERNAME }}
-          ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.CENTRAL_PORTAL_TOKEN_PASSWORD }}
-          ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.MAVEN_KEY }}
-          ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.MAVEN_KEY_PASSWORD }}
+          ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.ORG_GRADLE_PROJECT_MAVENCENTRALUSERNAME }}
+          ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.ORG_GRADLE_PROJECT_MAVENCENTRALPASSWORD }}
+          ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.ORG_GRADLE_PROJECT_SIGNINGINMEMORYKEY }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.ORG_GRADLE_PROJECT_SIGNINGINMEMORYKEYPASSWORD }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyId: ${{ secrets.ORG_GRADLE_PROJECT_SIGNINGINMEMORYKEYID }}

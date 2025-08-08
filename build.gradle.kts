@@ -25,7 +25,7 @@ plugins {
 
     // Maven publishing
     // https://github.com/vanniktech/gradle-maven-publish-plugin
-    id("com.vanniktech.maven.publish") version "0.32.0" apply false
+    id("com.vanniktech.maven.publish") version "0.34.0" apply false
 }
 
 tasks.dokkaGfmMultiModule {
@@ -41,8 +41,8 @@ subprojects {
         
         // Configure the plugin with common settings
         extensions.configure<com.vanniktech.maven.publish.MavenPublishBaseExtension> {
-            // Configure publishing to Maven Central via Sonatype Central Portal
-            publishToMavenCentral(com.vanniktech.maven.publish.SonatypeHost.CENTRAL_PORTAL, automaticRelease = true)
+            // Configure publishing to Maven Central via Sonatype Central Portal with automatic release
+            publishToMavenCentral(automaticRelease = true)
             
             // Enable GPG signing for all publications
             signAllPublications()
@@ -103,11 +103,11 @@ if (enforceReleaseVersion) {
 // Configuration for vanniktech maven publish plugin
 // The plugin will automatically handle Maven Central publishing via Sonatype Central Portal
 // Environment variables needed:
-// - ORG_GRADLE_PROJECT_mavenCentralUsername: Central Portal username (use CENTRAL_PORTAL_TOKEN_USERNAME)
-// - ORG_GRADLE_PROJECT_mavenCentralPassword: Central Portal password (use CENTRAL_PORTAL_TOKEN_PASSWORD)
-// - ORG_GRADLE_PROJECT_signingInMemoryKey: PGP key (use MAVEN_KEY)
-// - ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: PGP key password (use MAVEN_KEY_PASSWORD)
-// - ORG_GRADLE_PROJECT_signingInMemoryKeyId: PGP key ID (optional)
+// - ORG_GRADLE_PROJECT_mavenCentralUsername: Central Portal username 
+// - ORG_GRADLE_PROJECT_mavenCentralPassword: Central Portal password 
+// - ORG_GRADLE_PROJECT_signingInMemoryKey: PGP key 
+// - ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: PGP key password 
+// - ORG_GRADLE_PROJECT_signingInMemoryKeyId: PGP key ID
 
 allprojects {
     group = "net.bunny"
