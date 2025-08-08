@@ -10,7 +10,7 @@ The core package that provides interface to Bunny's REST Stream API. It handles 
 
 Declare desired dependencies in your project's `build.gradle.kts`:
 ```
-implementation("net.bunny:api:1.0.0")
+implementation("net.bunny:api:latest.release")
 ```
 
 ## Initialization
