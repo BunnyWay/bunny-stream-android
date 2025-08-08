@@ -1,15 +1,12 @@
-# Workflow name shown in GitHub Actions UI
-name: Test and Upload Artifact App
+# Workflow to publish to Firebase App Distribution
+name: Publish to Firebase
 
-# When to run this workflow:
+# Only trigger manually via workflow_dispatch
 on:
-  # Trigger on any push to 'main'
-  push:
-  # Allow manual triggering from the Actions tab
   workflow_dispatch:
 
 jobs:
-  # First job: run your unit tests
+  # First job: run unit tests
   unit_tests:
     name: Run unit tests
     runs-on: ubuntu-latest
@@ -30,9 +27,9 @@ jobs:
       - name: Run unit tests
         run: ./gradlew testDebugUnitTest --no-daemon --stacktrace
 
-  # Second job: build the APK and upload it
-  distribute:
-    name: Upload APK as Artifact
+  # Second job: build APK and upload to Firebase
+  firebase_publish:
+    name: Build and Upload to Firebase
     needs: unit_tests
     runs-on: ubuntu-latest
     steps:
@@ -56,11 +53,11 @@ jobs:
       - name: Build Debug APK
         run: ./gradlew :app:assembleDebug --no-daemon
 
-      # Upload the generated Debug APK as a GitHub Actions artifact
-      - name: Upload Debug APK
-        uses: actions/upload-artifact@v4
+      # Upload to Firebase App Distribution
+      - name: Upload artifact to Firebase App Distribution
+        uses: wzieba/Firebase-Distribution-Github-Action@v1
         with:
-          # The name shown in the Actions UI for this artifact
-          name: app-debug-apk
-          # Path to the APK file produced by the build
-          path: app/build/outputs/apk/debug/app-debug.apk
+          appId: ${{secrets.FIREBASE_APP_ID}}
+          serviceCredentialsFileContent: ${{ secrets.CREDENTIAL_FILE_CONTENT }}
+          groups: Testers
+          file: app/build/outputs/apk/debug/app-debug.apk
