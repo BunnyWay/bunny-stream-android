@@ -12,28 +12,28 @@ on:
 
 jobs:
   # First job: run your unit tests on every trigger
-  # unit_tests:
-  #   name: Run unit tests
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     # Check out your repo
-  #     - uses: actions/checkout@v4
+  unit_tests:
+    name: Run unit tests
+    runs-on: ubuntu-latest
+    steps:
+      # Check out your repo
+      - uses: actions/checkout@v4
 
-  #     # Set up JDK 17 (Temurin distribution)
-  #     - name: Setup JDK
-  #       uses: actions/setup-java@v4
-  #       with:
-  #         distribution: temurin
-  #         java-version: 17
+      # Set up JDK 17 (Temurin distribution)
+      - name: Setup JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
 
-  #     # Execute your Android unit tests
-  #     - name: Run unit tests
-  #       run: ./gradlew testDebugUnitTest --no-daemon --stacktrace
+      # Execute your Android unit tests
+      - name: Run unit tests
+        run: ./gradlew testDebugUnitTest --no-daemon --stacktrace
 
   # Second job: publish artifacts, depends on successful unit_tests
   publish:
     name: Publish to Maven Central
-    # needs: unit_tests
+    needs: unit_tests
     runs-on: ubuntu-latest
     steps:
       # Re-checkout code (always required at start of a job)
