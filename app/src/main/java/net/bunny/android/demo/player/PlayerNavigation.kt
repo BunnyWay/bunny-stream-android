@@ -8,6 +8,9 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import net.bunny.android.demo.ui.AppState
+// Add correct imports for TV functionality
+import net.bunny.tv.ui.BunnyTVPlayerActivity
+import net.bunny.tv.utils.isRunningOnTV
 import java.net.URLEncoder
 
 const val PLAYER_ROUTE = "player"
@@ -22,7 +25,7 @@ fun NavController.navigateToPlayer(
 ) {
     val context = this.context
 
-    if (isRunningOnTV(context.packageManager)) {
+    if (context.isRunningOnTV()) {
         // Use TV player
         BunnyTVPlayerActivity.start(
             context = context,
@@ -38,10 +41,6 @@ fun NavController.navigateToPlayer(
     }
 }
 
-
-private fun isRunningOnTV(packageManager: PackageManager): Boolean {
-    return packageManager.hasSystemFeature(PackageManager.FEATURE_LEANBACK)
-}
 fun NavGraphBuilder.playerScreen(appState: AppState) {
     composable(
         route = "$PLAYER_ROUTE/{$VIDEO_ID}/{$LIBRARY_ID}",
@@ -52,7 +51,7 @@ fun NavGraphBuilder.playerScreen(appState: AppState) {
             navArgument(LIBRARY_ID) {
                 type         = NavType.LongType
                 defaultValue = -1L     // must be non-null
-                nullable     = false   // we’re not really “nullable” at Nav‐level
+                nullable     = false   // we're not really "nullable" at Nav‐level
             }
         )
     ) { backStack ->

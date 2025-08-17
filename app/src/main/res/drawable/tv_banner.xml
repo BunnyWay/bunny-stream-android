@@ -1,7 +1,6 @@
-<!-- app/src/main/res/drawable/tv_banner.xml -->
 <?xml version="1.0" encoding="utf-8"?>
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    
+
     <item>
         <shape android:shape="rectangle">
             <gradient
@@ -11,9 +10,9 @@
             <corners android:radius="8dp" />
         </shape>
     </item>
-    
+
     <item android:gravity="center">
         <bitmap android:src="@drawable/ic_launcher_foreground" />
     </item>
-    
+
 </layer-list>

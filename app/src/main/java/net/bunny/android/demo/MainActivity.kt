@@ -1,4 +1,3 @@
-// Update MainActivity.kt to detect TV and handle navigation
 package net.bunny.android.demo
 
 import android.content.pm.PackageManager
@@ -7,7 +6,8 @@ import androidx.activity.compose.setContent
 import androidx.appcompat.app.AppCompatActivity
 import net.bunny.android.demo.ui.App
 import net.bunny.android.demo.ui.theme.BunnyStreamTheme
-import net.bunny.tv.ui.BunnyTVPlayerActivity
+// Add the correct import for TV detection
+import net.bunny.tv.utils.isRunningOnTV
 
 class MainActivity : AppCompatActivity() {
 
@@ -20,8 +20,8 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Check if running on TV
-        if (isRunningOnTV(packageManager)) {
+        // Check if running on TV using the utility function
+        if (isRunningOnTV()) {
             // For TV, you might want to launch a different interface
             // For now, we'll continue with the same interface but with TV detection
             setupTVInterface()
