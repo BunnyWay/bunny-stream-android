@@ -28,6 +28,7 @@ import net.bunny.bunnystreamplayer.DefaultBunnyPlayer
 import net.bunny.bunnystreamplayer.common.BunnyPlayer
 import net.bunny.tv.R
 import net.bunny.tv.navigation.TVKeyEventHandler
+import net.bunny.tv.ui.controls.TVPlayerControlsView
 import net.bunny.tv.ui.dialogs.TVSettingsDialog
 import org.openapitools.client.models.VideoModel
 import org.openapitools.client.models.VideoPlayDataModelVideo
@@ -84,10 +85,14 @@ class BunnyTVPlayerActivity : AppCompatActivity() {
         // Load video
         videoId?.let { id ->
             libraryId?.let { libId ->
-                loadVideo(id, libId)
+                if (libId != -1L) {
+                    loadVideo(id, libId)
+                } else {
+                    showError("Invalid library ID", "Library ID is missing or invalid")
+                }
             }
         } ?: run {
-            showError("Invalid video parameters", "Video ID or Library ID is missing")
+            showError("Invalid video parameters", "Video ID is missing")
         }
     }
 
@@ -242,7 +247,7 @@ class BunnyTVPlayerActivity : AppCompatActivity() {
         }
     }
 
-    private fun handleTVKeyEvent(keyEvent: KeyEvent): Boolean {
+    protected open fun handleTVKeyEvent(keyEvent: KeyEvent): Boolean {
         when (keyEvent.keyCode) {
             KeyEvent.KEYCODE_DPAD_CENTER,
             KeyEvent.KEYCODE_ENTER -> {
@@ -314,7 +319,7 @@ class BunnyTVPlayerActivity : AppCompatActivity() {
         return super.onKeyDown(keyCode, event)
     }
 
-    private fun showResumeDialog(position: PlaybackPosition, callback: (Boolean) -> Unit) {
+    protected open fun showResumeDialog(position: PlaybackPosition, callback: (Boolean) -> Unit) {
         AlertDialog.Builder(this)
             .setTitle(getString(R.string.tv_resume_title))
             .setMessage(getString(R.string.tv_resume_message, formatTime(position.position)))
@@ -324,14 +329,14 @@ class BunnyTVPlayerActivity : AppCompatActivity() {
             .show()
     }
 
-    private fun showSettingsDialog() {
+    protected open fun showSettingsDialog() {
         bunnyPlayer?.let { player ->
             val settingsDialog = TVSettingsDialog(this, player)
             settingsDialog.show()
         }
     }
 
-    private fun showError(title: String, message: String) {
+    protected open fun showError(title: String, message: String) {
         tvControls.hideLoading()
         errorMessage.text = message
         errorContainer.visibility = View.VISIBLE

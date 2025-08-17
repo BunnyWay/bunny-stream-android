@@ -13,7 +13,6 @@ import android.widget.TextView
 import androidx.constraintlayout.widget.ConstraintLayout
 import net.bunny.bunnystreamplayer.common.BunnyPlayer
 import net.bunny.tv.R
-import java.util.concurrent.TimeUnit
 
 class TVPlayerControlsView @JvmOverloads constructor(
     context: Context,
@@ -231,6 +230,7 @@ class TVPlayerControlsView @JvmOverloads constructor(
                 timeDisplay.text = "${formatTime(position)} / ${formatTime(duration)}"
             }
         }
+        updatePlayPauseButton()
     }
 
     private fun formatTime(timeMs: Long): String {
