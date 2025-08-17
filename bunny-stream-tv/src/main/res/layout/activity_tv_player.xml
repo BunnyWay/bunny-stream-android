@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- bunny-stream-tv/src/main/res/layout/activity_tv_player.xml -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@android:color/black"
+    android:keepScreenOn="true">
+
+    <!-- Main Player View -->
+    <androidx.media3.ui.PlayerView
+        android:id="@+id/tv_player_view"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@android:color/black"
+        app:use_controller="false"
+        app:surface_type="surface_view"
+        app:resize_mode="fit" />
+
+    <!-- TV Controls Overlay -->
+    <net.bunny.tv.ui.controls.TVPlayerControlsView
+        android:id="@+id/tv_controls"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+    <!-- Error Display -->
+    <LinearLayout
+        android:id="@+id/tv_error_container"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:padding="@dimen/tv_margin_large"
+        android:background="@drawable/tv_button_background"
+        android:visibility="gone">
+
+        <ImageView
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:src="@drawable/ic_error_white"
+            android:layout_marginBottom="@dimen/tv_margin_small" />
+
+        <TextView
+            android:id="@+id/tv_error_title"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/tv_error_loading"
+            android:textColor="@android:color/white"
+            android:textSize="@dimen/tv_text_size_large"
+            android:textStyle="bold"
+            android:layout_marginBottom="@dimen/tv_margin_small" />
+
+        <TextView
+            android:id="@+id/tv_error_message"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="@android:color/white"
+            android:textSize="@dimen/tv_text_size_medium"
+            android:gravity="center"
+            android:maxWidth="400dp" />
+
+        <Button
+            android:id="@+id/tv_error_retry"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Retry"
+            android:layout_marginTop="@dimen/tv_margin_medium"
+            android:focusable="true" />
+
+    </LinearLayout>
+
+</FrameLayout>

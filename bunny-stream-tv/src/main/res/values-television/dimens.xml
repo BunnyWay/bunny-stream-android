@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- bunny-stream-tv/src/main/res/values-television/dimens.xml -->
+<resources>
+    <!-- TV-specific dimensions -->
+    <dimen name="tv_button_size">80dp</dimen>
+    <dimen name="tv_button_size_large">100dp</dimen>
+    <dimen name="tv_button_margin">16dp</dimen>
+    <dimen name="tv_text_size_large">18sp</dimen>
+    <dimen name="tv_text_size_medium">16sp</dimen>
+    <dimen name="tv_margin_large">32dp</dimen>
+    <dimen name="tv_margin_medium">24dp</dimen>
+    <dimen name="tv_margin_small">16dp</dimen>
+    <dimen name="tv_progress_height">8dp</dimen>
+    <dimen name="tv_controls_padding">48dp</dimen>
+</resources>

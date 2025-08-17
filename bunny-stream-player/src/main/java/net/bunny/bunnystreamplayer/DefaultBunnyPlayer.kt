@@ -2,6 +2,7 @@ package net.bunny.bunnystreamplayer
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.content.pm.PackageManager
 import android.graphics.Color
 import android.net.Uri
 import android.util.Log
@@ -79,8 +80,11 @@ class DefaultBunnyPlayer private constructor(private val context: Context) : Bun
             instance ?: synchronized(this) {
                 instance ?: DefaultBunnyPlayer(context.applicationContext).also { instance = it }
             }
+        fun isRunningOnTV(context: Context): Boolean {
+            return context.packageManager.hasSystemFeature(PackageManager.FEATURE_LEANBACK)
+        }
     }
-
+    override val context: Context get() = this.context
     // Speed Variables
     private var speedConfig = PlaybackSpeedConfig()
     private val speedPreferences = PlaybackSpeedPreferences(context)

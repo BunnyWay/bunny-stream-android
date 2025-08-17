@@ -66,6 +66,10 @@ dependencies {
     implementation(project(":api"))
     implementation(project(":player"))
     implementation(project(":recording"))
+    implementation(project(":tv"))
+
+    // Lean Back
+    implementation("androidx.leanback:leanback:1.0.0")
 
     // AndroidX Core and Lifecycle
     implementation("androidx.core:core-ktx:1.15.0")

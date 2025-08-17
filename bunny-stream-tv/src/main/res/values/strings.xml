@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- bunny-stream-tv/src/main/res/values/strings.xml -->
+<resources>
+    <string name="tv_app_name">Bunny Stream TV</string>
+    <string name="tv_play">Play</string>
+    <string name="tv_pause">Pause</string>
+    <string name="tv_seek_back">Seek Back 30s</string>
+    <string name="tv_seek_forward">Seek Forward 30s</string>
+    <string name="tv_settings">Settings</string>
+    <string name="tv_resume_title">Resume Playback</string>
+    <string name="tv_resume_message">Continue watching from %s?</string>
+    <string name="tv_resume_yes">Resume</string>
+    <string name="tv_resume_no">Start Over</string>
+    <string name="tv_error_loading">Error loading video</string>
+    <string name="tv_loading">Loading...</string>
+</resources>
