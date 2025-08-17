@@ -1,4 +1,3 @@
-// Update bunny-stream-player/src/main/java/net/bunny/bunnystreamplayer/common/Player.kt
 package net.bunny.bunnystreamplayer.common
 
 import android.content.Context
