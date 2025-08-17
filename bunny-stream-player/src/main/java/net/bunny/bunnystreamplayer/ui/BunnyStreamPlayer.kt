@@ -1,6 +1,7 @@
 package net.bunny.bunnystreamplayer.ui
 
 import android.content.Context
+import android.content.pm.PackageManager
 import android.util.AttributeSet
 import android.util.Log
 import android.view.LayoutInflater
@@ -23,6 +24,7 @@ import net.bunny.api.playback.ResumeConfig
 import net.bunny.api.playback.ResumePositionListener
 import net.bunny.api.settings.domain.model.PlayerSettings
 import net.bunny.bunnystreamplayer.DefaultBunnyPlayer
+import net.bunny.bunnystreamplayer.common.DeviceType
 import net.bunny.bunnystreamplayer.config.PlaybackSpeedConfig
 import net.bunny.bunnystreamplayer.model.PlayerIconSet
 import net.bunny.bunnystreamplayer.model.getSanitizedRetentionData
@@ -69,7 +71,40 @@ class BunnyStreamPlayer @JvmOverloads constructor(
     private var currentVideoId: String? = null
     private var currentLibraryId: Long? = null
     private var resumeConfig: ResumeConfig = ResumeConfig()
+    /**
+     * Check if the app is running on Android TV
+     */
+    fun isRunningOnTV(): Boolean {
+        return context.packageManager.hasSystemFeature(PackageManager.FEATURE_LEANBACK)
+    }
 
+    /**
+     * Get the device type (TV, Mobile, or Unknown)
+     */
+    fun getDeviceType(): DeviceType {
+        return when {
+            isRunningOnTV() -> DeviceType.TV
+            context.packageManager.hasSystemFeature(PackageManager.FEATURE_TOUCHSCREEN) -> DeviceType.MOBILE
+            else -> DeviceType.UNKNOWN
+        }
+    }
+    /**
+     * Play video with automatic TV/Mobile detection
+     */
+    fun playVideoWithTVDetection(videoId: String, libraryId: Long?) {
+        if (isRunningOnTV()) {
+            // Launch TV player
+            net.bunny.tv.ui.BunnyTVPlayerActivity.start(
+                context = context,
+                videoId = videoId,
+                libraryId = libraryId ?: -1L,
+                videoTitle = null
+            )
+        } else {
+            // Use regular mobile player
+            playVideo(videoId, libraryId)
+        }
+    }
     private val resumePositionListener = object : ResumePositionListener {
         override fun onResumePositionAvailable(videoId: String, position: PlaybackPosition) {
             Log.d(TAG, "Resume position available: $position")
@@ -103,6 +138,7 @@ class BunnyStreamPlayer @JvmOverloads constructor(
             }
             stopAutoSave()
         }
+
         override fun onStop(owner: LifecycleOwner) {
             // Save when app goes to background - use coroutine
             scope?.launch {
@@ -201,6 +237,7 @@ class BunnyStreamPlayer @JvmOverloads constructor(
             startAutoSave()
         }
     }
+
     /**
      * Disable resume position functionality
      */
@@ -236,82 +273,101 @@ class BunnyStreamPlayer @JvmOverloads constructor(
         }
     }
 
-    override fun playVideo(videoId: String, libraryId: Long?) {
-        Log.d(TAG, "playVideo videoId=$videoId")
-
-        currentVideoId = videoId
-        currentLibraryId = libraryId
-        val providedLibraryId = libraryId ?: BunnyStreamApi.libraryId
-
-        if (!BunnyStreamApi.isInitialized()) {
-            Log.e(
-                TAG,
-                "Unable to play video, initialize the player first using BunnyStreamSdk.initialize"
+    override fun playVideo(videoId: String, libraryId: Long?, videoTitle: String) {
+        if (MainActivity.isRunningOnTV(packageManager)) {
+            BunnyTVPlayerActivity.start(
+                context = this,
+                videoId = videoId,
+                libraryId = libraryId,
+                videoTitle = videoTitle
             )
-            return
-        }
+        } else {
+            Log.d(TAG, "playVideo videoId=$videoId")
 
-        // Save previous video position before switching
-        saveCurrentPosition()
+            currentVideoId = videoId
+            currentLibraryId = libraryId
+            val providedLibraryId = libraryId ?: BunnyStreamApi.libraryId
 
-        loadVideoJob?.cancel()
-
-        pendingJob = {
-            scope!!.launch {
-
-                val video: VideoModel
-
-                try {
-                    video = withContext(Dispatchers.IO) {
-                        BunnyStreamApi.getInstance().videosApi.videoGetVideoPlayData(
-                            providedLibraryId,
-                            videoId
-                        ).video?.toVideoModel()!!
-                    }
-                    Log.d(TAG, "video=$video")
-                } catch (e: Exception) {
-                    Log.w(TAG, "Error fetching video: $e")
-                    return@launch
-                }
-
-                val settings = BunnyStreamApi.getInstance()
-                    .fetchPlayerSettings(providedLibraryId, videoId)
-
-                settings.fold(
-                    ifLeft = {
-                        initializeVideo(
-                            video, PlayerSettings(
-                                thumbnailUrl = "",
-                                controls = "",
-                                keyColor = 0,
-                                captionsFontSize = 0,
-                                captionsFontColor = null,
-                                captionsBackgroundColor = null,
-                                uiLanguage = "",
-                                showHeatmap = false,
-                                fontFamily = "",
-                                playbackSpeeds = listOf(0.25f, 0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 2.0f, 3.0f, 4.0f),
-                                drmEnabled = false,
-                                vastTagUrl = null,
-                                videoUrl = "",
-                                seekPath = "",
-                                captionsPath = ""
-                            )
-                        )
-                        playerView.showError(it)
-                    },
-                    ifRight = { initializeVideo(video, it) }
+            if (!BunnyStreamApi.isInitialized()) {
+                Log.e(
+                    TAG,
+                    "Unable to play video, initialize the player first using BunnyStreamSdk.initialize"
                 )
+                return
             }
-        }
 
-        if (scope == null) {
-            Log.d(TAG, "scope not created yet")
-            return
-        }
+            // Save previous video position before switching
+            saveCurrentPosition()
 
-        loadVideoJob = pendingJob?.invoke()
-        pendingJob = null
+            loadVideoJob?.cancel()
+
+            pendingJob = {
+                scope!!.launch {
+
+                    val video: VideoModel
+
+                    try {
+                        video = withContext(Dispatchers.IO) {
+                            BunnyStreamApi.getInstance().videosApi.videoGetVideoPlayData(
+                                providedLibraryId,
+                                videoId
+                            ).video?.toVideoModel()!!
+                        }
+                        Log.d(TAG, "video=$video")
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Error fetching video: $e")
+                        return@launch
+                    }
+
+                    val settings = BunnyStreamApi.getInstance()
+                        .fetchPlayerSettings(providedLibraryId, videoId)
+
+                    settings.fold(
+                        ifLeft = {
+                            initializeVideo(
+                                video, PlayerSettings(
+                                    thumbnailUrl = "",
+                                    controls = "",
+                                    keyColor = 0,
+                                    captionsFontSize = 0,
+                                    captionsFontColor = null,
+                                    captionsBackgroundColor = null,
+                                    uiLanguage = "",
+                                    showHeatmap = false,
+                                    fontFamily = "",
+                                    playbackSpeeds = listOf(
+                                        0.25f,
+                                        0.5f,
+                                        0.75f,
+                                        1.0f,
+                                        1.25f,
+                                        1.5f,
+                                        2.0f,
+                                        3.0f,
+                                        4.0f
+                                    ),
+                                    drmEnabled = false,
+                                    vastTagUrl = null,
+                                    videoUrl = "",
+                                    seekPath = "",
+                                    captionsPath = ""
+                                )
+                            )
+                            playerView.showError(it)
+                        },
+                        ifRight = { initializeVideo(video, it) }
+                    )
+                }
+            }
+
+            if (scope == null) {
+                Log.d(TAG, "scope not created yet")
+                return
+            }
+
+            loadVideoJob = pendingJob?.invoke()
+            pendingJob = null
+        }
     }
 
     override fun pause() {
@@ -406,33 +462,33 @@ class BunnyStreamPlayer @JvmOverloads constructor(
     }
 
     fun VideoPlayDataModelVideo.toVideoModel(): VideoModel = VideoModel(
-        videoLibraryId        = this.videoLibraryId,
-        guid                  = this.guid,
-        title                 = this.title,
-        dateUploaded          = this.dateUploaded,
-        views                 = this.views,
-        isPublic              = this.isPublic,
-        length                = this.length,
-        status                = this.status,
-        framerate             = this.framerate,
-        rotation              = this.rotation,
-        width                 = this.width,
-        height                = this.height,
-        availableResolutions  = this.availableResolutions,
-        outputCodecs          = this.outputCodecs,
-        thumbnailCount        = this.thumbnailCount,
-        encodeProgress        = this.encodeProgress,
-        storageSize           = this.storageSize,
-        captions               = this.captions,
-        hasMP4Fallback        = this.hasMP4Fallback,
-        collectionId          = this.collectionId,
-        thumbnailFileName     = this.thumbnailFileName,
-        averageWatchTime      = this.averageWatchTime,
-        totalWatchTime        = this.totalWatchTime,
-        category              = this.category,
-        chapters              = this.chapters,
-        moments               = this.moments,
-        metaTags              = this.metaTags,
-        transcodingMessages   = this.transcodingMessages
+        videoLibraryId = this.videoLibraryId,
+        guid = this.guid,
+        title = this.title,
+        dateUploaded = this.dateUploaded,
+        views = this.views,
+        isPublic = this.isPublic,
+        length = this.length,
+        status = this.status,
+        framerate = this.framerate,
+        rotation = this.rotation,
+        width = this.width,
+        height = this.height,
+        availableResolutions = this.availableResolutions,
+        outputCodecs = this.outputCodecs,
+        thumbnailCount = this.thumbnailCount,
+        encodeProgress = this.encodeProgress,
+        storageSize = this.storageSize,
+        captions = this.captions,
+        hasMP4Fallback = this.hasMP4Fallback,
+        collectionId = this.collectionId,
+        thumbnailFileName = this.thumbnailFileName,
+        averageWatchTime = this.averageWatchTime,
+        totalWatchTime = this.totalWatchTime,
+        category = this.category,
+        chapters = this.chapters,
+        moments = this.moments,
+        metaTags = this.metaTags,
+        transcodingMessages = this.transcodingMessages
     )
 }

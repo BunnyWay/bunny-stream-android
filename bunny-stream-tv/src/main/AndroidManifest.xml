@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- TV-specific features -->
+    <uses-feature
+        android:name="android.software.leanback"
+        android:required="false" />
+    <uses-feature
+        android:name="android.hardware.touchscreen"
+        android:required="false" />
+
+    <!-- Required permissions -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <application>
+        <!-- TV Player Activity -->
+        <activity
+            android:name=".ui.BunnyTVPlayerActivity"
+            android:configChanges="orientation|screenSize|screenLayout"
+            android:theme="@style/Theme.AppCompat.NoActionBar"
+            android:exported="false"
+            android:screenOrientation="landscape" />
+
+        <!-- TV Browse Activity (optional, for full TV experience) -->
+        <activity
+            android:name=".leanback.BunnyTVBrowseActivity"
+            android:theme="@style/Theme.Leanback.Browse"
+            android:exported="false" />
+    </application>
+
+</manifest>

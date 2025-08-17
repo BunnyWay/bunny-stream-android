@@ -1,5 +1,6 @@
 package net.bunny.android.demo.player
 
+import android.content.pm.PackageManager
 import androidx.navigation.NavController
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavOptions
@@ -13,17 +14,34 @@ const val PLAYER_ROUTE = "player"
 const val VIDEO_ID      = "videoId"
 const val LIBRARY_ID    = "libraryId"
 
+// Extension function for NavController
 fun NavController.navigateToPlayer(
     videoId: String,
     libraryId: Long?,
-    navOptions: NavOptions? = null
+    videoTitle: String? = null
 ) {
-    val encodedVideoId = URLEncoder.encode(videoId, "UTF-8")
-    // if libraryId==null we pass -1
-    val libSegment = libraryId ?: -1L
-    navigate("$PLAYER_ROUTE/$encodedVideoId/$libSegment", navOptions)
+    val context = this.context
+
+    if (isRunningOnTV(context.packageManager)) {
+        // Use TV player
+        BunnyTVPlayerActivity.start(
+            context = context,
+            videoId = videoId,
+            libraryId = libraryId ?: -1L,
+            videoTitle = videoTitle
+        )
+    } else {
+        // Use mobile player (existing navigation)
+        val encodedVideoId = URLEncoder.encode(videoId, "UTF-8")
+        val libSegment = libraryId ?: -1L
+        navigate("$PLAYER_ROUTE/$encodedVideoId/$libSegment")
+    }
 }
 
+
+private fun isRunningOnTV(packageManager: PackageManager): Boolean {
+    return packageManager.hasSystemFeature(PackageManager.FEATURE_LEANBACK)
+}
 fun NavGraphBuilder.playerScreen(appState: AppState) {
     composable(
         route = "$PLAYER_ROUTE/{$VIDEO_ID}/{$LIBRARY_ID}",
