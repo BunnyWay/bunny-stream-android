@@ -49,6 +49,7 @@ import net.bunny.player.R
 import kotlin.time.Duration.Companion.seconds
 import net.bunny.api.settings.PlaybackSpeedManager
 import net.bunny.bunnystreamplayer.config.PlaybackSpeedConfig
+import net.bunny.bunnystreamplayer.context.AppCastContext
 import kotlin.math.abs
 
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
@@ -230,6 +231,8 @@ class BunnyPlayerView @JvmOverloads constructor(
 
     private val i18n = I18n(context)
 
+// Add this method to BunnyPlayerView.kt in the setPlayerControls() method
+
     private fun setPlayerControls() {
         playPauseButton.setOnClickListener {
             if (bunnyPlayer?.isPlaying() == true) {
@@ -330,7 +333,17 @@ class BunnyPlayerView @JvmOverloads constructor(
 
         subtitle.isVisible = bunnyPlayer?.getSubtitles()?.subtitles?.isNotEmpty() == true
 
-        CastButtonFactory.setUpMediaRouteButton(context, castButton)
+        // Only set up cast button if Cast is available
+        try {
+            if (AppCastContext.isAvailable()) {
+                CastButtonFactory.setUpMediaRouteButton(context, castButton)
+            } else {
+                castButton.visibility = View.GONE
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to set up Cast button: ${e.message}")
+            castButton.visibility = View.GONE
+        }
     }
 
     private fun setupSubtitlesPopupMenu(popupMenu: PopupMenu): Map<Int, SubtitleInfo> {

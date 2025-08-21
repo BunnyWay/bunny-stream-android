@@ -93,16 +93,18 @@ class BunnyStreamPlayer @JvmOverloads constructor(
      */
     fun playVideoWithTVDetection(videoId: String, libraryId: Long?) {
         if (isRunningOnTV()) {
-            // Launch TV player
-            net.bunny.tv.ui.BunnyTVPlayerActivity.start(
-                context = context,
-                videoId = videoId,
-                libraryId = libraryId ?: -1L,
-                videoTitle = null
-            )
+            // Launch TV player - need to import from the tv module
+            try {
+                val tvPlayerClass = Class.forName("net.bunny.tv.ui.BunnyTVPlayerActivity")
+                val startMethod = tvPlayerClass.getMethod("start", Context::class.java, String::class.java, Long::class.java, String::class.java)
+                startMethod.invoke(null, context, videoId, libraryId ?: -1L, null)
+            } catch (e: Exception) {
+                Log.w(TAG, "TV player not available, falling back to mobile player", e)
+                playVideo(videoId, libraryId, videoTitle = "") //TODO: must be change to real video title
+            }
         } else {
             // Use regular mobile player
-            playVideo(videoId, libraryId)
+            playVideo(videoId, libraryId, videoTitle = "") //TODO: must be change to real video title
         }
     }
     private val resumePositionListener = object : ResumePositionListener {
@@ -230,7 +232,11 @@ class BunnyStreamPlayer @JvmOverloads constructor(
     ) {
         this.resumeConfig = config
         bunnyPlayer.enableResumePosition(config)
-        this.resumePositionCallback = onResumePositionCallback
+
+        // Set the callback if provided
+        onResumePositionCallback?.let { callback ->
+            this.resumePositionCallback = callback
+        }
 
         // Start auto-save if enabled in config
         if (config.enableAutoSave) {
@@ -274,100 +280,91 @@ class BunnyStreamPlayer @JvmOverloads constructor(
     }
 
     override fun playVideo(videoId: String, libraryId: Long?, videoTitle: String) {
-        if (MainActivity.isRunningOnTV(packageManager)) {
-            BunnyTVPlayerActivity.start(
-                context = this,
-                videoId = videoId,
-                libraryId = libraryId,
-                videoTitle = videoTitle
+        Log.d(TAG, "playVideo videoId=$videoId")
+
+        currentVideoId = videoId
+        currentLibraryId = libraryId
+        val providedLibraryId = libraryId ?: BunnyStreamApi.libraryId
+
+        if (!BunnyStreamApi.isInitialized()) {
+            Log.e(
+                TAG,
+                "Unable to play video, initialize the player first using BunnyStreamSdk.initialize"
             )
-        } else {
-            Log.d(TAG, "playVideo videoId=$videoId")
-
-            currentVideoId = videoId
-            currentLibraryId = libraryId
-            val providedLibraryId = libraryId ?: BunnyStreamApi.libraryId
-
-            if (!BunnyStreamApi.isInitialized()) {
-                Log.e(
-                    TAG,
-                    "Unable to play video, initialize the player first using BunnyStreamSdk.initialize"
-                )
-                return
-            }
-
-            // Save previous video position before switching
-            saveCurrentPosition()
-
-            loadVideoJob?.cancel()
-
-            pendingJob = {
-                scope!!.launch {
-
-                    val video: VideoModel
-
-                    try {
-                        video = withContext(Dispatchers.IO) {
-                            BunnyStreamApi.getInstance().videosApi.videoGetVideoPlayData(
-                                providedLibraryId,
-                                videoId
-                            ).video?.toVideoModel()!!
-                        }
-                        Log.d(TAG, "video=$video")
-                    } catch (e: Exception) {
-                        Log.w(TAG, "Error fetching video: $e")
-                        return@launch
-                    }
-
-                    val settings = BunnyStreamApi.getInstance()
-                        .fetchPlayerSettings(providedLibraryId, videoId)
-
-                    settings.fold(
-                        ifLeft = {
-                            initializeVideo(
-                                video, PlayerSettings(
-                                    thumbnailUrl = "",
-                                    controls = "",
-                                    keyColor = 0,
-                                    captionsFontSize = 0,
-                                    captionsFontColor = null,
-                                    captionsBackgroundColor = null,
-                                    uiLanguage = "",
-                                    showHeatmap = false,
-                                    fontFamily = "",
-                                    playbackSpeeds = listOf(
-                                        0.25f,
-                                        0.5f,
-                                        0.75f,
-                                        1.0f,
-                                        1.25f,
-                                        1.5f,
-                                        2.0f,
-                                        3.0f,
-                                        4.0f
-                                    ),
-                                    drmEnabled = false,
-                                    vastTagUrl = null,
-                                    videoUrl = "",
-                                    seekPath = "",
-                                    captionsPath = ""
-                                )
-                            )
-                            playerView.showError(it)
-                        },
-                        ifRight = { initializeVideo(video, it) }
-                    )
-                }
-            }
-
-            if (scope == null) {
-                Log.d(TAG, "scope not created yet")
-                return
-            }
-
-            loadVideoJob = pendingJob?.invoke()
-            pendingJob = null
+            return
         }
+
+        // Save previous video position before switching
+        saveCurrentPosition()
+
+        loadVideoJob?.cancel()
+
+        pendingJob = {
+            scope!!.launch {
+
+                val video: VideoModel
+
+                try {
+                    video = withContext(Dispatchers.IO) {
+                        BunnyStreamApi.getInstance().videosApi.videoGetVideoPlayData(
+                            providedLibraryId,
+                            videoId
+                        ).video?.toVideoModel()!!
+                    }
+                    Log.d(TAG, "video=$video")
+                } catch (e: Exception) {
+                    Log.w(TAG, "Error fetching video: $e")
+                    return@launch
+                }
+
+                val settings = BunnyStreamApi.getInstance()
+                    .fetchPlayerSettings(providedLibraryId, videoId)
+
+                settings.fold(
+                    ifLeft = {
+                        initializeVideo(
+                            video, PlayerSettings(
+                                thumbnailUrl = "",
+                                controls = "",
+                                keyColor = 0,
+                                captionsFontSize = 0,
+                                captionsFontColor = null,
+                                captionsBackgroundColor = null,
+                                uiLanguage = "",
+                                showHeatmap = false,
+                                fontFamily = "",
+                                playbackSpeeds = listOf(
+                                    0.25f,
+                                    0.5f,
+                                    0.75f,
+                                    1.0f,
+                                    1.25f,
+                                    1.5f,
+                                    2.0f,
+                                    3.0f,
+                                    4.0f
+                                ),
+                                drmEnabled = false,
+                                vastTagUrl = null,
+                                videoUrl = "",
+                                seekPath = "",
+                                captionsPath = ""
+                            )
+                        )
+                        playerView.showError(it)
+                    },
+                    ifRight = { initializeVideo(video, it) }
+                )
+            }
+        }
+
+        if (scope == null) {
+            Log.d(TAG, "scope not created yet")
+            return
+        }
+
+        loadVideoJob = pendingJob?.invoke()
+        pendingJob = null
     }
 
     override fun pause() {
