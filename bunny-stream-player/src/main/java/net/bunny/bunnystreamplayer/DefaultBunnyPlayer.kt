@@ -65,7 +65,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
 
 @SuppressLint("UnsafeOptInUsageError")
-class DefaultBunnyPlayer private constructor(private val context: Context) : BunnyPlayer {
+class DefaultBunnyPlayer private constructor(private val appContext: Context) : BunnyPlayer {
 
     companion object {
         private const val TAG = "DefaultBunnyPlayer"
@@ -84,7 +84,10 @@ class DefaultBunnyPlayer private constructor(private val context: Context) : Bun
             return context.packageManager.hasSystemFeature(PackageManager.FEATURE_LEANBACK)
         }
     }
-    override val context: Context get() = this.context
+
+    // Override the context property from BunnyPlayer interface
+    override val context: Context get() = this.appContext
+
     // Speed Variables
     private var speedConfig = PlaybackSpeedConfig()
     private val speedPreferences = PlaybackSpeedPreferences(context)
@@ -96,7 +99,6 @@ class DefaultBunnyPlayer private constructor(private val context: Context) : Bun
     private var progressSaveJob: Job? = null
 
     private var localPlayer: Player? = null
-    private val castContext = AppCastContext.get()
     private var castPlayer: Player? = null
     override var currentPlayer: Player? = null
 
@@ -226,29 +228,40 @@ class DefaultBunnyPlayer private constructor(private val context: Context) : Bun
     override var playerSettings: PlayerSettings? = null
 
     init {
-        castPlayer = CastPlayer(castContext).also {
-            it.addListener(playerListener)
-            it.setSessionAvailabilityListener(object : SessionAvailabilityListener {
-                override fun onCastSessionAvailable() {
-                    Log.d(TAG, "onCastSessionAvailable")
-                    switchCurrentPlayer(it)
+        // Only initialize Cast if it's available
+        if (AppCastContext.isAvailable()) {
+            try {
+                castPlayer = CastPlayer(AppCastContext.get()).also {
+                    it.addListener(playerListener)
+                    it.setSessionAvailabilityListener(object : SessionAvailabilityListener {
+                        override fun onCastSessionAvailable() {
+                            Log.d(TAG, "onCastSessionAvailable")
+                            switchCurrentPlayer(it)
+                        }
+
+                        override fun onCastSessionUnavailable() {
+                            Log.d(TAG, "onCastSessionUnavailable")
+                            switchCurrentPlayer(localPlayer!!)
+                        }
+                    })
                 }
 
-                override fun onCastSessionUnavailable() {
-                    Log.d(TAG, "onCastSessionUnavailable")
-                    switchCurrentPlayer(localPlayer!!)
+                AppCastContext.get().addCastStateListener {
+                    Log.d(TAG, "onCastStateChanged: $it")
+                    when(it) {
+                        CastState.CONNECTED -> {}
+                        CastState.CONNECTING -> {}
+                        CastState.NOT_CONNECTED -> {}
+                        CastState.NO_DEVICES_AVAILABLE -> {}
+                    }
                 }
-            })
-        }
-
-        castContext.addCastStateListener {
-            Log.d(TAG, "onCastStateChanged: $it")
-            when(it) {
-                CastState.CONNECTED -> {}
-                CastState.CONNECTING -> {}
-                CastState.NOT_CONNECTED -> {}
-                CastState.NO_DEVICES_AVAILABLE -> {}
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to initialize Cast player: ${e.message}")
+                castPlayer = null
             }
+        } else {
+            Log.d(TAG, "Cast framework not available, continuing without Cast support")
+            castPlayer = null
         }
     }
 

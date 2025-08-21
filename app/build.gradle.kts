@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "net.bunnystream.android.demo"
+    namespace = "net.bunny.android.demo"
     compileSdk = 35  // ← Changed from 34 to 35
 
     viewBinding.enable = true

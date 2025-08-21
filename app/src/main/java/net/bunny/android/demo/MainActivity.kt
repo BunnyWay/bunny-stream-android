@@ -6,8 +6,6 @@ import androidx.activity.compose.setContent
 import androidx.appcompat.app.AppCompatActivity
 import net.bunny.android.demo.ui.App
 import net.bunny.android.demo.ui.theme.BunnyStreamTheme
-// Add the correct import for TV detection
-import net.bunny.tv.utils.isRunningOnTV
 
 class MainActivity : AppCompatActivity() {
 
@@ -21,7 +19,7 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
 
         // Check if running on TV using the utility function
-        if (isRunningOnTV()) {
+        if (isRunningOnTV(packageManager)) {
             // For TV, you might want to launch a different interface
             // For now, we'll continue with the same interface but with TV detection
             setupTVInterface()
