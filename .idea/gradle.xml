@@ -14,6 +14,7 @@
             <option value="$PROJECT_DIR$/bunny-stream-api" />
             <option value="$PROJECT_DIR$/bunny-stream-camera-upload" />
             <option value="$PROJECT_DIR$/bunny-stream-player" />
+            <option value="$PROJECT_DIR$/bunny-stream-tv" />
           </set>
         </option>
         <option name="resolveExternalAnnotations" value="false" />

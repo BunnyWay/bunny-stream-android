@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- TV Button Sizes -->
+    <dimen name="tv_button_size">80dp</dimen>
+    <dimen name="tv_button_size_large">100dp</dimen>
+    <dimen name="tv_button_margin">12dp</dimen>
+
+    <!-- TV Text Sizes -->
+    <dimen name="tv_text_size_small">14sp</dimen>
+    <dimen name="tv_text_size_medium">16sp</dimen>
+    <dimen name="tv_text_size_large">20sp</dimen>
+    <dimen name="tv_text_size_extra_large">24sp</dimen>
+
+    <!-- TV Spacing -->
+    <dimen name="tv_margin_small">8dp</dimen>
+    <dimen name="tv_margin_medium">16dp</dimen>
+    <dimen name="tv_margin_large">24dp</dimen>
+    <dimen name="tv_margin_extra_large">32dp</dimen>
+
+    <!-- TV Controls -->
+    <dimen name="tv_controls_padding">48dp</dimen>
+    <dimen name="tv_progress_height">6dp</dimen>
+
+    <!-- TV Focus -->
+    <dimen name="tv_focus_border_width">4dp</dimen>
+    <dimen name="tv_focus_corner_radius">8dp</dimen>
+</resources>

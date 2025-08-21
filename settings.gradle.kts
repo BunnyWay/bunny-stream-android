@@ -32,7 +32,9 @@ include(":app")
 include(":bunny-stream-api")
 include(":bunny-stream-player")
 include(":bunny-stream-camera-upload")
+include(":bunny-stream-tv")
 
 project(":bunny-stream-api").name = "api"
 project(":bunny-stream-player").name = "player"
 project(":bunny-stream-camera-upload").name = "recording"
+project(":bunny-stream-tv").name = "tv"

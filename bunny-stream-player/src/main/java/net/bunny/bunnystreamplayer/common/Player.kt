@@ -1,5 +1,7 @@
 package net.bunny.bunnystreamplayer.common
 
+import android.content.Context
+import android.content.pm.PackageManager
 import androidx.annotation.FloatRange
 import androidx.media3.common.Player
 import androidx.media3.ui.PlayerView
@@ -22,16 +24,14 @@ import org.openapitools.client.models.VideoModel
 interface BunnyPlayer {
 
     var playerStateListener: PlayerStateListener?
-
     var currentPlayer: Player?
-
     var seekThumbnail: SeekThumbnail?
-
     var autoPaused: Boolean
-
     var playerSettings: PlayerSettings?
-
     var positionManager: PlaybackPositionManager?
+
+    // Add context access for TV detection
+    val context: Context
 
     /* Releases the resources held by the player, such as codecs. */
     fun release()
@@ -112,11 +112,34 @@ interface BunnyPlayer {
     fun setResumePositionListener(listener: ResumePositionListener)
 
     fun clearAllSavedPositions()
-    fun getAllSavedPositions(callback: (List<PlaybackPosition>)-> Unit)
+    fun getAllSavedPositions(callback: (List<PlaybackPosition>) -> Unit)
     fun exportPositions(callback: (String) -> Unit)
     fun importPositions(jsonData: String, callback: (Boolean) -> Unit)
     fun cleanupExpiredPositions()
     fun setResumePosition(position: Long)
     fun saveCurrentProgress()
     fun clearProgress()
+
+    // TV Detection Methods
+    fun isRunningOnTV(): Boolean {
+        return context.packageManager.hasSystemFeature(PackageManager.FEATURE_LEANBACK)
+    }
+
+    fun isTouchScreenRequired(): Boolean {
+        return context.packageManager.hasSystemFeature(PackageManager.FEATURE_TOUCHSCREEN)
+    }
+
+    fun getDeviceType(): DeviceType {
+        return when {
+            isRunningOnTV() -> DeviceType.TV
+            isTouchScreenRequired() -> DeviceType.MOBILE
+            else -> DeviceType.UNKNOWN
+        }
+    }
+}
+
+enum class DeviceType {
+    MOBILE,
+    TV,
+    UNKNOWN
 }

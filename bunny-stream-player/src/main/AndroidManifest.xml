@@ -11,16 +11,15 @@
             tools:node="merge">
             <meta-data
                 android:name="net.bunny.bunnystreamplayer.context.CastContextInitializer"
-                android:value="androidx.startup"
-                />
+                android:value="androidx.startup" />
         </provider>
 
         <meta-data
             android:name="com.google.android.gms.cast.framework.OPTIONS_PROVIDER_CLASS_NAME"
-            android:value="androidx.media3.cast.DefaultCastOptionsProvider"/>
+            android:value="androidx.media3.cast.DefaultCastOptionsProvider" />
         <activity
             android:name="net.bunny.bunnystreamplayer.ui.fullscreen.FullScreenPlayerActivity"
-            android:screenOrientation="sensorLandscape"/>
+            android:screenOrientation="sensorLandscape" />
     </application>
 
 </manifest>
