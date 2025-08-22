@@ -7,14 +7,14 @@ plugins {
 
 android {
     namespace = "net.bunny.android.demo"
-    compileSdk = 35
+    compileSdk = 35  // ← Changed from 34 to 35
 
     viewBinding.enable = true
 
     defaultConfig {
         applicationId = "net.bunny.android.demo"
         minSdk = 26
-        targetSdk = 35
+        targetSdk = 35  // ← Also update targetSdk to 35 for consistency
         versionCode = 7
         versionName = "1.9"
 
@@ -66,6 +66,10 @@ dependencies {
     implementation(project(":api"))
     implementation(project(":player"))
     implementation(project(":recording"))
+    implementation(project(":tv"))
+
+    // Lean Back
+    implementation("androidx.leanback:leanback:1.0.0")
 
     // AndroidX Core and Lifecycle
     implementation("androidx.core:core-ktx:1.15.0")

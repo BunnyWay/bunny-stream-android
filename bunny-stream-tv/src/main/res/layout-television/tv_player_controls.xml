@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- bunny-stream-tv/src/main/res/layout-television/tv_player_controls.xml -->
+<androidx.constraintlayout.widget.ConstraintLayout 
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/tv_controls_background">
+
+    <!-- Video Title -->
+    <TextView
+        android:id="@+id/tv_video_title"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/tv_margin_large"
+        android:layout_marginHorizontal="@dimen/tv_controls_padding"
+        android:textColor="@android:color/white"
+        android:textSize="@dimen/tv_text_size_large"
+        android:textStyle="bold"
+        android:maxLines="2"
+        android:ellipsize="end"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        tools:text="Sample Video Title" />
+
+    <!-- Progress Bar -->
+    <ProgressBar
+        android:id="@+id/tv_progress"
+        style="@android:style/Widget.ProgressBar.Horizontal"
+        android:layout_width="0dp"
+        android:layout_height="@dimen/tv_progress_height"
+        android:layout_marginHorizontal="@dimen/tv_controls_padding"
+        android:layout_marginBottom="120dp"
+        android:progressTint="@android:color/white"
+        android:progressBackgroundTint="#33FFFFFF"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        tools:progress="30" />
+
+    <!-- Time Display -->
+    <TextView
+        android:id="@+id/tv_time_display"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textColor="@android:color/white"
+        android:textSize="@dimen/tv_text_size_medium"
+        android:layout_marginBottom="@dimen/tv_margin_small"
+        app:layout_constraintBottom_toTopOf="@id/tv_progress"
+        app:layout_constraintStart_toStartOf="@id/tv_progress"
+        tools:text="05:24 / 15:30" />
+
+    <!-- Control Buttons Container -->
+    <LinearLayout
+        android:id="@+id/tv_controls_container"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintBottom_toTopOf="@id/tv_time_display"
+        android:layout_marginBottom="@dimen/tv_margin_large">
+
+        <!-- Seek Back Button -->
+        <ImageButton
+            android:id="@+id/tv_seek_back"
+            android:layout_width="@dimen/tv_button_size"
+            android:layout_height="@dimen/tv_button_size"
+            android:layout_margin="@dimen/tv_button_margin"
+            android:background="@drawable/tv_button_background"
+            android:src="@drawable/ic_replay_30_white"
+            android:scaleType="centerInside"
+            android:focusable="true"
+            android:contentDescription="@string/tv_seek_back" />
+
+        <!-- Play/Pause Button -->
+        <ImageButton
+            android:id="@+id/tv_play_pause"
+            android:layout_width="@dimen/tv_button_size_large"
+            android:layout_height="@dimen/tv_button_size_large"
+            android:layout_margin="@dimen/tv_button_margin"
+            android:background="@drawable/tv_button_background"
+            android:src="@drawable/ic_play_arrow_white"
+            android:scaleType="centerInside"
+            android:focusable="true"
+            android:contentDescription="@string/tv_play" />
+
+        <!-- Seek Forward Button -->
+        <ImageButton
+            android:id="@+id/tv_seek_forward"
+            android:layout_width="@dimen/tv_button_size"
+            android:layout_height="@dimen/tv_button_size"
+            android:layout_margin="@dimen/tv_button_margin"
+            android:background="@drawable/tv_button_background"
+            android:src="@drawable/ic_forward_30_white"
+            android:scaleType="centerInside"
+            android:focusable="true"
+            android:contentDescription="@string/tv_seek_forward" />
+
+        <!-- Settings Button -->
+        <ImageButton
+            android:id="@+id/tv_settings"
+            android:layout_width="@dimen/tv_button_size"
+            android:layout_height="@dimen/tv_button_size"
+            android:layout_margin="@dimen/tv_button_margin"
+            android:background="@drawable/tv_button_background"
+            android:src="@drawable/ic_settings_white"
+            android:scaleType="centerInside"
+            android:focusable="true"
+            android:contentDescription="@string/tv_settings" />
+
+    </LinearLayout>
+
+    <!-- Loading Indicator -->
+    <ProgressBar
+        android:id="@+id/tv_loading"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:visibility="gone"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        tools:visibility="visible" />
+
+    <!-- Loading Text -->
+    <TextView
+        android:id="@+id/tv_loading_text"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/tv_margin_small"
+        android:text="@string/tv_loading"
+        android:textColor="@android:color/white"
+        android:textSize="@dimen/tv_text_size_medium"
+        android:visibility="gone"
+        app:layout_constraintTop_toBottomOf="@id/tv_loading"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        tools:visibility="visible" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>

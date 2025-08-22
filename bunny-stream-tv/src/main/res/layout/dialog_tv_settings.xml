@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="400dp"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="@drawable/tv_dialog_background"
+    android:padding="@dimen/tv_margin_large">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Settings"
+        android:textColor="@android:color/white"
+        android:textSize="@dimen/tv_text_size_large"
+        android:textStyle="bold"
+        android:layout_marginBottom="@dimen/tv_margin_medium" />
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/tv_settings_recycler"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="@dimen/tv_margin_medium" />
+
+    <Button
+        android:id="@+id/tv_settings_close"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="end"
+        android:text="Close"
+        android:focusable="true" />
+
+</LinearLayout>

@@ -14,7 +14,13 @@ internal class CastContextInitializer : Initializer<Context> {
     }
     override fun create(context: Context): Context {
         Log.d(TAG, "create")
-        AppCastContext.setUp(context)
+        try {
+            AppCastContext.setUp(context)
+        } catch (e: Exception) {
+            Log.w(TAG, "Cast framework not available, continuing without Cast support", e)
+            // Don't throw the exception, just log it and continue
+            // This allows the app to work on devices without Google Play Services or Cast support
+        }
         return context
     }
     override fun dependencies(): List<Class<out Initializer<*>>> = emptyList()

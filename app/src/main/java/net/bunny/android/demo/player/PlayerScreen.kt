@@ -19,8 +19,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -169,10 +169,14 @@ fun PlayerScreen(
                         VideoProperty("Title", uiState.video.name),
                         VideoProperty("Duration", uiState.video.duration),
                         VideoProperty("Views", uiState.video.viewCount),
-                        VideoProperty("Size", String.format(Locale.US, "%.2f MB", uiState.video.size))
+                        VideoProperty(
+                            "Size",
+                            String.format(Locale.US, "%.2f MB", uiState.video.size)
+                        )
                     )
                     VideoPropertiesCard(properties = props)
                 }
+
                 VideoUiState.VideoUiLoading -> {}
             }
         }
@@ -197,6 +201,7 @@ fun PlayerScreen(
         )
     }
 }
+
 @Composable
 fun ResumeDialog(
     position: PlaybackPosition,
@@ -424,7 +429,7 @@ fun BunnyPlayerComposable(
                 player
             },
             update = {
-                it.playVideo(videoId, libraryId)
+                it.playVideo(videoId, libraryId, videoTitle = "")
                 onPlayerReady(it)
             },
             modifier = modifier.background(Color.Gray)
@@ -460,10 +465,10 @@ fun VideoPropertiesCard(properties: List<VideoProperty>) {
             properties.forEachIndexed { index, prop ->
                 VideoPropertyItem(prop)
                 if (index < properties.lastIndex) {
-                    Divider(
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.18f),
+                    HorizontalDivider(
+                        modifier = Modifier.padding(horizontal = 16.dp),
                         thickness = 1.dp,
-                        modifier = Modifier.padding(horizontal = 16.dp)
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.18f)
                     )
                 }
             }
