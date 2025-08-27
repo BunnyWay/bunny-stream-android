@@ -9,7 +9,9 @@ import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavOptions
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import net.bunny.android.demo.App
 import net.bunny.android.demo.home.HOME_ROUTE
+import net.bunny.android.demo.home.TVHomeScreenRoute
 import net.bunny.android.demo.home.homeScreen
 import net.bunny.android.demo.library.libraryScreen
 import net.bunny.android.demo.library.navigateToLibrary
@@ -60,6 +62,35 @@ fun AppNavHost(
         resumePositionManagementScreen(
             appState = appState,
             onPlayVideo = navController::navigateToPlayer
+        )
+    }
+}
+
+fun NavGraphBuilder.tvHomeScreen(
+    appState: AppState,
+    navigateToSettings: () -> Unit,
+    navigateToVideoList: () -> Unit,
+    navigateToUpload: () -> Unit,
+    navigateToStreaming: () -> Unit,
+    navigateToTVPlayer: (String, Long) -> Unit,
+    navigateToResumeSettings: () -> Unit,
+    navigateToResumeManagement: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    composable(
+        route = HOME_ROUTE,
+    ) {
+        TVHomeScreenRoute(
+            appState = appState,
+            localPrefs = App.di.localPrefs,
+            navigateToSettings = navigateToSettings,
+            navigateToVideoList = navigateToVideoList,
+            navigateToUpload = navigateToUpload,
+            navigateToStreaming = navigateToStreaming,
+            navigateToTVPlayer = navigateToTVPlayer,
+            navigateToResumeSettings = navigateToResumeSettings,
+            navigateToResumeManagement = navigateToResumeManagement,
+            modifier = modifier
         )
     }
 }
