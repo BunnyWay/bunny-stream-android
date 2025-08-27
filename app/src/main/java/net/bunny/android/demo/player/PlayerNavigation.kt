@@ -9,6 +9,7 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import net.bunny.android.demo.ui.AppState
+import net.bunny.tv.ui.BunnyTVPlayerActivity
 import java.net.URLEncoder
 
 const val PLAYER_ROUTE = "player"
@@ -31,15 +32,12 @@ fun NavController.navigateToPlayer(
     if (context.isRunningOnTV()) {
         // Use TV player - try to launch TV player activity if available
         try {
-            val tvPlayerClass = Class.forName("net.bunny.tv.ui.BunnyTVPlayerActivity")
-            val startMethod = tvPlayerClass.getMethod(
-                "start",
-                Context::class.java,
-                String::class.java,
-                Long::class.java,
-                String::class.java
+            BunnyTVPlayerActivity.start(
+                context = context,
+                videoId = videoId,
+                libraryId = libraryId ?: -1L,
+                videoTitle = videoTitle
             )
-            startMethod.invoke(null, context, videoId, libraryId ?: -1L, videoTitle)
         } catch (e: Exception) {
             // TV player not available, fall back to mobile navigation
             val encodedVideoId = URLEncoder.encode(videoId, "UTF-8")
