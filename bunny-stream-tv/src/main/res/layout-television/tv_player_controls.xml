@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- bunny-stream-tv/src/main/res/layout-television/tv_player_controls.xml -->
-<androidx.constraintlayout.widget.ConstraintLayout 
+<androidx.constraintlayout.widget.ConstraintLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
@@ -13,13 +12,14 @@
         android:id="@+id/tv_video_title"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginTop="@dimen/tv_margin_large"
-        android:layout_marginHorizontal="@dimen/tv_controls_padding"
+        android:layout_marginTop="48dp"
+        android:layout_marginHorizontal="48dp"
         android:textColor="@android:color/white"
-        android:textSize="@dimen/tv_text_size_large"
+        android:textSize="24sp"
         android:textStyle="bold"
         android:maxLines="2"
         android:ellipsize="end"
+        android:gravity="center"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
@@ -30,11 +30,12 @@
         android:id="@+id/tv_progress"
         style="@android:style/Widget.ProgressBar.Horizontal"
         android:layout_width="0dp"
-        android:layout_height="@dimen/tv_progress_height"
-        android:layout_marginHorizontal="@dimen/tv_controls_padding"
+        android:layout_height="6dp"
+        android:layout_marginHorizontal="48dp"
         android:layout_marginBottom="120dp"
         android:progressTint="@android:color/white"
         android:progressBackgroundTint="#33FFFFFF"
+        android:max="100"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
@@ -46,8 +47,8 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:textColor="@android:color/white"
-        android:textSize="@dimen/tv_text_size_medium"
-        android:layout_marginBottom="@dimen/tv_margin_small"
+        android:textSize="16sp"
+        android:layout_marginBottom="16dp"
         app:layout_constraintBottom_toTopOf="@id/tv_progress"
         app:layout_constraintStart_toStartOf="@id/tv_progress"
         tools:text="05:24 / 15:30" />
@@ -62,55 +63,61 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintBottom_toTopOf="@id/tv_time_display"
-        android:layout_marginBottom="@dimen/tv_margin_large">
+        android:layout_marginBottom="32dp">
 
         <!-- Seek Back Button -->
         <ImageButton
             android:id="@+id/tv_seek_back"
-            android:layout_width="@dimen/tv_button_size"
-            android:layout_height="@dimen/tv_button_size"
-            android:layout_margin="@dimen/tv_button_margin"
+            android:layout_width="64dp"
+            android:layout_height="64dp"
+            android:layout_margin="16dp"
             android:background="@drawable/tv_button_background"
             android:src="@drawable/ic_replay_30_white"
             android:scaleType="centerInside"
             android:focusable="true"
-            android:contentDescription="@string/tv_seek_back" />
+            android:contentDescription="Seek Back 30s"
+            android:nextFocusRight="@id/tv_play_pause" />
 
         <!-- Play/Pause Button -->
         <ImageButton
             android:id="@+id/tv_play_pause"
-            android:layout_width="@dimen/tv_button_size_large"
-            android:layout_height="@dimen/tv_button_size_large"
-            android:layout_margin="@dimen/tv_button_margin"
+            android:layout_width="80dp"
+            android:layout_height="80dp"
+            android:layout_margin="16dp"
             android:background="@drawable/tv_button_background"
             android:src="@drawable/ic_play_arrow_white"
             android:scaleType="centerInside"
             android:focusable="true"
-            android:contentDescription="@string/tv_play" />
+            android:contentDescription="Play"
+            android:nextFocusLeft="@id/tv_seek_back"
+            android:nextFocusRight="@id/tv_seek_forward" />
 
         <!-- Seek Forward Button -->
         <ImageButton
             android:id="@+id/tv_seek_forward"
-            android:layout_width="@dimen/tv_button_size"
-            android:layout_height="@dimen/tv_button_size"
-            android:layout_margin="@dimen/tv_button_margin"
+            android:layout_width="64dp"
+            android:layout_height="64dp"
+            android:layout_margin="16dp"
             android:background="@drawable/tv_button_background"
             android:src="@drawable/ic_forward_30_white"
             android:scaleType="centerInside"
             android:focusable="true"
-            android:contentDescription="@string/tv_seek_forward" />
+            android:contentDescription="Seek Forward 30s"
+            android:nextFocusLeft="@id/tv_play_pause"
+            android:nextFocusRight="@id/tv_settings" />
 
         <!-- Settings Button -->
         <ImageButton
             android:id="@+id/tv_settings"
-            android:layout_width="@dimen/tv_button_size"
-            android:layout_height="@dimen/tv_button_size"
-            android:layout_margin="@dimen/tv_button_margin"
+            android:layout_width="64dp"
+            android:layout_height="64dp"
+            android:layout_margin="16dp"
             android:background="@drawable/tv_button_background"
             android:src="@drawable/ic_settings_white"
             android:scaleType="centerInside"
             android:focusable="true"
-            android:contentDescription="@string/tv_settings" />
+            android:contentDescription="Settings"
+            android:nextFocusLeft="@id/tv_seek_forward" />
 
     </LinearLayout>
 
@@ -131,10 +138,10 @@
         android:id="@+id/tv_loading_text"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="@dimen/tv_margin_small"
-        android:text="@string/tv_loading"
+        android:layout_marginTop="16dp"
+        android:text="Loading..."
         android:textColor="@android:color/white"
-        android:textSize="@dimen/tv_text_size_medium"
+        android:textSize="18sp"
         android:visibility="gone"
         app:layout_constraintTop_toBottomOf="@id/tv_loading"
         app:layout_constraintStart_toStartOf="parent"
