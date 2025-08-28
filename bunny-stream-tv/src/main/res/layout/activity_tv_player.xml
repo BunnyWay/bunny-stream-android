@@ -4,7 +4,9 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@android:color/black"
-    android:keepScreenOn="true">
+    android:keepScreenOn="true"
+    android:focusable="false"
+    android:focusableInTouchMode="false">
 
     <!-- Main Player View -->
     <androidx.media3.ui.PlayerView
@@ -13,8 +15,15 @@
         android:layout_height="match_parent"
         android:background="@android:color/black"
         app:use_controller="false"
+        app:controller_layout_id="@null"
+        app:show_timeout="0"
+        app:hide_on_touch="false"
+        app:auto_show="false"
+        app:show_buffering="never"
         app:surface_type="surface_view"
-        app:resize_mode="fit" />
+        app:resize_mode="fit"
+        android:focusable="false"
+        android:focusableInTouchMode="false" />
 
     <!-- TV Controls Overlay -->
     <net.bunny.tv.ui.controls.TVPlayerControlsView
@@ -31,7 +40,7 @@
         android:orientation="vertical"
         android:gravity="center"
         android:padding="@dimen/tv_margin_large"
-        android:background="@drawable/tv_button_background"
+        android:background="@drawable/tv_dialog_background"
         android:visibility="gone">
 
         <ImageView
@@ -44,7 +53,7 @@
             android:id="@+id/tv_error_title"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="@string/tv_error_loading"
+            android:text="Error Loading Video"
             android:textColor="@android:color/white"
             android:textSize="@dimen/tv_text_size_large"
             android:textStyle="bold"

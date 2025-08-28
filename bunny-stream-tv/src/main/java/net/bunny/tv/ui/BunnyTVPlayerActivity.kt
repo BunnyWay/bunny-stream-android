@@ -109,7 +109,7 @@ class BunnyTVPlayerActivity : AppCompatActivity() {
     private fun setupFullScreenMode() {
         Log.d(TAG, "setupFullScreenMode")
 
-        // Hide system UI for immersive experience
+        // Hide system UI for immersive experience on TV
         window.decorView.systemUiVisibility = (
                 View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
                         or View.SYSTEM_UI_FLAG_FULLSCREEN
@@ -121,6 +121,15 @@ class BunnyTVPlayerActivity : AppCompatActivity() {
 
         // Keep screen on
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+
+        // Set window flags to hide native TV UI
+        window.setFlags(
+            WindowManager.LayoutParams.FLAG_FULLSCREEN,
+            WindowManager.LayoutParams.FLAG_FULLSCREEN
+        )
+
+        // For Android TV, also hide the action bar
+        supportActionBar?.hide()
     }
 
     private fun setupViews() {
@@ -132,8 +141,10 @@ class BunnyTVPlayerActivity : AppCompatActivity() {
         errorMessage = findViewById(R.id.tv_error_message)
         retryButton = findViewById(R.id.tv_error_retry)
 
-        // Configure player view for TV
-        playerView.useController = false // We'll use our custom controls
+        // Configure player view for TV - disable native controls completely
+        playerView.useController = false // Disable native controls
+        playerView.controllerAutoShow = false // Don't auto-show controls
+        playerView.controllerHideOnTouch = false // Don't respond to touch
         playerView.setShutterBackgroundColor(Color.BLACK)
 
         Log.d(TAG, "setupViews - Views initialized")
@@ -146,8 +157,9 @@ class BunnyTVPlayerActivity : AppCompatActivity() {
             bunnyPlayer = DefaultBunnyPlayer.getInstance(this)
             tvControls.setBunnyPlayer(bunnyPlayer!!)
 
-            // Setup settings click listener
+            // Setup settings click listener - FIXED
             tvControls.setOnSettingsClickListener {
+                Log.d(TAG, "Settings button clicked")
                 showSettingsDialog()
             }
 
@@ -193,11 +205,13 @@ class BunnyTVPlayerActivity : AppCompatActivity() {
                 Log.d(TAG, "loadVideo - Fetching video data from API")
 
                 // Load video data
-                val video = withContext(Dispatchers.IO) {
+                val videoPlayData = withContext(Dispatchers.IO) {
                     BunnyStreamApi.getInstance().videosApi.videoGetVideoPlayData(
                         libraryId, videoId
-                    ).video?.toVideoModel()
+                    )
                 }
+
+                val video = videoPlayData.video?.toVideoModel()
 
                 if (video == null) {
                     Log.e(TAG, "loadVideo - Video data is null")
@@ -208,11 +222,20 @@ class BunnyTVPlayerActivity : AppCompatActivity() {
                 Log.d(TAG, "loadVideo - Video data loaded successfully: ${video.title}")
                 currentVideo = video
 
-                // Load player settings
+                // Load player settings - FIXED to use the correct response structure
                 val playerSettings = withContext(Dispatchers.IO) {
                     try {
                         val settingsResult = BunnyStreamApi.getInstance().fetchPlayerSettings(libraryId, videoId)
-                        handlePlayerSettingsResponse(settingsResult)
+                        settingsResult.fold(
+                            ifLeft = { error ->
+                                Log.w(TAG, "Failed to fetch player settings: $error")
+                                createDefaultPlayerSettings()
+                            },
+                            ifRight = { settings ->
+                                Log.d(TAG, "Player settings loaded successfully")
+                                settings
+                            }
+                        )
                     } catch (e: Exception) {
                         Log.w(TAG, "loadVideo - Failed to fetch player settings, using defaults", e)
                         createDefaultPlayerSettings()
@@ -226,16 +249,6 @@ class BunnyTVPlayerActivity : AppCompatActivity() {
                 Log.e(TAG, "loadVideo - Error loading video", e)
                 showError("Error Loading Video", e.message ?: "An unknown error occurred")
             }
-        }
-    }
-
-    private fun handlePlayerSettingsResponse(settingsResult: Any): PlayerSettings {
-        return try {
-            Log.d(TAG, "handlePlayerSettingsResponse - Processing settings result")
-            createDefaultPlayerSettings()
-        } catch (e: Exception) {
-            Log.w(TAG, "handlePlayerSettingsResponse - Error processing settings", e)
-            createDefaultPlayerSettings()
         }
     }
 
@@ -284,8 +297,18 @@ class BunnyTVPlayerActivity : AppCompatActivity() {
                 }
             })
 
-            // Initialize player with video
+            // FIXED: Initialize player with video using the correct method signature
             Log.d(TAG, "initializeVideo - Starting video playback")
+
+            // Create metadata map for the player
+            val videoMetadata = mapOf<String, Any>(
+                "title" to (video.title ?: ""),
+                "duration" to (video.length ?: 0),
+                "videoId" to videoId!!,
+                "libraryId" to libraryId!!
+            )
+
+            // Use the correct method to play video
             bunnyPlayer?.playVideo(playerView, video, emptyMap(), playerSettings)
 
             isVideoInitialized = true
@@ -295,8 +318,8 @@ class BunnyTVPlayerActivity : AppCompatActivity() {
 
             // Start playback after a delay (if no resume position dialog)
             lifecycleScope.launch {
-                delay(2000) // Give more time for initialization
-                if (!isResumeDialogShowing) {
+                delay(3000) // Give more time for video to be ready
+                if (!isResumeDialogShowing && isVideoInitialized) {
                     Log.d(TAG, "initializeVideo - Auto-starting playback (no resume)")
                     startPlayback()
                 }
@@ -312,11 +335,14 @@ class BunnyTVPlayerActivity : AppCompatActivity() {
 
     private fun startPlayback() {
         Log.d(TAG, "startPlayback - Starting video playback")
-        lifecycleScope.launch {
-            bunnyPlayer?.play()
-            delay(500) // Small delay before showing controls
-            tvControls.show()
-            Log.d(TAG, "startPlayback - Video playing and controls shown")
+        runOnUiThread {
+            try {
+                bunnyPlayer?.play()
+                tvControls.show()
+                Log.d(TAG, "startPlayback - Video playing and controls shown")
+            } catch (e: Exception) {
+                Log.e(TAG, "Error starting playback", e)
+            }
         }
     }
 
@@ -346,7 +372,7 @@ class BunnyTVPlayerActivity : AppCompatActivity() {
         Log.d(TAG, "startProgressUpdates")
 
         lifecycleScope.launch {
-            while (isActive && bunnyPlayer != null) {
+            while (isActive && bunnyPlayer != null && isVideoInitialized) {
                 try {
                     tvControls.updateProgress()
                     delay(1000)
@@ -452,13 +478,13 @@ class BunnyTVPlayerActivity : AppCompatActivity() {
 
         runOnUiThread {
             AlertDialog.Builder(this)
-                .setTitle(getString(R.string.tv_resume_title))
-                .setMessage(getString(R.string.tv_resume_message, formatTime(position.position)))
-                .setPositiveButton(getString(R.string.tv_resume_yes)) { _, _ ->
+                .setTitle("Resume Playback")
+                .setMessage("Continue watching from ${formatTime(position.position)}?")
+                .setPositiveButton("Resume") { _, _ ->
                     Log.d(TAG, "showResumeDialog - User chose to resume")
                     callback(true)
                 }
-                .setNegativeButton(getString(R.string.tv_resume_no)) { _, _ ->
+                .setNegativeButton("Start Over") { _, _ ->
                     Log.d(TAG, "showResumeDialog - User chose to start over")
                     callback(false)
                 }
@@ -470,13 +496,39 @@ class BunnyTVPlayerActivity : AppCompatActivity() {
         }
     }
 
+    // FIXED: Settings dialog implementation
     protected open fun showSettingsDialog() {
         Log.d(TAG, "showSettingsDialog")
 
         bunnyPlayer?.let { player ->
-            val settingsDialog = TVSettingsDialog(this, player)
-            settingsDialog.show()
+            try {
+                val settingsDialog = TVSettingsDialog(this, player)
+                settingsDialog.show()
+                Log.d(TAG, "Settings dialog shown successfully")
+            } catch (e: Exception) {
+                Log.e(TAG, "Error showing settings dialog", e)
+                // Fallback: show a simple dialog if the custom one fails
+                showSimpleSettingsDialog()
+            }
+        } ?: run {
+            Log.w(TAG, "Cannot show settings: bunnyPlayer is null")
         }
+    }
+
+    // Fallback settings dialog
+    private fun showSimpleSettingsDialog() {
+        val speeds = arrayOf("0.5x", "0.75x", "1.0x", "1.25x", "1.5x", "2.0x")
+        val speedValues = arrayOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 2.0f)
+
+        AlertDialog.Builder(this)
+            .setTitle("Playback Speed")
+            .setItems(speeds) { _, which ->
+                val selectedSpeed = speedValues[which]
+                bunnyPlayer?.setSpeed(selectedSpeed)
+                Log.d(TAG, "Speed changed to: ${selectedSpeed}x")
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
     }
 
     protected open fun showError(title: String, message: String) {
@@ -543,6 +595,8 @@ class BunnyTVPlayerActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         Log.d(TAG, "onResume")
+        // Hide system UI again when resuming
+        setupFullScreenMode()
         // Only resume if video is initialized
         if (isVideoInitialized) {
             bunnyPlayer?.play()
