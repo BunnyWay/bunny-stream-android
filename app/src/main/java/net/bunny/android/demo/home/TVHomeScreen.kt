@@ -2,6 +2,7 @@
 
 package net.bunny.android.demo.home
 
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
@@ -19,6 +20,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -213,12 +215,16 @@ private fun TVMenuItemCard(item: TVMenuItem) {
             .onFocusChanged { focusState ->
                 isFocused = focusState.isFocused
             }
-            .scale(if (isFocused) 1.05f else 1.0f),
+//            .graphicsLayer {
+//                scaleX = if (isFocused) 1.05f else 1.0f
+//                scaleY = if (isFocused) 1.05f else 1.0f
+//            }
+            .animateContentSize(), // Add smooth animation
         colors = CardDefaults.cardColors(
             containerColor = if (isFocused)
-                MaterialTheme.colorScheme.primary
+                MaterialTheme.colorScheme.primary.copy(alpha = 0.8f) // More visible
             else
-                MaterialTheme.colorScheme.surface
+                MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)
         ),
         shape = RoundedCornerShape(12.dp),
         elevation = CardDefaults.cardElevation(

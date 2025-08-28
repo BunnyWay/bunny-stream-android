@@ -1,5 +1,7 @@
+// Update LibraryScreen.kt to detect TV and use TV-optimized layout
 package net.bunny.android.demo.library
 
+import android.content.pm.PackageManager
 import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -73,6 +75,7 @@ import coil3.request.crossfade
 import com.google.accompanist.swiperefresh.SwipeRefresh
 import com.google.accompanist.swiperefresh.rememberSwipeRefreshState
 import net.bunny.android.demo.R
+import net.bunny.android.demo.home.TVVideoList
 import net.bunny.android.demo.library.model.Error
 import net.bunny.android.demo.library.model.Video
 import net.bunny.android.demo.library.model.VideoListUiState
@@ -97,6 +100,10 @@ fun LibraryRoute(
 
     Log.d("LibraryRoute", "viewModel: $viewModel")
     val showAccessKeyNeeded = localPrefs.accessKey.isEmpty()
+    val context = LocalContext.current
+
+    // Check if running on TV
+    val isRunningOnTV = context.packageManager.hasSystemFeature(PackageManager.FEATURE_LEANBACK)
 
     val pickVideoLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia(),
@@ -134,40 +141,79 @@ fun LibraryRoute(
         )
     }
 
-    LibraryScreen(
-        modifier = modifier,
-        showUpload = showUpload,
-        onBackClicked = { appState.navController.popBackStack() },
-        showAccessKeyNeeded = showAccessKeyNeeded,
-        navigateToSettings = navigateToSettings,
-        onLoadLibrary = viewModel::loadLibrary,
-        uiState = uiState,
-        onUploadVideoClicked = {
-            pickVideoLauncher.launch(
-                PickVisualMediaRequest(
-                    mediaType = ActivityResultContracts.PickVisualMedia.VideoOnly
+    // Use TV-optimized screen if running on TV
+    if (isRunningOnTV) {
+        when (uiState) {
+            is VideoListUiState.VideoListUiLoaded -> {
+                TVVideoList(
+                    videos = (uiState as VideoListUiState.VideoListUiLoaded).videos,
+                    onVideoSelected = { video -> navigateToPlayer(video.id) },
+                    onBackPressed = { appState.navController.popBackStack() },
+                    modifier = modifier
                 )
-            )
-        },
-        uploadingUiState = uploadingUiState,
-        onDismissUploadErrorClicked = viewModel::clearUploadError,
-        onCancelUploadClicked = viewModel::cancelUpload,
-        onPauseResumeUploadClicked = viewModel::pauseResumeUpload,
-        onTusUploadOptionChanged = {
-            viewModel.onTusUploadOptionChanged(it)
-        },
-        useTusUpload = viewModel.useTusUpload,
-        onDeleteVideoClicked = {
-            deleteVideo = it
-        },
-        onVideoClicked = {
-            navigateToPlayer(it.id)
+            }
+            VideoListUiState.VideoListUiEmpty -> {
+                TVVideoList(
+                    videos = emptyList(),
+                    onVideoSelected = { },
+                    onBackPressed = { appState.navController.popBackStack() },
+                    modifier = modifier
+                )
+            }
+            VideoListUiState.VideoListUiLoading -> {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        androidx.compose.material3.CircularProgressIndicator()
+                        Text(
+                            text = "Loading videos...",
+                            style = MaterialTheme.typography.titleMedium,
+                            modifier = Modifier.padding(top = 16.dp)
+                        )
+                    }
+                }
+            }
         }
-    )
+    } else {
+        // Use original mobile interface
+        LibraryScreen(
+            modifier = modifier,
+            showUpload = showUpload,
+            onBackClicked = { appState.navController.popBackStack() },
+            showAccessKeyNeeded = showAccessKeyNeeded,
+            navigateToSettings = navigateToSettings,
+            onLoadLibrary = viewModel::loadLibrary,
+            uiState = uiState,
+            onUploadVideoClicked = {
+                pickVideoLauncher.launch(
+                    PickVisualMediaRequest(
+                        mediaType = ActivityResultContracts.PickVisualMedia.VideoOnly
+                    )
+                )
+            },
+            uploadingUiState = uploadingUiState,
+            onDismissUploadErrorClicked = viewModel::clearUploadError,
+            onCancelUploadClicked = viewModel::cancelUpload,
+            onPauseResumeUploadClicked = viewModel::pauseResumeUpload,
+            onTusUploadOptionChanged = {
+                viewModel.onTusUploadOptionChanged(it)
+            },
+            useTusUpload = viewModel.useTusUpload,
+            onDeleteVideoClicked = {
+                deleteVideo = it
+            },
+            onVideoClicked = {
+                navigateToPlayer(it.id)
+            }
+        )
+    }
 
     LaunchedEffect(key1 = "loadLibrary", block = { viewModel.loadLibrary() })
 }
 
+// Keep the original LibraryScreen for mobile use
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun LibraryScreen(
@@ -298,6 +344,7 @@ private fun LibraryScreen(
     }
 }
 
+// Keep the rest of the existing components for mobile use...
 @Composable
 private fun ErrorDialog(
     errorState: Error,
@@ -372,19 +419,16 @@ private fun VideoItem(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .aspectRatio(16f / 9f)        // Full‑HD ratio
+            .aspectRatio(16f / 9f)
             .clickable(onClick = onVideoClicked),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
-            // Make the card itself transparent if we have a thumbnail,
-            // so the image can show through; otherwise use surface.
             containerColor = MaterialTheme.colorScheme.surface
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
             video.thumbnailUrl?.let { url ->
-                // Debug log
                 Log.d("VideoItem", "Loading thumbnail for video ${video.id}: $url")
 
                 AsyncImage(
@@ -403,26 +447,23 @@ private fun VideoItem(
                     .matchParentSize()
                     .background(
                         Brush.verticalGradient(
-                            // Fade from semi‑opaque surface at the very top…
                             colors = listOf(
                                 Color.Transparent,
                                 Color.Transparent,
                                 Color.Transparent,
                                 MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)
                             ),
-                            // startY = 0 (top), endY = height
                             startY = 0f,
                             endY = Float.POSITIVE_INFINITY
                         )
                     )
             )
-            // 3) Your existing content, inset for padding
+
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(8.dp)
             ) {
-                // Top‑left pills
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                     modifier = Modifier
@@ -433,7 +474,6 @@ private fun VideoItem(
                     Pill(video.status.name)
                 }
 
-                // Overflow menu (top‑right)
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
@@ -447,7 +487,7 @@ private fun VideoItem(
                         expanded = menuExpanded,
                         onDismissRequest = { menuExpanded = false },
                         modifier = Modifier
-                            .wrapContentSize()           // size to content
+                            .wrapContentSize()
                     ) {
                         DropdownMenuItem(
                             text = { Text("Delete") },
@@ -459,7 +499,6 @@ private fun VideoItem(
                     }
                 }
 
-                // Bottom‑aligned title + metadata
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -662,36 +701,5 @@ private fun VideoUploadControls(
                 )
             }
         }
-    }
-}
-
-@Preview
-@Composable
-private fun LibraryScreenPreview() {
-
-    val videos = listOf(
-        Video("1", "Video 1", "1m", VideoStatus.FINISHED, 10.0, "123"),
-        Video("2", "Video 2", "1m", VideoStatus.FINISHED, 10.0, "123"),
-        Video("3", "Video 3", "1m", VideoStatus.FINISHED, 10.0, "123")
-    )
-
-    BunnyStreamTheme {
-        LibraryScreen(
-            navigateToSettings = {},
-            showUpload = true,
-            onBackClicked = {},
-            showAccessKeyNeeded = false,
-            onLoadLibrary = {},
-            uiState = VideoListUiState.VideoListUiEmpty,
-            onUploadVideoClicked = {},
-            uploadingUiState = VideoUploadUiState.Uploading(50, PauseState.Paused),
-            onDismissUploadErrorClicked = {},
-            onCancelUploadClicked = {},
-            onTusUploadOptionChanged = {},
-            useTusUpload = true,
-            onDeleteVideoClicked = {},
-            onVideoClicked = {},
-            onPauseResumeUploadClicked = {}
-        )
     }
 }

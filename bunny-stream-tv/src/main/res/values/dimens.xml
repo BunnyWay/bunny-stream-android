@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- TV-specific dimensions -->
+    <dimen name="tv_button_size">64dp</dimen>
+    <dimen name="tv_button_size_large">80dp</dimen>
+    <dimen name="tv_button_margin">16dp</dimen>
+    <dimen name="tv_controls_padding">48dp</dimen>
+    <dimen name="tv_progress_height">6dp</dimen>
+    <dimen name="tv_text_size_small">14sp</dimen>
+    <dimen name="tv_text_size_medium">18sp</dimen>
+    <dimen name="tv_text_size_large">24sp</dimen>
+    <dimen name="tv_margin_small">8dp</dimen>
+    <dimen name="tv_margin_medium">16dp</dimen>
+    <dimen name="tv_margin_large">32dp</dimen>
+</resources>
