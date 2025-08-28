@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="400dp"
+    android:layout_width="500dp"
     android:layout_height="wrap_content"
     android:orientation="vertical"
     android:background="@drawable/tv_dialog_background"
@@ -13,20 +13,25 @@
         android:textColor="@android:color/white"
         android:textSize="@dimen/tv_text_size_large"
         android:textStyle="bold"
-        android:layout_marginBottom="@dimen/tv_margin_medium" />
+        android:layout_marginBottom="@dimen/tv_margin_medium"
+        android:layout_gravity="center_horizontal" />
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/tv_settings_recycler"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginBottom="@dimen/tv_margin_medium" />
+        android:layout_marginBottom="@dimen/tv_margin_medium"
+        android:maxHeight="300dp"
+        android:scrollbars="vertical" />
 
     <Button
         android:id="@+id/tv_settings_close"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_gravity="end"
+        android:layout_gravity="center_horizontal"
         android:text="Close"
-        android:focusable="true" />
+        android:focusable="true"
+        android:minWidth="120dp"
+        android:textSize="16sp" />
 
 </LinearLayout>
