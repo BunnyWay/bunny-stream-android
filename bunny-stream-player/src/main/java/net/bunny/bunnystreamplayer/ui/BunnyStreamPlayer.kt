@@ -410,17 +410,30 @@ class BunnyStreamPlayer @JvmOverloads constructor(
     private fun startAutoSave() {
         stopAutoSave() // Stop any existing auto-save job
 
-        autoSaveJob = scope?.launch {
+        autoSaveJob = scope?.launch(Dispatchers.Main) { // <- Use Main dispatcher for timer
             while (isActive) {
                 delay(resumeConfig.saveInterval)
-                if (bunnyPlayer.isPlaying()) {
-                    saveCurrentPosition()
+                if (bunnyPlayer.isPlaying()) { // Safe on main thread
+                    // Move save to background
+                    launch(Dispatchers.IO) {
+                        val position = withContext(Dispatchers.Main) {
+                            bunnyPlayer.getCurrentPosition()
+                        }
+                        val duration = withContext(Dispatchers.Main) {
+                            bunnyPlayer.getDuration()
+                        }
+
+                        currentVideoId?.let { videoId ->
+                            if (position > 0 && duration > 0) {
+                                bunnyPlayer.positionManager?.savePosition(videoId, position, duration)
+                            }
+                        }
+                    }
                 }
             }
         }
         Log.d(TAG, "Auto-save started with interval: ${resumeConfig.saveInterval}ms")
     }
-
     private fun stopAutoSave() {
         autoSaveJob?.cancel()
         autoSaveJob = null
@@ -431,11 +444,19 @@ class BunnyStreamPlayer @JvmOverloads constructor(
         currentVideoId?.let { videoId ->
             scope?.launch {
                 try {
-                    val position = bunnyPlayer.getCurrentPosition()
-                    val duration = bunnyPlayer.getDuration()
+                    // Get position and duration on main thread
+                    val position = withContext(Dispatchers.Main) {
+                        bunnyPlayer.getCurrentPosition()
+                    }
+                    val duration = withContext(Dispatchers.Main) {
+                        bunnyPlayer.getDuration()
+                    }
 
+                    // Save on background thread
                     if (position > 0 && duration > 0) {
-                        bunnyPlayer.positionManager?.savePosition(videoId, position, duration)
+                        withContext(Dispatchers.IO) {
+                            bunnyPlayer.positionManager?.savePosition(videoId, position, duration)
+                        }
                         Log.d(TAG, "Position saved for $videoId: ${formatTime(position)}")
                     }
                 } catch (e: Exception) {
@@ -444,7 +465,6 @@ class BunnyStreamPlayer @JvmOverloads constructor(
             }
         }
     }
-
     private fun formatTime(millis: Long): String {
         val totalSeconds = millis / 1000
         val hours = totalSeconds / 3600
