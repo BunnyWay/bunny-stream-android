@@ -5,6 +5,7 @@ import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import android.util.AttributeSet
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.widget.ImageButton
@@ -73,10 +74,10 @@ class TVPlayerControlsView @JvmOverloads constructor(
             bunnyPlayer?.let { player ->
                 if (player.isPlaying()) {
                     player.pause()
-                    playPauseButton.setImageResource(R.drawable.ic_play_arrow_white)
+                    playPauseButton.setImageResource(R.drawable.ic_play_48dp)
                 } else {
                     player.play()
-                    playPauseButton.setImageResource(R.drawable.ic_pause_white)
+                    playPauseButton.setImageResource(R.drawable.ic_pause_48dp)
                 }
             }
             resetHideTimer()
@@ -92,6 +93,7 @@ class TVPlayerControlsView @JvmOverloads constructor(
         }
 
         seekForwardButton.setOnClickListener {
+
             bunnyPlayer?.let { player ->
                 val duration = player.getDuration()
                 val newPosition = (player.getCurrentPosition() + SEEK_INCREMENT_MS).coerceAtMost(duration)
@@ -114,23 +116,11 @@ class TVPlayerControlsView @JvmOverloads constructor(
         seekForwardButton.isFocusable = true
         settingsButton.isFocusable = true
 
-        // Handle focus changes with visual feedback
+        // Handle focus changes with simple background change - NO ANIMATIONS
         val focusChangeListener = OnFocusChangeListener { view, hasFocus ->
             view.isSelected = hasFocus
             if (hasFocus) {
                 resetHideTimer()
-                // Scale up focused button slightly
-                view.animate()
-                    .scaleX(if (hasFocus) 1.1f else 1.0f)
-                    .scaleY(if (hasFocus) 1.1f else 1.0f)
-                    .setDuration(150)
-                    .start()
-            } else {
-                view.animate()
-                    .scaleX(1.0f)
-                    .scaleY(1.0f)
-                    .setDuration(150)
-                    .start()
             }
         }
 
@@ -157,13 +147,7 @@ class TVPlayerControlsView @JvmOverloads constructor(
         if (!isVisible) {
             isVisible = true
             visibility = View.VISIBLE
-
-            // Animate in
-            alpha = 0f
-            animate()
-                .alpha(1f)
-                .setDuration(300)
-                .start()
+            alpha = 1f // Set directly, no animation
 
             // Focus the play/pause button by default
             playPauseButton.requestFocus()
@@ -174,13 +158,8 @@ class TVPlayerControlsView @JvmOverloads constructor(
     fun hide() {
         if (isVisible) {
             isVisible = false
-            animate()
-                .alpha(0f)
-                .setDuration(300)
-                .withEndAction {
-                    visibility = View.GONE
-                }
-                .start()
+            visibility = View.GONE
+            alpha = 0f // Set directly, no animation
         }
         hideRunnable?.let { handler.removeCallbacks(it) }
     }
@@ -202,17 +181,27 @@ class TVPlayerControlsView @JvmOverloads constructor(
     }
 
     private fun resetHideTimer() {
-        hideRunnable?.let { handler.removeCallbacks(it) }
-        hideRunnable = Runnable { hide() }
-        handler.postDelayed(hideRunnable!!, HIDE_DELAY_MS)
+        try {
+            hideRunnable?.let { handler.removeCallbacks(it) }
+            hideRunnable = Runnable {
+                try {
+                    hide()
+                } catch (e: Exception) {
+                    Log.e("TVControls", "Error hiding controls", e)
+                }
+            }
+            handler.postDelayed(hideRunnable!!, HIDE_DELAY_MS)
+        } catch (e: Exception) {
+            Log.e("TVControls", "Error resetting hide timer", e)
+        }
     }
-
     private fun updatePlayPauseButton() {
         bunnyPlayer?.let { player ->
             val iconRes = if (player.isPlaying()) {
-                R.drawable.ic_pause_white
+                R.drawable.ic_pause_48dp
+
             } else {
-                R.drawable.ic_play_arrow_white
+                R.drawable.ic_play_48dp
             }
             playPauseButton.setImageResource(iconRes)
         }

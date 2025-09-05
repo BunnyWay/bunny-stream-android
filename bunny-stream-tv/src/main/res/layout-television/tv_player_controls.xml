@@ -14,32 +14,102 @@
         android:id="@+id/tv_video_title"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginTop="48dp"
+        android:layout_marginTop="32dp"
         android:layout_marginHorizontal="48dp"
         android:textColor="@android:color/white"
-        android:textSize="28sp"
+        android:textSize="24sp"
         android:textStyle="bold"
         android:maxLines="2"
         android:ellipsize="end"
         android:gravity="center"
         android:shadowColor="@android:color/black"
-        android:shadowDx="2"
-        android:shadowDy="2"
-        android:shadowRadius="4"
+        android:shadowDx="1"
+        android:shadowDy="1"
+        android:shadowRadius="3"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         tools:text="Sample Video Title" />
+
+    <!-- Main Control Buttons -->
+    <LinearLayout
+        android:id="@+id/tv_controls_container"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center"
+        android:visibility="visible"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent">
+
+        <ImageButton
+            android:id="@+id/tv_seek_back"
+            android:layout_width="64dp"
+            android:layout_height="64dp"
+            android:layout_margin="12dp"
+            android:background="@drawable/tv_control_button"
+            android:src="@drawable/ic_replay_10s_24dp"
+            android:scaleType="centerInside"
+            android:focusable="true"
+            android:padding="16dp"
+            android:contentDescription="@string/tv_seek_back"
+            android:nextFocusRight="@+id/tv_play_pause" />
+
+        <ImageButton
+            android:id="@+id/tv_play_pause"
+            android:layout_width="80dp"
+            android:layout_height="80dp"
+            android:layout_margin="20dp"
+            android:background="@drawable/tv_play_button"
+            android:src="@drawable/ic_play_48dp"
+            android:scaleType="centerInside"
+            android:focusable="true"
+            android:padding="20dp"
+            android:contentDescription="@string/tv_play"
+            android:nextFocusLeft="@+id/tv_seek_back"
+            android:nextFocusRight="@+id/tv_seek_forward" />
+
+        <ImageButton
+            android:id="@+id/tv_seek_forward"
+            android:layout_width="64dp"
+            android:layout_height="64dp"
+            android:layout_margin="12dp"
+            android:background="@drawable/tv_control_button"
+            android:src="@drawable/ic_forward_10s_24dp"
+            android:scaleType="centerInside"
+            android:focusable="true"
+            android:padding="16dp"
+            android:contentDescription="@string/tv_seek_forward"
+            android:nextFocusLeft="@+id/tv_play_pause"
+            android:nextFocusRight="@+id/tv_settings" />
+
+        <ImageButton
+            android:id="@+id/tv_settings"
+            android:layout_width="64dp"
+            android:layout_height="64dp"
+            android:layout_margin="12dp"
+            android:background="@drawable/tv_control_button"
+            android:src="@drawable/ic_settings_24dp"
+            android:scaleType="centerInside"
+            android:focusable="true"
+            android:padding="16dp"
+            android:contentDescription="@string/tv_settings"
+            android:nextFocusLeft="@+id/tv_seek_forward" />
+
+    </LinearLayout>
+
 
     <!-- Progress Bar -->
     <ProgressBar
         android:id="@+id/tv_progress"
         style="@android:style/Widget.ProgressBar.Horizontal"
         android:layout_width="0dp"
-        android:layout_height="8dp"
+        android:layout_height="6dp"
         android:layout_marginHorizontal="48dp"
-        android:layout_marginBottom="120dp"
-        android:progressTint="@android:color/white"
+        android:layout_marginBottom="80dp"
+        android:progressTint="#FF4CAF50"
         android:progressBackgroundTint="#33FFFFFF"
         android:secondaryProgressTint="#66FFFFFF"
         android:max="100"
@@ -55,8 +125,12 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:textColor="@android:color/white"
-        android:textSize="18sp"
-        android:layout_marginBottom="16dp"
+        android:textSize="16sp"
+        android:layout_marginBottom="12dp"
+        android:background="#80000000"
+        android:padding="8dp"
+        android:minWidth="120dp"
+        android:gravity="center"
         android:shadowColor="@android:color/black"
         android:shadowDx="1"
         android:shadowDy="1"
@@ -65,75 +139,6 @@
         app:layout_constraintBottom_toTopOf="@id/tv_progress"
         app:layout_constraintStart_toStartOf="@id/tv_progress"
         tools:text="05:24 / 15:30" />
-
-    <!-- Control Buttons Container -->
-    <LinearLayout
-        android:id="@+id/tv_controls_container"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center"
-        android:visibility="visible"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintBottom_toTopOf="@id/tv_time_display"
-        android:layout_marginBottom="32dp">
-
-        <!-- Seek Back Button -->
-        <ImageButton
-            android:id="@+id/tv_seek_back"
-            android:layout_width="72dp"
-            android:layout_height="72dp"
-            android:layout_margin="16dp"
-            android:background="@drawable/tv_button_background"
-            android:src="@drawable/ic_replay_30_white"
-            android:scaleType="centerInside"
-            android:focusable="true"
-            android:contentDescription="Seek Back 30s"
-            android:nextFocusRight="@id/tv_play_pause" />
-
-        <!-- Play/Pause Button -->
-        <ImageButton
-            android:id="@+id/tv_play_pause"
-            android:layout_width="88dp"
-            android:layout_height="88dp"
-            android:layout_margin="16dp"
-            android:background="@drawable/tv_button_background"
-            android:src="@drawable/ic_play_arrow_white"
-            android:scaleType="centerInside"
-            android:focusable="true"
-            android:contentDescription="Play"
-            android:nextFocusLeft="@id/tv_seek_back"
-            android:nextFocusRight="@id/tv_seek_forward" />
-
-        <!-- Seek Forward Button -->
-        <ImageButton
-            android:id="@+id/tv_seek_forward"
-            android:layout_width="72dp"
-            android:layout_height="72dp"
-            android:layout_margin="16dp"
-            android:background="@drawable/tv_button_background"
-            android:src="@drawable/ic_forward_30_white"
-            android:scaleType="centerInside"
-            android:focusable="true"
-            android:contentDescription="Seek Forward 30s"
-            android:nextFocusLeft="@id/tv_play_pause"
-            android:nextFocusRight="@id/tv_settings" />
-
-        <!-- Settings Button -->
-        <ImageButton
-            android:id="@+id/tv_settings"
-            android:layout_width="72dp"
-            android:layout_height="72dp"
-            android:layout_margin="16dp"
-            android:background="@drawable/tv_button_background"
-            android:src="@drawable/ic_settings_white"
-            android:scaleType="centerInside"
-            android:focusable="true"
-            android:contentDescription="Settings"
-            android:nextFocusLeft="@id/tv_seek_forward" />
-
-    </LinearLayout>
 
     <!-- Loading Indicator -->
     <ProgressBar
@@ -155,7 +160,9 @@
         android:layout_marginTop="16dp"
         android:text="Loading video..."
         android:textColor="@android:color/white"
-        android:textSize="20sp"
+        android:textSize="18sp"
+        android:background="#80000000"
+        android:padding="12dp"
         android:shadowColor="@android:color/black"
         android:shadowDx="1"
         android:shadowDy="1"
