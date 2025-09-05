@@ -342,11 +342,14 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
     private fun startAutoSavePosition(interval: Long = autoSaveInterval) {
         stopAutoSavePosition()
 
-        autoSaveJob = coroutineScope.launch {
+        autoSaveJob = coroutineScope.launch(Dispatchers.Main) { // <- Use Main dispatcher
             while (isActive) {
                 delay(interval)
-                if (isPlaying()) {
-                    saveCurrentPosition()
+                if (isPlaying()) { // Now safely on main thread
+                    // Move save operation to background
+                    launch(Dispatchers.IO) {
+                        saveCurrentPosition()
+                    }
                 }
             }
         }
@@ -373,25 +376,36 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
         currentVideoId?.let { videoId ->
             positionManager?.let { manager ->
                 coroutineScope.launch {
-                    val position = getCurrentPosition()
-                    val duration = getDuration()
-                    if (position > 0 && duration > 0) {
-                        manager.savePosition(videoId, position, duration)
-                        val savedPosition = PlaybackPosition(
-                            videoId = videoId,
-                            position = position,
-                            duration = duration,
-                            timestamp = System.currentTimeMillis(),
-                            watchPercentage = position.toFloat() / duration.toFloat()
-                        )
-                        resumePositionListener?.onResumePositionSaved(videoId, savedPosition)
+                    // Get position on main thread
+                    val position = withContext(Dispatchers.Main) {
+                        getCurrentPosition()
+                    }
+                    val duration = withContext(Dispatchers.Main) {
+                        getDuration()
+                    }
+
+                    // Save on background thread
+                    withContext(Dispatchers.IO) {
+                        if (position > 0 && duration > 0) {
+                            manager.savePosition(videoId, position, duration)
+                            val savedPosition = PlaybackPosition(
+                                videoId = videoId,
+                                position = position,
+                                duration = duration,
+                                timestamp = System.currentTimeMillis(),
+                                watchPercentage = position.toFloat() / duration.toFloat()
+                            )
+
+                            // Notify listener on main thread
+                            withContext(Dispatchers.Main) {
+                                resumePositionListener?.onResumePositionSaved(videoId, savedPosition)
+                            }
+                        }
                     }
                 }
             }
         }
     }
-
-
 
     // Add configuration method
     override fun setPlaybackSpeedConfig(config: PlaybackSpeedConfig) {
@@ -621,12 +635,18 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
     override fun saveCurrentProgress() {
         currentVideoId?.let { videoId ->
             currentLibraryId?.let { libraryId ->
-                val position = getCurrentPosition()
-                if (position > 0) {
-                    // Save progress in background
-                    GlobalScope.launch {
-                        BunnyStreamApi.getInstance().progressRepository
-                            .saveProgress(libraryId, videoId, position)
+                coroutineScope.launch {
+                    // Get position on main thread
+                    val position = withContext(Dispatchers.Main) {
+                        getCurrentPosition()
+                    }
+
+                    if (position > 0) {
+                        // Save progress in background
+                        withContext(Dispatchers.IO) {
+                            BunnyStreamApi.getInstance().progressRepository
+                                .saveProgress(libraryId, videoId, position)
+                        }
                     }
                 }
             }
@@ -646,11 +666,14 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
 
     private fun startProgressSaving(intervalMs: Long) {
         progressSaveJob?.cancel()
-        progressSaveJob = GlobalScope.launch {
+        progressSaveJob = GlobalScope.launch(Dispatchers.Main) { // <- Use Main dispatcher
             while (isActive) {
                 delay(intervalMs)
-                if (isPlaying()) {
-                    saveCurrentProgress()
+                if (isPlaying()) { // Now safely on main thread
+                    // Move save operation to background
+                    launch(Dispatchers.IO) {
+                        saveCurrentProgress()
+                    }
                 }
             }
         }
@@ -818,9 +841,23 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
             startAutoSavePosition()
         }
     }
+
     override fun pause(autoPaused: Boolean) {
         this.autoPaused = autoPaused
-        saveCurrentPosition()
+
+        // Save position on background thread, but get current position on main thread
+        coroutineScope.launch {
+            val position = getCurrentPosition() // Already on main thread
+            val duration = getDuration() // Already on main thread
+
+            // Save on background thread
+            launch(Dispatchers.IO) {
+                currentVideoId?.let { videoId ->
+                    positionManager?.savePosition(videoId, position, duration)
+                }
+            }
+        }
+
         stopAutoSavePosition()
         currentPlayer?.pause()
     }
