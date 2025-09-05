@@ -342,6 +342,7 @@ class BunnyTVPlayerActivity : AppCompatActivity() {
                 Log.d(TAG, "startPlayback - Video playing and controls shown")
             } catch (e: Exception) {
                 Log.e(TAG, "Error starting playback", e)
+                // Don't crash, just log the error
             }
         }
     }
@@ -381,6 +382,14 @@ class BunnyTVPlayerActivity : AppCompatActivity() {
                 }
             }
         }
+    }
+
+
+    // Add this method around line 400
+    override fun onUserLeaveHint() {
+        super.onUserLeaveHint()
+        // Save position when user navigates away
+        bunnyPlayer?.pause()
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {

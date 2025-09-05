@@ -910,7 +910,7 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
     private fun getAvailableVideoQualityOptions(): VideoQualityOptions? {
         val trackGroups = currentPlayer?.currentTracks?.groups ?: return null
 
-        val options = mutableListOf<VideoQuality>()
+        val options = mutableSetOf<VideoQuality>() // Use Set to avoid duplicates
 
         trackGroups.forEach {
             for (trackIndex in 0 until it.length) {
@@ -926,8 +926,8 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
         // Default option (resolution selected automatically by player)
         var selectedOption = VideoQuality(Int.MAX_VALUE, Int.MAX_VALUE)
 
-        options.sortByDescending { it.width + it.height }
-        options.add(0, selectedOption)
+        val optionsList = options.sortedByDescending { it.width + it.height }.toMutableList()
+        optionsList.add(0, selectedOption)
 
         trackSelector?.parameters?.let {
             if (it.maxVideoWidth != Int.MAX_VALUE && it.maxVideoHeight != Int.MAX_VALUE) {
@@ -935,7 +935,7 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
             }
         }
 
-        return VideoQualityOptions(options, selectedOption)
+        return VideoQualityOptions(optionsList, selectedOption)
     }
 
     private fun getAvailableAudioTrackOptions(): AudioTrackInfoOptions? {

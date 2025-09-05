@@ -281,19 +281,7 @@ class TVSettingsAdapter(
         // Focus handling for TV
         holder.itemView.setOnFocusChangeListener { view, hasFocus ->
             view.isSelected = hasFocus
-            if (hasFocus) {
-                view.animate()
-                    .scaleX(1.05f)
-                    .scaleY(1.05f)
-                    .setDuration(150)
-                    .start()
-            } else {
-                view.animate()
-                    .scaleX(1.0f)
-                    .scaleY(1.0f)
-                    .setDuration(150)
-                    .start()
-            }
+            // Remove the animate() calls - just use simple background change
         }
 
         // Request focus for the first item
