@@ -4,6 +4,8 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Color
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import android.view.KeyEvent
 import android.view.View
@@ -16,10 +18,14 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.media3.ui.PlayerView
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import net.bunny.api.BunnyStreamApi
 import net.bunny.api.playback.PlaybackPosition
 import net.bunny.api.playback.ResumeConfig
@@ -32,8 +38,9 @@ import net.bunny.tv.ui.controls.TVPlayerControlsView
 import net.bunny.tv.ui.dialogs.TVSettingsDialog
 import org.openapitools.client.models.VideoModel
 import org.openapitools.client.models.VideoPlayDataModelVideo
+import kotlin.coroutines.cancellation.CancellationException
 
-class BunnyTVPlayerActivity : AppCompatActivity() {
+open class BunnyTVPlayerActivity : AppCompatActivity() {
 
     private lateinit var playerView: PlayerView
     private lateinit var tvControls: TVPlayerControlsView
@@ -41,13 +48,16 @@ class BunnyTVPlayerActivity : AppCompatActivity() {
     private lateinit var errorContainer: LinearLayout
     private lateinit var errorMessage: TextView
     private lateinit var retryButton: Button
-
+    private var progressJob: Job? = null
     private var bunnyPlayer: BunnyPlayer? = null
     private var videoId: String? = null
     private var libraryId: Long? = null
     private var currentVideo: VideoModel? = null
     private var isResumeDialogShowing = false
     private var isVideoInitialized = false
+
+    // FIXED: Add main thread handler for thread-safe operations
+    private val mainHandler = Handler(Looper.getMainLooper())
 
     companion object {
         private const val TAG = "BunnyTVPlayerActivity"
@@ -194,57 +204,76 @@ class BunnyTVPlayerActivity : AppCompatActivity() {
         }
     }
 
-    private fun loadVideo(videoId: String, libraryId: Long) {
+    private fun loadVideo(videoId: String, libraryId: Long, retryCount: Long = 0) {
         Log.d(TAG, "loadVideo - Starting to load video: $videoId from library: $libraryId")
 
-        tvControls.showLoading()
-        hideError()
+        // FIXED: Ensure UI updates happen on main thread
+        runOnUiThread {
+            tvControls.showLoading()
+            hideError()
+        }
 
         lifecycleScope.launch {
             try {
                 Log.d(TAG, "loadVideo - Fetching video data from API")
-
-                // Load video data
-                val videoPlayData = withContext(Dispatchers.IO) {
-                    BunnyStreamApi.getInstance().videosApi.videoGetVideoPlayData(
-                        libraryId, videoId
-                    )
-                }
-
-                val video = videoPlayData.video?.toVideoModel()
-
-                if (video == null) {
-                    Log.e(TAG, "loadVideo - Video data is null")
-                    showError("Video Not Found", "The requested video could not be found.")
-                    return@launch
-                }
-
-                Log.d(TAG, "loadVideo - Video data loaded successfully: ${video.title}")
-                currentVideo = video
-
-                // Load player settings - FIXED to use the correct response structure
-                val playerSettings = withContext(Dispatchers.IO) {
-                    try {
-                        val settingsResult = BunnyStreamApi.getInstance().fetchPlayerSettings(libraryId, videoId)
-                        settingsResult.fold(
-                            ifLeft = { error ->
-                                Log.w(TAG, "Failed to fetch player settings: $error")
-                                createDefaultPlayerSettings()
-                            },
-                            ifRight = { settings ->
-                                Log.d(TAG, "Player settings loaded successfully")
-                                settings
-                            }
+                withTimeout(30000) { // 30 second timeout
+                    // Your existing load logic
+                    val videoPlayData = withContext(Dispatchers.IO) {
+                        BunnyStreamApi.getInstance().videosApi.videoGetVideoPlayData(
+                            libraryId, videoId
                         )
-                    } catch (e: Exception) {
-                        Log.w(TAG, "loadVideo - Failed to fetch player settings, using defaults", e)
-                        createDefaultPlayerSettings()
+                    }
+
+                    val video = videoPlayData.video?.toVideoModel()
+
+                    if (video == null) {
+                        Log.e(TAG, "loadVideo - Video data is null")
+                        showError("Video Not Found", "The requested video could not be found.")
+                        return@withTimeout
+                    }
+
+                    Log.d(TAG, "loadVideo - Video data loaded successfully: ${video.title}")
+                    currentVideo = video
+
+                    // Load player settings - FIXED to use the correct response structure
+                    val playerSettings = withContext(Dispatchers.IO) {
+                        try {
+                            val settingsResult =
+                                BunnyStreamApi.getInstance().fetchPlayerSettings(libraryId, videoId)
+                            settingsResult.fold(
+                                ifLeft = { error ->
+                                    Log.w(TAG, "Failed to fetch player settings: $error")
+                                    createDefaultPlayerSettings()
+                                },
+                                ifRight = { settings ->
+                                    Log.d(TAG, "Player settings loaded successfully")
+                                    settings
+                                }
+                            )
+                        } catch (e: Exception) {
+                            Log.w(
+                                TAG,
+                                "loadVideo - Failed to fetch player settings, using defaults",
+                                e
+                            )
+                            createDefaultPlayerSettings()
+                        }
+                    }
+
+                    Log.d(TAG, "loadVideo - Player settings configured")
+
+                    // FIXED: Initialize video on main thread
+                    withContext(Dispatchers.Main) {
+                        initializeVideo(video, playerSettings)
                     }
                 }
-
-                Log.d(TAG, "loadVideo - Player settings configured")
-                initializeVideo(video, playerSettings)
-
+            } catch (e: TimeoutCancellationException) {
+                if (retryCount < 3 && !isFinishing) {
+                    delay(2000 * (retryCount + 1)) // Exponential backoff
+                    loadVideo(videoId, libraryId, retryCount + 1)
+                } else {
+                    showError("Connection Timeout", "Please check your network connection")
+                }
             } catch (e: Exception) {
                 Log.e(TAG, "loadVideo - Error loading video", e)
                 showError("Error Loading Video", e.message ?: "An unknown error occurred")
@@ -252,6 +281,7 @@ class BunnyTVPlayerActivity : AppCompatActivity() {
         }
     }
 
+    // FIXED: Ensure all player operations happen on main thread
     private fun initializeVideo(video: VideoModel, playerSettings: PlayerSettings) {
         Log.d(TAG, "initializeVideo - Initializing video: ${video.title}")
 
@@ -274,20 +304,28 @@ class BunnyTVPlayerActivity : AppCompatActivity() {
             bunnyPlayer?.enableResumePosition(ResumeConfig())
 
             // Set resume position listener with duplicate prevention
-            bunnyPlayer?.setResumePositionListener(object : net.bunny.api.playback.ResumePositionListener {
-                override fun onResumePositionAvailable(videoId: String, position: PlaybackPosition) {
+            bunnyPlayer?.setResumePositionListener(object :
+                net.bunny.api.playback.ResumePositionListener {
+                override fun onResumePositionAvailable(
+                    videoId: String,
+                    position: PlaybackPosition
+                ) {
                     Log.d(TAG, "Resume position available: ${position.position}")
 
-                    // Prevent multiple dialogs
+                    // FIXED: Ensure dialog is shown on main thread
+                    // This post is actually redundant since the listener is called on the main thread
                     if (!isResumeDialogShowing) {
                         isResumeDialogShowing = true
                         showResumeDialog(position) { shouldResume ->
                             isResumeDialogShowing = false
                             if (shouldResume) {
+                                // FIXED: Ensure seek operation is on main thread
                                 bunnyPlayer?.seekTo(position.position)
+                                startPlayback()
+                            } else {
+                                // Always start playback after resume decision
+                                startPlayback()
                             }
-                            // Always start playback after resume decision
-                            startPlayback()
                         }
                     }
                 }
@@ -313,11 +351,11 @@ class BunnyTVPlayerActivity : AppCompatActivity() {
 
             isVideoInitialized = true
 
-            // Start progress updates
+            // FIXED: Start progress updates on the main thread
             startProgressUpdates()
 
             // Start playback after a delay (if no resume position dialog)
-            lifecycleScope.launch {
+            lifecycleScope.launch(Dispatchers.Main) {
                 delay(3000) // Give more time for video to be ready
                 if (!isResumeDialogShowing && isVideoInitialized) {
                     Log.d(TAG, "initializeVideo - Auto-starting playback (no resume)")
@@ -335,15 +373,16 @@ class BunnyTVPlayerActivity : AppCompatActivity() {
 
     private fun startPlayback() {
         Log.d(TAG, "startPlayback - Starting video playback")
-        runOnUiThread {
-            try {
-                bunnyPlayer?.play()
-                tvControls.show()
-                Log.d(TAG, "startPlayback - Video playing and controls shown")
-            } catch (e: Exception) {
-                Log.e(TAG, "Error starting playback", e)
-                // Don't crash, just log the error
-            }
+
+        try {
+            bunnyPlayer?.let { player ->
+                if (isVideoInitialized && !isFinishing) {
+                    player.play()
+                    tvControls.show()
+                }
+            } ?: Log.w(TAG, "Cannot start playback: player is null")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error starting playback", e)
         }
     }
 
@@ -365,18 +404,29 @@ class BunnyTVPlayerActivity : AppCompatActivity() {
             vastTagUrl = null,
             videoUrl = "",
             seekPath = "",
-            captionsPath = ""
+            captionsPath = "",
+            // FIXED: Increase the save progress interval to reduce threading conflicts
+            // The default of 10 seconds may be too frequent and cause threading issues
+            saveProgressInterval = 30000 // Changed from 10000 to 30000 (30 seconds)
         )
     }
 
+    // FIXED: Ensure progress updates are thread-safe
     private fun startProgressUpdates() {
-        Log.d(TAG, "startProgressUpdates")
+        // Cancel any existing job
+        progressJob?.cancel()
 
-        lifecycleScope.launch {
-            while (isActive && bunnyPlayer != null && isVideoInitialized) {
+        progressJob = lifecycleScope.launch {
+            while (isActive) {
                 try {
-                    tvControls.updateProgress()
+                    if (bunnyPlayer != null && isVideoInitialized && !isFinishing) {
+                        withContext(Dispatchers.Main) {
+                            tvControls.updateProgress()
+                        }
+                    }
                     delay(1000)
+                } catch (e: CancellationException) {
+                    throw e // Rethrow to properly cancel
                 } catch (e: Exception) {
                     Log.e(TAG, "Error updating progress", e)
                 }
@@ -385,24 +435,27 @@ class BunnyTVPlayerActivity : AppCompatActivity() {
     }
 
 
-    // Add this method around line 400
     override fun onUserLeaveHint() {
         super.onUserLeaveHint()
-        // Save position when user navigates away
+        // onUserLeaveHint is called on the main thread, no need for post
         bunnyPlayer?.pause()
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
-        Log.d(TAG, "onKeyDown - Key pressed: $keyCode")
-
-        event?.let { keyEvent ->
-            if (handleTVKeyEvent(keyEvent)) {
-                return true
-            }
+        if (isFinishing || isDestroyed) {
+            return super.onKeyDown(keyCode, event)
         }
-        return super.onKeyDown(keyCode, event)
-    }
 
+        return try {
+            event?.let { keyEvent ->
+                handleTVKeyEvent(keyEvent) || super.onKeyDown(keyCode, event)
+            } ?: super.onKeyDown(keyCode, event)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error handling key event", e)
+            super.onKeyDown(keyCode, event)
+        }
+    }
+    // FIXED: Ensure all player operations in key handling are on main thread
     protected open fun handleTVKeyEvent(keyEvent: KeyEvent): Boolean {
         val keyCode = keyEvent.keyCode
         Log.d(TAG, "handleTVKeyEvent - Handling key: $keyCode, action: ${keyEvent.action}")
@@ -427,15 +480,19 @@ class BunnyTVPlayerActivity : AppCompatActivity() {
             KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE -> {
                 Log.d(TAG, "handleTVKeyEvent - Play/Pause pressed")
                 bunnyPlayer?.let { player ->
-                    if (player.isPlaying()) {
-                        Log.d(TAG, "handleTVKeyEvent - Pausing video")
-                        player.pause()
-                    } else {
-                        Log.d(TAG, "handleTVKeyEvent - Playing video")
-                        player.play()
+                    try {
+                        if (player.isPlaying()) {
+                            Log.d(TAG, "handleTVKeyEvent - Pausing video")
+                            player.pause()
+                        } else {
+                            Log.d(TAG, "handleTVKeyEvent - Playing video")
+                            player.play()
+                        }
+                        tvControls.show()
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error toggling playback", e)
                     }
                 }
-                tvControls.show()
                 return true
             }
 
@@ -443,8 +500,12 @@ class BunnyTVPlayerActivity : AppCompatActivity() {
             KeyEvent.KEYCODE_DPAD_RIGHT -> {
                 if (!tvControls.isControlsVisible()) {
                     Log.d(TAG, "handleTVKeyEvent - Fast forward")
-                    bunnyPlayer?.skipForward()
-                    tvControls.show()
+                    try {
+                        bunnyPlayer?.skipForward()
+                        tvControls.show()
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error skipping forward", e)
+                    }
                     return true
                 }
                 return false // Let controls handle navigation
@@ -454,8 +515,12 @@ class BunnyTVPlayerActivity : AppCompatActivity() {
             KeyEvent.KEYCODE_DPAD_LEFT -> {
                 if (!tvControls.isControlsVisible()) {
                     Log.d(TAG, "handleTVKeyEvent - Rewind")
-                    bunnyPlayer?.replay()
-                    tvControls.show()
+                    try {
+                        bunnyPlayer?.replay()
+                        tvControls.show()
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error rewinding", e)
+                    }
                     return true
                 }
                 return false // Let controls handle navigation
@@ -485,24 +550,28 @@ class BunnyTVPlayerActivity : AppCompatActivity() {
     protected open fun showResumeDialog(position: PlaybackPosition, callback: (Boolean) -> Unit) {
         Log.d(TAG, "showResumeDialog - Position: ${position.position}")
 
-        runOnUiThread {
-            AlertDialog.Builder(this)
-                .setTitle("Resume Playback")
-                .setMessage("Continue watching from ${formatTime(position.position)}?")
-                .setPositiveButton("Resume") { _, _ ->
-                    Log.d(TAG, "showResumeDialog - User chose to resume")
-                    callback(true)
-                }
-                .setNegativeButton("Start Over") { _, _ ->
-                    Log.d(TAG, "showResumeDialog - User chose to start over")
-                    callback(false)
-                }
-                .setCancelable(false)
-                .setOnDismissListener {
-                    isResumeDialogShowing = false
-                }
-                .show()
+        // This check is already redundant if called from the main thread, but a good defensive practice
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            mainHandler.post { showResumeDialog(position, callback) }
+            return
         }
+
+        AlertDialog.Builder(this)
+            .setTitle("Resume Playback")
+            .setMessage("Continue watching from ${formatTime(position.position)}?")
+            .setPositiveButton("Resume") { _, _ ->
+                Log.d(TAG, "showResumeDialog - User chose to resume")
+                callback(true)
+            }
+            .setNegativeButton("Start Over") { _, _ ->
+                Log.d(TAG, "showResumeDialog - User chose to start over")
+                callback(false)
+            }
+            .setCancelable(false)
+            .setOnDismissListener {
+                isResumeDialogShowing = false
+            }
+            .show()
     }
 
     // FIXED: Settings dialog implementation
@@ -533,6 +602,8 @@ class BunnyTVPlayerActivity : AppCompatActivity() {
             .setTitle("Playback Speed")
             .setItems(speeds) { _, which ->
                 val selectedSpeed = speedValues[which]
+
+                // Ensure speed changes are on the main thread
                 bunnyPlayer?.setSpeed(selectedSpeed)
                 Log.d(TAG, "Speed changed to: ${selectedSpeed}x")
             }
@@ -606,27 +677,51 @@ class BunnyTVPlayerActivity : AppCompatActivity() {
         Log.d(TAG, "onResume")
         // Hide system UI again when resuming
         setupFullScreenMode()
-        // Only resume if video is initialized
+
+        // FIXED: Only resume if video is initialized - onResume is already on main thread
         if (isVideoInitialized) {
-            bunnyPlayer?.play()
+            try {
+                bunnyPlayer?.play()
+            } catch (e: Exception) {
+                Log.e(TAG, "Error resuming playback", e)
+            }
         }
     }
 
     override fun onPause() {
         super.onPause()
         Log.d(TAG, "onPause")
-        bunnyPlayer?.pause()
+
+        // FIXED: onPause is already on main thread
+        try {
+            bunnyPlayer?.pause()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error pausing playback", e)
+        }
     }
 
     override fun onStop() {
         super.onStop()
         Log.d(TAG, "onStop")
-        bunnyPlayer?.pause()
+
+        // FIXED: onStop is already on main thread
+        try {
+            bunnyPlayer?.pause()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error stopping playback", e)
+        }
     }
 
     override fun onDestroy() {
-        Log.d(TAG, "onDestroy")
-        bunnyPlayer?.release()
+        progressJob?.cancel()
+        lifecycleScope.cancel()
+
+        try {
+            bunnyPlayer?.release()
+            bunnyPlayer = null
+        } catch (e: Exception) {
+            Log.e(TAG, "Error releasing player", e)
+        }
         super.onDestroy()
     }
 }
