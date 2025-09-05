@@ -2,14 +2,27 @@
 
 package net.bunny.android.demo.home
 
+//import android.graphics.Color
+import androidx.compose.ui.graphics.Color
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -26,6 +39,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
 import net.bunny.android.demo.App
@@ -204,32 +218,142 @@ private fun TVMenuGrid(menuItems: List<TVMenuItem>) {
 
 @Composable
 private fun TVMenuItemCard(item: TVMenuItem) {
-    var isFocused by remember { mutableStateOf(false) }
+    val interactionSource = remember { MutableInteractionSource() }
+    val isFocused by interactionSource.collectIsFocusedAsState()
+    val isPressed by interactionSource.collectIsPressedAsState()
+
+    // Enhanced scale animation with press feedback
+    val targetScale = when {
+        isPressed -> 0.95f // Shrink when pressed for tactile feedback
+        isFocused -> 1.08f // Bigger when focused
+        else -> 1.0f
+    }
+    val scale by animateFloatAsState(
+        targetValue = targetScale,
+        animationSpec = if (isPressed) {
+            spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessHigh)
+        } else {
+            spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium)
+        },
+        label = "scale"
+    )
+
+    // Enhanced container color with more dramatic press effect
+    val targetContainerColor = when {
+        isPressed -> MaterialTheme.colorScheme.primary.copy(alpha = 1.0f) // Full opacity when pressed
+        isFocused -> MaterialTheme.colorScheme.primary.copy(alpha = 0.85f)
+        else -> MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)
+    }
+    val containerColor by animateColorAsState(
+        targetValue = targetContainerColor,
+        animationSpec = tween(durationMillis = 150),
+        label = "containerColor"
+    )
+
+    // Enhanced border effects
+    val targetBorderWidth = when {
+        isPressed -> 4.dp
+        isFocused -> 3.dp
+        else -> 0.dp
+    }
+    val borderWidth by animateDpAsState(
+        targetValue = targetBorderWidth,
+        animationSpec = tween(durationMillis = 150),
+        label = "borderWidth"
+    )
+
+    val targetBorderColor = when {
+        isPressed -> MaterialTheme.colorScheme.onPrimary
+        isFocused -> MaterialTheme.colorScheme.primary
+        else -> Color.Transparent
+    }
+    val borderColor by animateColorAsState(
+        targetValue = targetBorderColor,
+        animationSpec = tween(durationMillis = 150),
+        label = "borderColor"
+    )
+
+    // Enhanced elevation with press feedback
+    val targetElevation = when {
+        isPressed -> 2.dp // Lower when pressed
+        isFocused -> 12.dp // Higher when focused
+        else -> 4.dp
+    }
+    val elevation by animateDpAsState(
+        targetValue = targetElevation,
+        animationSpec = tween(durationMillis = 150),
+        label = "elevation"
+    )
+
+    // Enhanced icon scale animation
+    val targetIconScale = when {
+        isPressed -> 1.15f // Bigger when pressed
+        isFocused -> 1.1f // Slightly bigger when focused
+        else -> 1.0f
+    }
+    val iconScale by animateFloatAsState(
+        targetValue = targetIconScale,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMedium
+        ),
+        label = "iconScale"
+    )
+
+    // Enhanced icon tint with press effect
+    val targetIconTint = when {
+        isPressed -> MaterialTheme.colorScheme.onPrimary
+        isFocused -> MaterialTheme.colorScheme.onPrimary
+        else -> MaterialTheme.colorScheme.primary
+    }
+    val iconTint by animateColorAsState(
+        targetValue = targetIconTint,
+        animationSpec = tween(durationMillis = 150),
+        label = "iconTint"
+    )
+
+    // Enhanced text colors
+    val targetTitleColor = when {
+        isPressed -> MaterialTheme.colorScheme.onPrimary
+        isFocused -> MaterialTheme.colorScheme.onPrimary
+        else -> MaterialTheme.colorScheme.onSurface
+    }
+    val titleColor by animateColorAsState(
+        targetValue = targetTitleColor,
+        animationSpec = tween(durationMillis = 150),
+        label = "titleColor"
+    )
+
+    val targetDescriptionColor = when {
+        isPressed -> MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.9f)
+        isFocused -> MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f)
+        else -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
+    val descriptionColor by animateColorAsState(
+        targetValue = targetDescriptionColor,
+        animationSpec = tween(durationMillis = 150),
+        label = "descriptionColor"
+    )
 
     Card(
         modifier = Modifier
             .width(280.dp)
             .height(160.dp)
-            .focusable()
-            .clickable { item.onClick() }
-            .onFocusChanged { focusState ->
-                isFocused = focusState.isFocused
-            }
-//            .graphicsLayer {
-//                scaleX = if (isFocused) 1.05f else 1.0f
-//                scaleY = if (isFocused) 1.05f else 1.0f
-//            }
-            .animateContentSize(), // Add smooth animation
+            .scale(scale)
+            .border(
+                width = borderWidth,
+                color = borderColor,
+                shape = RoundedCornerShape(12.dp)
+            )
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null // Custom indication handled by our animations
+            ) { item.onClick() },
         colors = CardDefaults.cardColors(
-            containerColor = if (isFocused)
-                MaterialTheme.colorScheme.primary.copy(alpha = 0.8f) // More visible
-            else
-                MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)
+            containerColor = containerColor
         ),
         shape = RoundedCornerShape(12.dp),
-        elevation = CardDefaults.cardElevation(
-            defaultElevation = if (isFocused) 8.dp else 4.dp
-        )
+        elevation = CardDefaults.cardElevation(defaultElevation = elevation)
     ) {
         Column(
             modifier = Modifier
@@ -238,36 +362,52 @@ private fun TVMenuItemCard(item: TVMenuItem) {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Icon(
-                imageVector = item.icon,
-                contentDescription = null,
-                modifier = Modifier.size(48.dp),
-                tint = if (isFocused)
-                    MaterialTheme.colorScheme.onPrimary
-                else
-                    MaterialTheme.colorScheme.primary
-            )
+            // Enhanced icon with background effect when pressed
+            Box(
+                modifier = Modifier
+                    .scale(iconScale)
+                    .then(
+                        if (isPressed) {
+                            Modifier
+                                .background(
+                                    color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.2f),
+                                    shape = CircleShape
+                                )
+                                .padding(8.dp)
+                        } else {
+                            Modifier
+                        }
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = item.icon,
+                    contentDescription = null,
+                    modifier = Modifier.size(48.dp),
+                    tint = iconTint
+                )
+            }
 
             Spacer(modifier = Modifier.height(16.dp))
 
+            // Enhanced title with font weight animation
             Text(
                 text = item.title,
                 style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = if (isFocused)
-                    MaterialTheme.colorScheme.onPrimary
-                else
-                    MaterialTheme.colorScheme.onSurface
+                fontWeight = if (isPressed) FontWeight.ExtraBold else FontWeight.Bold,
+                color = titleColor,
+                fontSize = if (isPressed) 17.sp else 16.sp
             )
 
+            Spacer(modifier = Modifier.height(4.dp))
+
+            // Enhanced description
             Text(
                 text = item.description,
                 style = MaterialTheme.typography.bodySmall,
-                color = if (isFocused)
-                    MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f)
-                else
-                    MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center
+                color = descriptionColor,
+                textAlign = TextAlign.Center,
+                fontWeight = if (isPressed) FontWeight.Medium else FontWeight.Normal
             )
         }
     }

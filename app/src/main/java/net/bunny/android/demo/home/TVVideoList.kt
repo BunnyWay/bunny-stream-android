@@ -2,10 +2,19 @@
 
 package net.bunny.android.demo.home
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -118,59 +127,122 @@ private fun TVVideoItem(
     onFocused: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var isFocused by remember { mutableStateOf(false) }
+    val interactionSource = remember { MutableInteractionSource() }
+    val isFocused by interactionSource.collectIsFocusedAsState()
+    val isPressed by interactionSource.collectIsPressedAsState()
+
+    // Enhanced animations with different durations for smoother feedback
+    val targetScale = when {
+        isPressed -> 0.98f // Slightly smaller when pressed for tactile feedback
+        isFocused -> 1.08f // Bigger when focused
+        else -> 1.0f
+    }
+    val scale by animateFloatAsState(
+        targetValue = targetScale,
+        animationSpec = if (isPressed) {
+            spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessHigh)
+        } else {
+            spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium)
+        },
+        label = "scale"
+    )
+
+    // More pronounced border effects
+    val targetBorderWidth = when {
+        isPressed -> 6.dp
+        isFocused -> 4.dp
+        else -> 0.dp
+    }
+    val borderWidth by animateDpAsState(
+        targetValue = targetBorderWidth,
+        animationSpec = tween(durationMillis = 150),
+        label = "borderWidth"
+    )
+
+    val targetBorderColor = when {
+        isPressed -> Color(0xFFE65100) // Darker orange when pressed
+        isFocused -> Color(0xFFFF9800) // Orange when focused
+        else -> Color.Transparent
+    }
+    val borderColor by animateColorAsState(
+        targetValue = targetBorderColor,
+        animationSpec = tween(durationMillis = 150),
+        label = "borderColor"
+    )
+
+    // Enhanced container color with more noticeable press effect
+    val targetContainerColor = when {
+        isPressed -> Color(0xFFBF360C).copy(alpha = 0.4f) // Much darker orange when pressed
+        isFocused -> Color(0xFFFF9800).copy(alpha = 0.15f) // Light orange when focused
+        else -> MaterialTheme.colorScheme.surface
+    }
+    val containerColor by animateColorAsState(
+        targetValue = targetContainerColor,
+        animationSpec = tween(durationMillis = 150),
+        label = "containerColor"
+    )
+
+    // Enhanced title color changes
+    val targetTitleColor = when {
+        isPressed -> Color(0xFFFF6F00) // Vibrant orange when pressed
+        isFocused -> Color(0xFFFF9800) // Orange when focused
+        else -> MaterialTheme.colorScheme.onSurface
+    }
+    val titleColor by animateColorAsState(
+        targetValue = targetTitleColor,
+        animationSpec = tween(durationMillis = 150),
+        label = "titleColor"
+    )
+
+    // Enhanced elevation for more dramatic effect
+    val targetElevation = when {
+        isPressed -> 2.dp // Lower when pressed
+        isFocused -> 12.dp // Higher when focused
+        else -> 4.dp
+    }
+    val elevation by animateDpAsState(
+        targetValue = targetElevation,
+        animationSpec = tween(durationMillis = 150),
+        label = "elevation"
+    )
 
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .height(140.dp) // Fixed reasonable height for TV
-            .focusable()
-            .clickable { onClick() }
+            .height(140.dp)
+            .scale(scale)
+            .border(
+                width = borderWidth,
+                color = borderColor,
+                shape = RoundedCornerShape(12.dp)
+            )
             .onFocusChanged { focusState ->
-                isFocused = focusState.isFocused
-                if (isFocused) {
+                if (focusState.isFocused) {
                     onFocused()
                 }
             }
-            .then(
-                if (isFocused) {
-                    Modifier
-                        .border(
-                            width = 4.dp,
-                            color = MaterialTheme.colorScheme.primary,
-                            shape = RoundedCornerShape(12.dp)
-                        )
-                        .graphicsLayer {
-                            scaleX = if (isFocused) 1.05f else 1.0f
-                            scaleY = if (isFocused) 1.05f else 1.0f
-                        }
-                } else {
-                    Modifier.scale(1.0f)
-                }
-            ),
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null // Custom indication handled by our animations
+            ) { onClick() },
         shape = RoundedCornerShape(12.dp),
-        elevation = CardDefaults.cardElevation(
-            defaultElevation = if (isFocused) 8.dp else 4.dp
-        ),
-        colors = CardDefaults.cardColors(
-            containerColor = if (isFocused)
-                MaterialTheme.colorScheme.primary.copy(alpha = 0.2f) // Light primary color
-            else
-                MaterialTheme.colorScheme.surface
-        )
+        elevation = CardDefaults.cardElevation(defaultElevation = elevation),
+        colors = CardDefaults.cardColors(containerColor = containerColor)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(16.dp)
         ) {
-            // Thumbnail
+            // Enhanced Thumbnail with press effect
             Box(
                 modifier = Modifier
-                    .width(180.dp) // 16:9 aspect ratio for TV
+                    .width(180.dp)
                     .fillMaxHeight()
                     .clip(RoundedCornerShape(8.dp))
-                    .background(Color.Gray)
+                    .background(
+                        if (isPressed) Color.Gray.copy(alpha = 0.7f) else Color.Gray
+                    )
             ) {
                 video.thumbnailUrl?.let { url ->
                     AsyncImage(
@@ -183,17 +255,30 @@ private fun TVVideoItem(
                         modifier = Modifier.fillMaxSize()
                     )
                 }
-                
-                // Play icon overlay
+
+                // Enhanced Play icon with press effect
+                val playIconColor by animateColorAsState(
+                    targetValue = if (isPressed) Color(0xFFFF9800) else Color.White,
+                    animationSpec = tween(durationMillis = 150),
+                    label = "playIconColor"
+                )
+
+                val playIconScale by animateFloatAsState(
+                    targetValue = if (isPressed) 1.1f else 1.0f,
+                    animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+                    label = "playIconScale"
+                )
+
                 Icon(
                     imageVector = Icons.Default.PlayArrow,
                     contentDescription = null,
-                    tint = Color.White,
+                    tint = playIconColor,
                     modifier = Modifier
                         .align(Alignment.Center)
                         .size(48.dp)
+                        .scale(playIconScale)
                         .background(
-                            color = Color.Black.copy(alpha = 0.6f),
+                            color = Color.Black.copy(alpha = if (isPressed) 0.8f else 0.6f),
                             shape = androidx.compose.foundation.shape.CircleShape
                         )
                         .padding(8.dp)
@@ -202,7 +287,7 @@ private fun TVVideoItem(
 
             Spacer(modifier = Modifier.width(20.dp))
 
-            // Video info
+            // Video info with enhanced animations
             Column(
                 modifier = Modifier
                     .fillMaxHeight()
@@ -213,28 +298,25 @@ private fun TVVideoItem(
                     Text(
                         text = video.name,
                         style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = if (isFocused) 
-                            MaterialTheme.colorScheme.primary 
-                        else 
-                            MaterialTheme.colorScheme.onSurface,
+                        fontWeight = if (isPressed) FontWeight.ExtraBold else FontWeight.Bold,
+                        color = titleColor,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
-                        fontSize = 18.sp
+                        fontSize = if (isPressed) 19.sp else 18.sp
                     )
-                    
+
                     Spacer(modifier = Modifier.height(8.dp))
-                    
+
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         StatusChip(status = video.status)
                         Text(
                             text = "${video.viewCount} views",
                             style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = if (isPressed) titleColor.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
-                
+
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -243,19 +325,18 @@ private fun TVVideoItem(
                     Text(
                         text = "Duration: ${video.duration}",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = if (isPressed) titleColor.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
                         text = String.format(Locale.US, "%.1f MB", video.size),
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = if (isPressed) titleColor.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
         }
     }
 }
-
 @Composable
 private fun StatusChip(status: VideoStatus) {
     val color = when (status) {
