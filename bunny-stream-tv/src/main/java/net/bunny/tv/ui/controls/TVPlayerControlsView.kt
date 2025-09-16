@@ -44,7 +44,7 @@ class TVPlayerControlsView @JvmOverloads constructor(
 
     companion object {
         private const val HIDE_DELAY_MS = 5000L
-        private const val SEEK_INCREMENT_MS = 30000L // 30 seconds for TV
+        private const val SEEK_INCREMENT_MS = 10000L // 30 seconds for TV
     }
 
     init {

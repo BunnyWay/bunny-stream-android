@@ -4,8 +4,8 @@
     <string name="tv_app_name">Bunny Stream TV</string>
     <string name="tv_play">Play</string>
     <string name="tv_pause">Pause</string>
-    <string name="tv_seek_back">Seek Back 30s</string>
-    <string name="tv_seek_forward">Seek Forward 30s</string>
+    <string name="tv_seek_back">Seek Back 10s</string>
+    <string name="tv_seek_forward">Seek Forward 10s</string>
     <string name="tv_settings">Settings</string>
     <string name="tv_resume_title">Resume Playback</string>
     <string name="tv_resume_message">Continue watching from %s?</string>
