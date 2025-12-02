@@ -25,4 +25,19 @@ interface BunnyPlayer {
      * Resumes playing video
      */
     fun play()
+
+    /**
+     * Get current position of video
+     */
+    fun getCurrentPosition(): Long
+
+    /**
+     * Get duration of video
+     */
+    fun getDuration(): Long
+
+    /**
+     * Get progress of video
+     */
+    fun getProgress(): Float
 }

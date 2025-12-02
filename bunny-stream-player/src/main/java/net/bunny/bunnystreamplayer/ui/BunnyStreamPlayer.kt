@@ -88,6 +88,7 @@ class BunnyStreamPlayer @JvmOverloads constructor(
             else -> DeviceType.UNKNOWN
         }
     }
+
     /**
      * Play video with automatic TV/Mobile detection
      */
@@ -379,6 +380,19 @@ class BunnyStreamPlayer @JvmOverloads constructor(
         // Auto-save will start automatically via lifecycle observer
     }
 
+    override fun getCurrentPosition(): Long {
+        return bunnyPlayer.getCurrentPosition()
+    }
+
+    override fun getDuration(): Long {
+        return bunnyPlayer.getDuration()
+    }
+
+    override fun getProgress(): Float {
+        val duration = getDuration()
+        return if (duration > 0) getCurrentPosition().toFloat() / duration else 0f
+    }
+
     private suspend fun initializeVideo(video: VideoModel, playerSettings: PlayerSettings) {
         playerView.showPreviewThumbnail(playerSettings.thumbnailUrl)
 
@@ -434,6 +448,7 @@ class BunnyStreamPlayer @JvmOverloads constructor(
         }
         Log.d(TAG, "Auto-save started with interval: ${resumeConfig.saveInterval}ms")
     }
+
     private fun stopAutoSave() {
         autoSaveJob?.cancel()
         autoSaveJob = null
