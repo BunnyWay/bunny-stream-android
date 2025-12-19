@@ -65,6 +65,13 @@ class BunnyStreamPlayer @JvmOverloads constructor(
         }
 
     private val bunnyPlayer = DefaultBunnyPlayer.getInstance(context)
+    private var progressListener: BunnyPlayer.ProgressListener? = null
+    private var progressListenerJob: Job? = null
+
+    private var cachedProgress: Float = 0f
+    private var lastProgressUpdate: Long = 0L
+    private val PROGRESS_CACHE_MS = 100L
+
 
     // Resume position functionality
     private var resumePositionCallback: ((PlaybackPosition, (Boolean) -> Unit) -> Unit)? = null
@@ -215,6 +222,7 @@ class BunnyStreamPlayer @JvmOverloads constructor(
             saveCurrentPosition()
         }
         stopAutoSave()
+        stopProgressListener() // Add this line
         bunnyPlayer.stop()
     }
 
@@ -378,6 +386,87 @@ class BunnyStreamPlayer @JvmOverloads constructor(
         bunnyPlayer.play()
         // Auto-save will start automatically via lifecycle observer
     }
+    override fun getCurrentPosition(): Long {
+        return bunnyPlayer.getCurrentPosition()
+    }
+
+    override fun getDuration(): Long {
+        return bunnyPlayer.getDuration()
+    }
+
+    override fun getProgress(): Float {
+        val duration = getDuration()
+        return if (duration > 0) getCurrentPosition().toFloat() / duration else 0f
+    }
+
+    override fun isPlaying(): Boolean {
+        return bunnyPlayer.isPlaying()
+    }
+
+    override fun isEnded(): Boolean {
+        val position = getCurrentPosition()
+        val duration = getDuration()
+        return duration > 0 && position >= duration
+    }
+
+
+    private fun formatTime(millis: Long): String {
+        val totalSeconds = millis / 1000
+        val hours = totalSeconds / 3600
+        val minutes = (totalSeconds % 3600) / 60
+        val seconds = totalSeconds % 60
+
+        return if (hours > 0) {
+            String.format("%d:%02d:%02d", hours, minutes, seconds)
+        } else {
+            String.format("%d:%02d", minutes, seconds)
+        }
+    }
+
+    /**
+     * Get current position as formatted time string (e.g., "1:23" or "1:23:45")
+     */
+    fun getCurrentPositionFormatted(): String {
+        return formatTime(getCurrentPosition())
+    }
+
+    /**
+     * Get duration as formatted time string
+     */
+    fun getDurationFormatted(): String {
+        return formatTime(getDuration())
+    }
+
+    override fun setProgressListener(listener: BunnyPlayer.ProgressListener?) {
+        progressListener = listener
+
+        if (listener != null) {
+            startProgressListener()
+        } else {
+            stopProgressListener()
+        }
+    }
+
+    private fun startProgressListener() {
+        stopProgressListener()
+
+        progressListenerJob = scope?.launch(Dispatchers.Main) {
+            while (isActive && progressListener != null) {
+                if (bunnyPlayer.isPlaying()) {
+                    val position = getCurrentPosition()
+                    val duration = getDuration()
+                    val progress = getProgress()
+                    progressListener?.onProgressChanged(position, duration, progress)
+                }
+                delay(250) // Update 4 times per second
+            }
+        }
+    }
+
+    private fun stopProgressListener() {
+        progressListenerJob?.cancel()
+        progressListenerJob = null
+    }
 
     private suspend fun initializeVideo(video: VideoModel, playerSettings: PlayerSettings) {
         playerView.showPreviewThumbnail(playerSettings.thumbnailUrl)
@@ -465,18 +554,7 @@ class BunnyStreamPlayer @JvmOverloads constructor(
             }
         }
     }
-    private fun formatTime(millis: Long): String {
-        val totalSeconds = millis / 1000
-        val hours = totalSeconds / 3600
-        val minutes = (totalSeconds % 3600) / 60
-        val seconds = totalSeconds % 60
 
-        return if (hours > 0) {
-            String.format("%d:%02d:%02d", hours, minutes, seconds)
-        } else {
-            String.format("%d:%02d", minutes, seconds)
-        }
-    }
 
     fun VideoPlayDataModelVideo.toVideoModel(): VideoModel = VideoModel(
         videoLibraryId = this.videoLibraryId,
