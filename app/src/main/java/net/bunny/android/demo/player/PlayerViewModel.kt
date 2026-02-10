@@ -60,17 +60,9 @@ class PlayerViewModel : ViewModel() {
                         providedLibraryId,
                         videoId
                     ).video?.toVideoModel()!!
-                // Load saved progress
-                val progressResult = BunnyStreamApi.getInstance().progressRepository
-                    .getProgress(providedLibraryId, videoId)
-
-                val resumePosition = progressResult.fold(
-                    ifLeft = { 0L },
-                    ifRight = { it }
-                )
 
                 val video = response.toVideo()
-                mutableUiState.value = VideoUiState.VideoUiLoaded(video, resumePosition)
+                mutableUiState.value = VideoUiState.VideoUiLoaded(video)
             } catch (e: Exception) {
                  Log.e(TAG, "Error loading video: ${e.message}")
                 e.printStackTrace()

@@ -30,7 +30,6 @@ import androidx.media3.ui.PlayerView
 import com.google.android.gms.cast.framework.CastState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import net.bunny.api.BunnyStreamApi
@@ -96,7 +95,6 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
     // Player Position Variables
     private var currentLibraryId: Long? = null
     private var resumePosition: Long = 0L
-    private var progressSaveJob: Job? = null
 
     private var localPlayer: Player? = null
     private var castPlayer: Player? = null
@@ -604,7 +602,6 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
         }
 
 
-        startProgressSaving(playerSettings.saveProgressInterval)
         startAutoSavePosition()
         // Init seek thumbnails and metadata
         initSeekThumbnailPreview(video, playerSettings.seekPath)
@@ -630,53 +627,6 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
 
     override fun setResumePosition(position: Long) {
         resumePosition = position
-    }
-
-    override fun saveCurrentProgress() {
-        currentVideoId?.let { videoId ->
-            currentLibraryId?.let { libraryId ->
-                coroutineScope.launch {
-                    // Get position on main thread
-                    val position = withContext(Dispatchers.Main) {
-                        getCurrentPosition()
-                    }
-
-                    if (position > 0) {
-                        // Save progress in background
-                        withContext(Dispatchers.IO) {
-                            BunnyStreamApi.getInstance().progressRepository
-                                .saveProgress(libraryId, videoId, position)
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    override fun clearProgress() {
-        currentVideoId?.let { videoId ->
-            currentLibraryId?.let { libraryId ->
-                GlobalScope.launch {
-                    BunnyStreamApi.getInstance().progressRepository
-                        .clearProgress(libraryId, videoId)
-                }
-            }
-        }
-    }
-
-    private fun startProgressSaving(intervalMs: Long) {
-        progressSaveJob?.cancel()
-        progressSaveJob = GlobalScope.launch(Dispatchers.Main) { // <- Use Main dispatcher
-            while (isActive) {
-                delay(intervalMs)
-                if (isPlaying()) { // Now safely on main thread
-                    // Move save operation to background
-                    launch(Dispatchers.IO) {
-                        saveCurrentProgress()
-                    }
-                }
-            }
-        }
     }
 
     override fun skipForward() {
@@ -816,7 +766,6 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
     override fun release() {
         saveCurrentPosition()
         stopAutoSavePosition()
-        progressSaveJob?.cancel()
         currentPlayer?.stop()
 
         localPlayer?.release()

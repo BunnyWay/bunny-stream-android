@@ -405,9 +405,6 @@ open class BunnyTVPlayerActivity : AppCompatActivity() {
             videoUrl = "",
             seekPath = "",
             captionsPath = "",
-            // FIXED: Increase the save progress interval to reduce threading conflicts
-            // The default of 10 seconds may be too frequent and cause threading issues
-            saveProgressInterval = 30000 // Changed from 10000 to 30000 (30 seconds)
         )
     }
 
