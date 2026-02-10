@@ -121,7 +121,7 @@ class BunnyStreamApi private constructor(
         coroutineDispatcher = Dispatchers.IO
     )
 
-    override suspend fun fetchPlayerSettings(libraryId: Long, videoId: String): Either<String, PlayerSettings> {
-        return settingsRepository.fetchSettings(libraryId, videoId)
+    override suspend fun fetchPlayerSettings(libraryId: Long, videoId: String, token: String?, expires: Long?): Either<String, PlayerSettings> {
+        return settingsRepository.fetchSettings(libraryId, videoId, token, expires)
     }
 }

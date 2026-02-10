@@ -34,5 +34,5 @@ interface StreamApi {
 
     val settingsRepository: SettingsRepository
 
-    suspend fun fetchPlayerSettings(libraryId: Long, videoId: String): Either<String, PlayerSettings>
+    suspend fun fetchPlayerSettings(libraryId: Long, videoId: String, token: String? = null, expires: Long? = null): Either<String, PlayerSettings>
 }
