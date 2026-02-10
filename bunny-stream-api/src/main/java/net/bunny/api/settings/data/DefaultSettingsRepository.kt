@@ -17,9 +17,18 @@ class DefaultSettingsRepository(
     private val coroutineDispatcher: CoroutineDispatcher
 ) : SettingsRepository {
 
-    override suspend fun fetchSettings(libraryId: Long, videoId: String):
+    override suspend fun fetchSettings(libraryId: Long, videoId: String, token: String?, expires: Long?):
             Either<String, PlayerSettings> = withContext(coroutineDispatcher) {
-        val endpoint = "${BunnyStreamApi.baseApi}/library/$libraryId/videos/$videoId/play"
+        val endpoint = buildString {
+            append("${BunnyStreamApi.baseApi}/library/$libraryId/videos/$videoId/play")
+            val params = mutableListOf<String>()
+            if (token != null) params.add("token=$token")
+            if (expires != null) params.add("expires=$expires")
+            if (params.isNotEmpty()) {
+                append("?")
+                append(params.joinToString("&"))
+            }
+        }
 
         return@withContext try {
             val response = httpClient.get(endpoint)

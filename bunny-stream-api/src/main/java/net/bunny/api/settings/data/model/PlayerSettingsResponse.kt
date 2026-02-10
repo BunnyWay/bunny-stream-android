@@ -58,9 +58,6 @@ data class PlayerSettingsResponse(
     @SerialName("resumePosition")
     val resumePosition: Long? = 0L,
 
-    @SerialName("saveProgressInterval")
-    val saveProgressInterval: Long? = 30000L,
-
     ) {
     fun toModel() = PlayerSettings(
         thumbnailUrl = thumbnailUrl,
@@ -79,7 +76,6 @@ data class PlayerSettingsResponse(
         seekPath = seekPath,
         videoUrl = videoUrl,
         resumePosition = resumePosition ?: 0L,
-        saveProgressInterval = saveProgressInterval ?: 30000L,
     )
 
     private fun parsePlaybackSpeeds(): List<Float> {

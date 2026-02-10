@@ -117,8 +117,6 @@ interface BunnyPlayer {
     fun importPositions(jsonData: String, callback: (Boolean) -> Unit)
     fun cleanupExpiredPositions()
     fun setResumePosition(position: Long)
-    fun saveCurrentProgress()
-    fun clearProgress()
 
     // TV Detection Methods
     fun isRunningOnTV(): Boolean {

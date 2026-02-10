@@ -55,6 +55,8 @@ open class BunnyTVPlayerActivity : AppCompatActivity() {
     private var currentVideo: VideoModel? = null
     private var isResumeDialogShowing = false
     private var isVideoInitialized = false
+    private var token: String? = null
+    private var expires: Long? = null
 
     // FIXED: Add main thread handler for thread-safe operations
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -64,12 +66,16 @@ open class BunnyTVPlayerActivity : AppCompatActivity() {
         private const val EXTRA_VIDEO_ID = "video_id"
         private const val EXTRA_LIBRARY_ID = "library_id"
         private const val EXTRA_VIDEO_TITLE = "video_title"
+        private const val EXTRA_TOKEN = "token"
+        private const val EXTRA_EXPIRES = "expires"
 
-        fun start(context: Context, videoId: String, libraryId: Long, videoTitle: String? = null) {
+        fun start(context: Context, videoId: String, libraryId: Long, videoTitle: String? = null, token: String? = null, expires: Long? = null) {
             val intent = Intent(context, BunnyTVPlayerActivity::class.java).apply {
                 putExtra(EXTRA_VIDEO_ID, videoId)
                 putExtra(EXTRA_LIBRARY_ID, libraryId)
                 putExtra(EXTRA_VIDEO_TITLE, videoTitle)
+                token?.let { putExtra(EXTRA_TOKEN, it) }
+                expires?.let { putExtra(EXTRA_EXPIRES, it) }
             }
             context.startActivity(intent)
         }
@@ -88,6 +94,8 @@ open class BunnyTVPlayerActivity : AppCompatActivity() {
         videoId = intent.getStringExtra(EXTRA_VIDEO_ID)
         libraryId = intent.getLongExtra(EXTRA_LIBRARY_ID, -1L)
         val videoTitle = intent.getStringExtra(EXTRA_VIDEO_TITLE)
+        token = intent.getStringExtra(EXTRA_TOKEN)
+        expires = if (intent.hasExtra(EXTRA_EXPIRES)) intent.getLongExtra(EXTRA_EXPIRES, -1L).takeIf { it != -1L } else null
 
         Log.d(TAG, "onCreate - Video ID: $videoId, Library ID: $libraryId")
 
@@ -220,7 +228,7 @@ open class BunnyTVPlayerActivity : AppCompatActivity() {
                     // Your existing load logic
                     val videoPlayData = withContext(Dispatchers.IO) {
                         BunnyStreamApi.getInstance().videosApi.videoGetVideoPlayData(
-                            libraryId, videoId
+                            libraryId, videoId, token, expires
                         )
                     }
 
@@ -239,7 +247,7 @@ open class BunnyTVPlayerActivity : AppCompatActivity() {
                     val playerSettings = withContext(Dispatchers.IO) {
                         try {
                             val settingsResult =
-                                BunnyStreamApi.getInstance().fetchPlayerSettings(libraryId, videoId)
+                                BunnyStreamApi.getInstance().fetchPlayerSettings(libraryId, videoId, token, expires)
                             settingsResult.fold(
                                 ifLeft = { error ->
                                     Log.w(TAG, "Failed to fetch player settings: $error")
@@ -405,9 +413,6 @@ open class BunnyTVPlayerActivity : AppCompatActivity() {
             videoUrl = "",
             seekPath = "",
             captionsPath = "",
-            // FIXED: Increase the save progress interval to reduce threading conflicts
-            // The default of 10 seconds may be too frequent and cause threading issues
-            saveProgressInterval = 30000 // Changed from 10000 to 30000 (30 seconds)
         )
     }
 

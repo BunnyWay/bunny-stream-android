@@ -10,6 +10,5 @@ sealed class VideoUiState {
 
     data class VideoUiLoaded(
         val video: Video,
-        val resumePosition: Long = 0L
     ) : VideoUiState()
 }

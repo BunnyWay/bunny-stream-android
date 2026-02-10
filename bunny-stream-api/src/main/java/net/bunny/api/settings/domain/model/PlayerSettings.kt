@@ -17,7 +17,6 @@ data class PlayerSettings(
     val seekPath: String,
     val captionsPath: String,
     val resumePosition: Long = 0L, // Position in milliseconds
-    val saveProgressInterval: Long = 30000L, // Save every 30 seconds
 ) {
     // "rewind,fast-forward,play-large,captions,current-time,duration,fullscreen,mute,pip,play,progress,settings,volume"
     val subtitlesEnabled = controls.contains("captions")
