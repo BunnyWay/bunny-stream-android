@@ -13,6 +13,10 @@ interface BunnyPlayer {
      * Plays a video and fetches additional info, e.g. chapters, moments and subtitles
      *
      * @param videoId Video ID
+     * @param libraryId Library ID, falls back to the default library ID if null
+     * @param videoTitle Video title
+     * @param token Embed view token for authenticated playback on token-secured pull zones
+     * @param expires Embed view token expiration timestamp
      */
     fun playVideo(videoId: String, libraryId: Long?, videoTitle: String, token: String? = null, expires: Long? = null)
 
