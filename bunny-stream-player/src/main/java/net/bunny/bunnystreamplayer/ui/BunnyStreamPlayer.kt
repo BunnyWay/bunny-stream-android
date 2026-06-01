@@ -388,6 +388,11 @@ class BunnyStreamPlayer @JvmOverloads constructor(
         bunnyPlayer.play()
         // Auto-save will start automatically via lifecycle observer
     }
+
+    override fun seekTo(position: Long) {
+        bunnyPlayer.seekTo(position)
+    }
+
     override fun getCurrentPosition(): Long {
         return bunnyPlayer.getCurrentPosition()
     }
