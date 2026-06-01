@@ -64,6 +64,32 @@ class BunnyStreamPlayer @JvmOverloads constructor(
             playerView.iconSet = value
         }
 
+    /**
+     * When `true`, the player periodically samples the video frame behind the position/duration
+     * readout and flips the text between black and white based on luminance, so the readout stays
+     * legible regardless of scene brightness. Defaults to `false` to preserve existing behavior;
+     * opt in from your app.
+     *
+     * Forwards to [BunnyPlayerView.autoProgressTextColor].
+     */
+    var autoProgressTextColor: Boolean
+        get() = playerView.autoProgressTextColor
+        set(value) {
+            playerView.autoProgressTextColor = value
+        }
+
+    /**
+     * Manual override for the position/duration text color. Has no lasting effect while
+     * [autoProgressTextColor] is enabled — the sampler overrides it on each tick.
+     *
+     * Forwards to [BunnyPlayerView.progressTextColor].
+     */
+    var progressTextColor: Int
+        get() = playerView.progressTextColor
+        set(value) {
+            playerView.progressTextColor = value
+        }
+
     private val bunnyPlayer = DefaultBunnyPlayer.getInstance(context)
     private var progressListener: BunnyPlayer.ProgressListener? = null
     private var progressListenerJob: Job? = null

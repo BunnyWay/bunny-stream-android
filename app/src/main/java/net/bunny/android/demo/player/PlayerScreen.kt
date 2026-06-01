@@ -410,6 +410,12 @@ fun BunnyPlayerComposable(
 
                 player.setPlaybackSpeedConfig(speedConfig)
 
+                // Opt the demo app in to auto-contrast for the position/duration readout so the
+                // text stays legible regardless of scene brightness. Off by default in the SDK.
+                player.autoProgressTextColor = true
+
+//                player.progressTextColor = android.graphics.Color.RED
+
                 // Enable resume position only if enabled in settings
                 if (resumeEnabled) {
                     player.enableResumePosition(

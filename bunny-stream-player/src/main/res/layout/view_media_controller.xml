@@ -124,6 +124,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 tools:text="00:00"
+                android:textColor="@android:color/white"
                 android:paddingVertical="8dp"/>
 
             <TextView
@@ -131,6 +132,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="/"
+                android:textColor="@android:color/white"
                 android:paddingVertical="8dp"
                 android:paddingHorizontal="3dp"/>
 
@@ -139,6 +141,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 tools:text="00:10"
+                android:textColor="@android:color/white"
                 android:paddingVertical="8dp"
                 android:paddingRight="8dp"/>
 
