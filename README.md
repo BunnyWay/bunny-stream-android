@@ -4,6 +4,9 @@
   <img src="resources/bunnynet.svg" width="70%" alt="BunnyNet" />
 </p>
 <p align="center">
+    <a href="https://central.sonatype.com/artifact/net.bunny/api" alt="Maven Central">
+        <img src="https://img.shields.io/maven-central/v/net.bunny/api?label=Maven%20Central" />
+    </a>
     <a href="./LICENSE" alt="License">
         <img src="https://img.shields.io/badge/Licence-MIT-green.svg" />
     </a>
