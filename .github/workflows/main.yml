@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       # Check out the repository code
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       # Set up JDK 17 (Temurin distribution)
       - name: Setup JDK
@@ -37,7 +37,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       # Re-checkout code at the start of this job
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       # Set up JDK again for Gradle
       - name: Setup JDK

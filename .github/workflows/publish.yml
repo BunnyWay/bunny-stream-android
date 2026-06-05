@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       # Check out your repo
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       # Set up JDK 17 (Temurin distribution)
       - name: Setup JDK
@@ -37,7 +37,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       # Re-checkout code (always required at start of a job)
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       # Setup Java again, import GPG key for signing
       - name: Setup Java, OSSRH creds & import GPG key
