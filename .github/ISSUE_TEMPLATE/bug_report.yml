@@ -1,0 +1,82 @@
+name: Bug report
+description: Report a reproducible problem in Bunny Stream Android.
+title: "[Bug]: "
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug. Please do not include Bunny access keys, signed URLs, or other secrets.
+  - type: input
+    id: sdk-version
+    attributes:
+      label: SDK version
+      description: Which version are you using?
+      placeholder: "3.3.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: module
+    attributes:
+      label: Affected module
+      multiple: true
+      options:
+        - api
+        - player
+        - recording
+        - tv
+        - demo app
+        - documentation
+        - build/publishing
+    validations:
+      required: true
+  - type: input
+    id: android-version
+    attributes:
+      label: Android version
+      placeholder: "Android 14 / API 34"
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: Device or emulator
+      placeholder: "Pixel 8, Samsung TV, Android TV emulator, etc."
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Provide the smallest reliable reproduction you can.
+      placeholder: |
+        1. Initialize BunnyStreamApi with ...
+        2. Call ...
+        3. Observe ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs, stack traces, screenshots, or sample code
+      description: Redact secrets before posting.
+      render: text
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched existing issues.
+          required: true
+        - label: I removed access keys, tokens, signed URLs, and private data.
+          required: true

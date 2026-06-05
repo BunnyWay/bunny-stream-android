@@ -1,0 +1,81 @@
+version: 2
+
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "08:00"
+      timezone: "Etc/UTC"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "ci"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "github-actions"
+    groups:
+      github-actions-minor-patch:
+        update-types:
+          - "minor"
+          - "patch"
+
+  - package-ecosystem: "gradle"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "tuesday"
+      time: "08:00"
+      timezone: "Etc/UTC"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "gradle"
+    groups:
+      android-build-tooling:
+        patterns:
+          - "com.android.*"
+          - "org.jetbrains.kotlin*"
+          - "org.jetbrains.dokka*"
+          - "io.gitlab.arturbosch.detekt*"
+          - "org.openapi.generator*"
+          - "com.vanniktech.maven.publish*"
+        update-types:
+          - "minor"
+          - "patch"
+      media3-minor-patch:
+        patterns:
+          - "androidx.media3:*"
+        update-types:
+          - "minor"
+          - "patch"
+      androidx-minor-patch:
+        patterns:
+          - "androidx.*"
+        update-types:
+          - "minor"
+          - "patch"
+      networking-minor-patch:
+        patterns:
+          - "com.squareup.okhttp3:*"
+          - "com.squareup.moshi:*"
+          - "io.ktor:*"
+          - "com.google.code.gson:*"
+          - "io.tus.*:*"
+        update-types:
+          - "minor"
+          - "patch"
+      ui-and-utility-minor-patch:
+        patterns:
+          - "com.google.android.material:*"
+          - "com.github.bumptech.glide:*"
+          - "io.arrow-kt:*"
+          - "com.charleskorn.kaml:*"
+          - "com.github.pedroSG94.RootEncoder:*"
+        update-types:
+          - "minor"
+          - "patch"

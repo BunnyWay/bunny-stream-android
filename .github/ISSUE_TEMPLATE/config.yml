@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Bunny Stream documentation
+    url: https://docs.bunny.net/stream/mobile-sdk
+    about: Read the official Bunny Stream Mobile SDK documentation.
+  - name: Bunny support
+    url: https://support.bunny.net/
+    about: Contact Bunny support for account, billing, dashboard, or production support questions.

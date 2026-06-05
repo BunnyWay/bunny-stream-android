@@ -1,0 +1,54 @@
+changelog:
+  exclude:
+    labels:
+      - ignore-for-release
+    authors:
+      - dependabot
+      - dependabot[bot]
+  categories:
+    - title: Breaking Changes
+      labels:
+        - breaking-change
+        - breaking
+    - title: Features
+      labels:
+        - enhancement
+        - feature
+    - title: Fixes
+      labels:
+        - bug
+        - fix
+    - title: Player
+      labels:
+        - player
+        - media3
+        - exoplayer
+    - title: Uploads and Recording
+      labels:
+        - upload
+        - video-upload
+        - camera-upload
+        - recording
+        - tus
+    - title: Android TV
+      labels:
+        - android-tv
+        - tv
+    - title: API
+      labels:
+        - api
+        - openapi
+    - title: Documentation
+      labels:
+        - documentation
+        - docs
+    - title: Build, CI, and Dependencies
+      labels:
+        - dependencies
+        - gradle
+        - github-actions
+        - ci
+        - build
+    - title: Other Changes
+      labels:
+        - "*"
