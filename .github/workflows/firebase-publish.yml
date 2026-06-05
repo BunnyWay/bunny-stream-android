@@ -16,7 +16,7 @@ jobs:
 
       # Set up JDK 17 (Temurin distribution)
       - name: Setup JDK
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: 17
@@ -38,7 +38,7 @@ jobs:
 
       # Set up JDK again for Gradle
       - name: Setup JDK
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: 17
