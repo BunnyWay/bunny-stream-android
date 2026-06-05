@@ -48,7 +48,7 @@ jobs:
 
       # Install the Android SDK to build the app
       - name: Setup Android SDK
-        uses: android-actions/setup-android@v3.2.0
+        uses: android-actions/setup-android@v4
 
       - uses: gradle/actions/setup-gradle@v4
 

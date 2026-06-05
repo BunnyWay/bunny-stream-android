@@ -48,7 +48,7 @@ jobs:
 
       # Setup Android SDK so Gradle can build Android modules
       - name: Setup Android SDK
-        uses: android-actions/setup-android@v2
+        uses: android-actions/setup-android@v4
 
       - name: Derive VERSION from Git tag
         run: |
