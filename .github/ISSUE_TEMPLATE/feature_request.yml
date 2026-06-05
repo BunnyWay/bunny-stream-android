@@ -1,0 +1,53 @@
+name: Feature request
+description: Suggest an improvement for Bunny Stream Android.
+title: "[Feature]: "
+labels: ["enhancement", "needs-triage"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or use case
+      description: What are you trying to build, and what is currently hard or missing?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Describe the API, behavior, or documentation you would like to see.
+    validations:
+      required: true
+  - type: dropdown
+    id: module
+    attributes:
+      label: Affected module
+      multiple: true
+      options:
+        - api
+        - player
+        - recording
+        - tv
+        - demo app
+        - documentation
+        - build/publishing
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Are there workarounds or other designs you considered?
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: Links, screenshots, related issues, or SDK examples.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched existing issues.
+          required: true
+        - label: This request is about the Android SDK, not general Bunny Stream product support.
+          required: true
