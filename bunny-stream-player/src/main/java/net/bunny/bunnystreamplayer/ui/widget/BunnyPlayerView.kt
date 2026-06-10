@@ -80,6 +80,22 @@ class BunnyPlayerView @JvmOverloads constructor(
 
         /** Cap sample bitmap dimensions so we don't burn CPU on 4K surfaces. */
         private const val MAX_SAMPLE_DIMENSION = 64
+
+        /** How often the live-edge badge re-evaluates the player position. */
+        private const val LIVE_EDGE_UPDATE_INTERVAL_MS = 1_000L
+
+        /**
+         * Live offset (ms behind the live edge) below which playback counts as "at the edge".
+         * HLS live offset hovers around a few target durations even when fully caught up, so
+         * this needs headroom above one segment length.
+         */
+        private const val LIVE_EDGE_THRESHOLD_MS = 15_000L
+
+        /** Badge tint when playback is at the live edge. */
+        private const val LIVE_EDGE_COLOR = 0xFFE53935.toInt()
+
+        /** Badge tint when playback is time-shifted into the DVR window. */
+        private const val BEHIND_LIVE_COLOR = 0xFF757575.toInt()
     }
 
     interface FullscreenListener {
@@ -275,6 +291,10 @@ class BunnyPlayerView @JvmOverloads constructor(
         findViewById<FrameLayout>(androidx.media3.ui.R.id.exo_overlay)
     }
 
+    private val liveBadge by lazy {
+        findViewById<TextView>(R.id.bunny_live_badge)
+    }
+
     private val bottomBar by lazy {
         findViewById<ConstraintLayout>(androidx.media3.ui.R.id.exo_bottom_bar)
     }
@@ -379,6 +399,15 @@ class BunnyPlayerView @JvmOverloads constructor(
 
         fullScreenButton.setOnClickListener {
             fullscreenListener?.onFullscreenToggleClicked()
+        }
+
+        // DVR: tapping the badge while time-shifted snaps back to the live edge
+        // (mirrors the web player's LIVE pill behavior).
+        liveBadge.setOnClickListener {
+            player?.let {
+                it.seekToDefaultPosition()
+                it.play()
+            }
         }
 
         subtitle.isVisible = bunnyPlayer?.getSubtitles()?.subtitles?.isNotEmpty() == true
@@ -819,11 +848,59 @@ class BunnyPlayerView @JvmOverloads constructor(
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
         if (autoProgressTextColor) progressColorSampler.start()
+        liveEdgeUpdater.start()
     }
 
     override fun onDetachedFromWindow() {
         progressColorSampler.stop()
+        liveEdgeUpdater.stop()
         super.onDetachedFromWindow()
+    }
+
+    private val liveEdgeUpdater = LiveEdgeUpdater()
+
+    /**
+     * Keeps the LIVE badge in sync with playback: hidden for VOD, red at the live edge, gray
+     * when the viewer has paused/rewound into the DVR window. Ticks once a second while the
+     * view is attached — the work is a couple of player getters, so this is negligible.
+     */
+    private inner class LiveEdgeUpdater {
+
+        private val handler = Handler(Looper.getMainLooper())
+        private var running = false
+
+        private val tick = object : Runnable {
+            override fun run() {
+                if (!running) return
+                update()
+                handler.postDelayed(this, LIVE_EDGE_UPDATE_INTERVAL_MS)
+            }
+        }
+
+        fun start() {
+            if (running) return
+            running = true
+            handler.post(tick)
+        }
+
+        fun stop() {
+            running = false
+            handler.removeCallbacks(tick)
+        }
+
+        private fun update() {
+            val p = player
+            val isLive = p != null && p.isCurrentMediaItemLive
+            if (liveBadge.isVisible != isLive) liveBadge.isVisible = isLive
+            if (!isLive || p == null) return
+
+            val offset = p.currentLiveOffset
+            val atEdge = p.playWhenReady &&
+                offset != androidx.media3.common.C.TIME_UNSET &&
+                offset <= LIVE_EDGE_THRESHOLD_MS
+            liveBadge.background.setTint(if (atEdge) LIVE_EDGE_COLOR else BEHIND_LIVE_COLOR)
+            liveBadge.alpha = if (atEdge) 1f else 0.9f
+        }
     }
 
     /**

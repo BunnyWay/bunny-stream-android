@@ -44,6 +44,11 @@
             android:exported="false"
             android:configChanges="orientation|screenSize|colorMode|uiMode"/>
 
+        <activity
+            android:name="net.bunny.android.demo.recording.GoLiveActivity"
+            android:exported="false"
+            android:configChanges="orientation|screenSize|colorMode|uiMode"/>
+
     </application>
 
 </manifest>

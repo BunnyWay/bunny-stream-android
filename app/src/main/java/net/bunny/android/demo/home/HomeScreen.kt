@@ -56,6 +56,8 @@ sealed class HomeOption(
 
     object CameraUpload : HomeOption("Camera upload")
 
+    object LiveStreams : HomeOption("Manage live streams")
+
     object DirectVideoPlay : HomeOption(
         "Direct video play",
         textColor = { MaterialTheme.colorScheme.primary })
@@ -88,6 +90,7 @@ fun HomeScreenRoute(
     navigateToPlayer: (String, Long) -> Unit,
     navigateToResumeSettings: () -> Unit,
     navigateToResumeManagement: () -> Unit,
+    navigateToLiveStreams: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var showDialog by remember { mutableStateOf(false) }
@@ -106,6 +109,10 @@ fun HomeScreenRoute(
 
                 HomeOption.CameraUpload -> {
                     navigateToStreaming()
+                }
+
+                HomeOption.LiveStreams -> {
+                    navigateToLiveStreams()
                 }
 
                 HomeOption.DirectVideoPlay -> {
@@ -127,7 +134,7 @@ fun HomeScreenRoute(
         },
         onPlayDirect = { videoId, libraryId ->
             showDialog = false
-            navigateToPlayer(videoId, libraryId.toLong())
+            navigateToPlayer(videoId, libraryId)
         },
         onDismiss = {
             showDialog = false
@@ -141,7 +148,7 @@ fun HomeScreenContent(
     modifier: Modifier,
     showDialog: Boolean = false,
     onOptionClick: (HomeOption) -> Unit,
-    onPlayDirect: (String, String) -> Unit,
+    onPlayDirect: (String, Long) -> Unit,
     onDismiss: () -> Unit
 ) {
     Scaffold(
@@ -186,6 +193,7 @@ fun OptionsList(
         HomeOption.VideoPlayer,
         HomeOption.VideoUpload,
         HomeOption.CameraUpload,
+        HomeOption.LiveStreams,
         HomeOption.DirectVideoPlay
     )
 
@@ -287,11 +295,12 @@ fun OptionsCategory(title: String) {
 @Composable
 private fun EnterVideoIdDialog(
     initialValue: String = "",
-    onPlay: (String, String) -> Unit,
+    onPlay: (String, Long) -> Unit,
     onDismiss: () -> Unit
 ) {
     var videoId by remember { mutableStateOf(initialValue) }
     var libraryId by remember { mutableStateOf(initialValue) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -312,7 +321,10 @@ private fun EnterVideoIdDialog(
                 Spacer(modifier = Modifier.height(8.dp))
                 TextField(
                     value = videoId,
-                    onValueChange = { videoId = it },
+                    onValueChange = {
+                        videoId = it
+                        errorMessage = null
+                    },
                     placeholder = { Text("Video ID") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
@@ -326,16 +338,42 @@ private fun EnterVideoIdDialog(
                 Spacer(modifier = Modifier.height(8.dp))
                 TextField(
                     value = libraryId,
-                    onValueChange = { libraryId = it },
-                    placeholder = { Text("Video Library ID") },
+                    onValueChange = {
+                        libraryId = it
+                        errorMessage = null
+                    },
+                    placeholder = { Text("Video Library ID (numeric)") },
                     singleLine = true,
+                    isError = errorMessage != null,
                     modifier = Modifier.fillMaxWidth(),
                 )
+                errorMessage?.let { message ->
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = message,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
             }
         },
         confirmButton = {
             TextButton(
-                onClick = { onPlay(videoId, libraryId) }
+                onClick = {
+                    val trimmedVideoId = videoId.trim().substringBefore('?')
+                    val trimmedLibraryId = libraryId.trim().substringBefore('?')
+                    val parsedLibraryId = trimmedLibraryId.toLongOrNull()
+                    when {
+                        trimmedVideoId.isEmpty() -> {
+                            errorMessage = "Please enter a video ID."
+                        }
+                        parsedLibraryId == null -> {
+                            errorMessage =
+                                "Library ID must be a number (e.g. 12345), not a GUID or URL."
+                        }
+                        else -> onPlay(trimmedVideoId, parsedLibraryId)
+                    }
+                }
             ) {
                 Text("Play", color = MaterialTheme.colorScheme.primary)
             }
@@ -358,8 +396,7 @@ fun OptionsScreenPreview() {
         HomeScreenContent(
             modifier = Modifier.fillMaxSize(),
             onOptionClick = {},
-            onPlayDirect = { videoId, libraryId ->
-            },
+            onPlayDirect = { _, _ -> },
             onDismiss = { },
         )
     }

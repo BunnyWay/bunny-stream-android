@@ -47,6 +47,21 @@ class DefaultStreamHandler(
 
     private var recordingStartTime: Long? = null
 
+    /** Set while broadcasting to a Bunny live stream — (libraryId, streamId). */
+    private var activeLiveStream: Pair<Long, String>? = null
+
+    /** Guards against duplicate start calls when RTMP reconnects mid-session. */
+    private var liveStartRequested = false
+
+    /** Diagnostics: the RTMP URL we're publishing to, and when the connect attempt began. */
+    private var streamUrl: String? = null
+    private var connectStartedAt: Long? = null
+    private var connectFailures = 0
+
+    /** Redacts the stream key (last path segment) so URLs are safe to log. */
+    private fun String.redactKey(): String =
+        substringBeforeLast('/') + "/" + substringAfterLast('/').take(4) + "…"
+
     private val width = 1920
     private val height = 1080
     private val fps = 30
@@ -70,10 +85,24 @@ class DefaultStreamHandler(
         }
 
         override fun onConnectionFailed(reason: String) {
+            connectFailures++
+            val elapsed = connectStartedAt?.let { System.currentTimeMillis() - it } ?: -1
+            Log.w(
+                TAG,
+                "ConnectChecker onConnectionFailed: reason=\"$reason\" " +
+                        "attempt=$connectFailures elapsedMs=$elapsed " +
+                        "url=${streamUrl?.redactKey()} " +
+                        "isStreaming=${genericStream.isStreaming}"
+            )
             if (genericStream.getStreamClient().reTry(5000, reason, null)) {
+                Log.w(TAG, "ConnectChecker retrying in 5000ms (attempt $connectFailures)")
                 Toast.makeText(openGlView.context, "Retrying connection", Toast.LENGTH_SHORT).show()
             } else {
-                Log.d(TAG, "ConnectChecker onConnectionFailed: $reason")
+                Log.e(
+                    TAG,
+                    "ConnectChecker giving up after $connectFailures attempt(s): \"$reason\" " +
+                            "(url=${streamUrl?.redactKey()}, totalElapsedMs=$elapsed)"
+                )
                 genericStream.stopStream()
                 timerJob?.cancel()
                 recordingStateListener?.onStreamConnectionFailed(reason)
@@ -82,15 +111,33 @@ class DefaultStreamHandler(
         }
 
         override fun onConnectionStarted(url: String) {
-            Log.d(TAG, "ConnectChecker onConnectionStarted: $url")
+            connectStartedAt = System.currentTimeMillis()
+            connectFailures = 0
+            Log.d(TAG, "ConnectChecker onConnectionStarted: ${url.redactKey()}")
             recordingStateListener?.onStreamConnected()
         }
 
         override fun onConnectionSuccess() {
-            Log.d(TAG, "ConnectChecker onConnectionSuccess")
+            val elapsed = connectStartedAt?.let { System.currentTimeMillis() - it } ?: -1
+            Log.d(TAG, "ConnectChecker onConnectionSuccess (handshake+connect took ${elapsed}ms)")
             recordingStateListener?.onStreamConnected()
             recordingStartTime = System.currentTimeMillis()
             startTimer()
+            // RTMP is connected — the Bunny live stream is now in PREVIEW. Mark it as started
+            // (RUNNING) so viewers can actually watch; mirrors the dashboard's "Go live" button.
+            val live = activeLiveStream
+            if (live != null && !liveStartRequested) {
+                liveStartRequested = true
+                scope.launch {
+                    streamRepository.startLiveStream(live.first, live.second).fold(
+                        ifLeft = { message ->
+                            Log.w(TAG, "startLiveStream failed: $message")
+                            liveStartRequested = false
+                        },
+                        ifRight = { Log.d(TAG, "live stream marked as started") },
+                    )
+                }
+            }
         }
 
         override fun onDisconnect() {
@@ -153,11 +200,21 @@ class DefaultStreamHandler(
     }
 
     override fun startStreaming(libraryId: Long) {
+        activeLiveStream = null
+        liveStartRequested = false
+        startWithEndpoint { streamRepository.prepareRecording(libraryId) }
+    }
+
+    override fun startLiveStreaming(libraryId: Long, streamId: String, ingestEndpoint: String?) {
+        activeLiveStream = libraryId to streamId
+        liveStartRequested = false
+        startWithEndpoint { streamRepository.prepareLiveBroadcast(libraryId, streamId, ingestEndpoint) }
+    }
+
+    private fun startWithEndpoint(prepare: suspend () -> Either<String, String>) {
         recordingStateListener?.onStreamInitializing()
         scope.launch {
-            val result = streamRepository.prepareRecording(libraryId)
-
-            when (result) {
+            when (val result = prepare()) {
                 is Either.Left -> {
                     MainScope().launch {
                         recordingStateListener?.onStreamConnectionFailed(result.value)
@@ -166,7 +223,17 @@ class DefaultStreamHandler(
 
                 is Either.Right -> {
                     if (!genericStream.isStreaming) {
+                        streamUrl = result.value
+                        connectFailures = 0
+                        Log.d(
+                            TAG,
+                            "startStream url=${result.value.redactKey()} " +
+                                    "video=${width}x$height@${fps} vBitrate=$vBitrate " +
+                                    "audio=${sampleRate}Hz aBitrate=$aBitrate"
+                        )
                         genericStream.startStream(result.value)
+                    } else {
+                        Log.w(TAG, "startStream skipped — already streaming")
                     }
                 }
             }
@@ -176,6 +243,20 @@ class DefaultStreamHandler(
     override fun stopStreaming() {
         genericStream.stopStream()
         recordingStateListener?.onStreamStopped()
+
+        // End the Bunny live stream server-side (mirrors the dashboard's "End stream" button);
+        // merely disconnecting RTMP leaves the stream live/preview for viewers.
+        val live = activeLiveStream
+        if (live != null) {
+            activeLiveStream = null
+            liveStartRequested = false
+            scope.launch {
+                streamRepository.stopLiveStream(live.first, live.second).fold(
+                    ifLeft = { message -> Log.w(TAG, "stopLiveStream failed: $message") },
+                    ifRight = { Log.d(TAG, "live stream stopped server-side") },
+                )
+            }
+        }
     }
 
     override fun isStreaming(): Boolean {

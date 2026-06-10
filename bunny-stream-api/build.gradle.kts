@@ -26,6 +26,11 @@ android {
         buildConfigField("String", "TUS_UPLOAD_ENDPOINT", "\"https://video.bunnycdn.com/tusupload\"")
         buildConfigField("String", "BASE_API", "\"https://video.bunnycdn.com\"")
         buildConfigField("String", "RTMP_ENDPOINT", "\"rtmp://49.13.154.169/ingest\"")
+        // Default RTMP ingest endpoint for *live streams* (Preview API), as shown in the
+        // dashboard's "Primary ingest URL". The publish URL is built as
+        // "$LIVE_RTMP_ENDPOINT/{streamKey}". Override at runtime via
+        // BunnyStreamCameraUpload.liveIngestEndpoint if needed.
+        buildConfigField("String", "LIVE_RTMP_ENDPOINT", "\"rtmp://global.rtmp.mediadelivery.net/live\"")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         consumerProguardFiles("consumer-rules.pro")
@@ -62,7 +67,17 @@ android {
         kotlinCompilerExtensionVersion = "1.5.14" // Replace with the correct version
     }
 
-
+    testOptions {
+        unitTests {
+            // PlaybackSpeedManager.parsePlaybackSpeeds() and other internal code paths call into
+            // [android.util.Log] for diagnostics. By default AGP makes Android framework methods
+            // throw "not mocked" in JVM tests; that RuntimeException gets swallowed by
+            // [DefaultLiveStreamRepository.runApi]'s catch-all and surfaces to tests as a
+            // confusing [Either.Left]. Returning defaults keeps the production code paths
+            // exercised without dragging Robolectric into the dep graph.
+            isReturnDefaultValues = true
+        }
+    }
 }
 
 dependencies {
@@ -77,6 +92,11 @@ dependencies {
     // Testing dependencies
     // https://junit.org/junit4/
     testImplementation("junit:junit:4.13.2")
+    // mockk — used to stub the generated [ManageLiveStreamsApi] in the live-stream repository
+    // tests. The generated APIs are final classes; mockk handles those without extra config.
+    testImplementation("io.mockk:mockk:1.13.13")
+    // Virtual-time + TestDispatcher for the repository's withContext(coroutineDispatcher) path.
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.6.4")
     // https://developer.android.com/jetpack/androidx/releases/test
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
     // https://developer.android.com/jetpack/androidx/releases/test#espresso
@@ -126,9 +146,12 @@ detekt {
     config.from("$rootDir/bunny-stream-api/detekt.yml")
 }
 
-val specs = File("$rootDir/bunny-stream-api/openapi").walk().map {
-    Pair(it.name, it.path)
-}.toMap().filter { it.key != "openapi" }
+// Only real spec files — guards against stray files (.DS_Store, editor swap files, …)
+// being fed to the generator and failing the build.
+val specs = File("$rootDir/bunny-stream-api/openapi").walk()
+    .filter { it.isFile && it.extension in setOf("yml", "yaml", "json") }
+    .map { Pair(it.name, it.path) }
+    .toMap()
 
 specs.forEach {
     tasks.create("openApiGenerate-${it.key}", org.openapitools.generator.gradle.plugin.tasks.GenerateTask::class) {
@@ -150,7 +173,10 @@ specs.forEach {
         ))
 
         typeMappings.set(mapOf(
-            "VideoModelStatus" to "net.bunny.api.model.VideoModelStatus"
+            "VideoModelStatus" to "net.bunny.api.model.VideoModelStatus",
+            "LiveStreamModelStatus" to "net.bunny.api.model.LiveStreamStatus",
+            "VideoModelSmartGenerateStatus" to "net.bunny.api.model.SmartGenerateStatus",
+            "VideoPlayDataModelPreferredPlaybackSource" to "net.bunny.api.model.VideoPlaybackSource"
         ))
     }
 }
@@ -183,32 +209,43 @@ tasks.register<Copy>("copyGeneratedDocs") {
     }
 }
 
-// Needed to remove VideoModelStatus class which gets generated incorrectly.
-// Correct implementation is supplied from net.bunny.api.model.VideoModelStatus.
+// Needed to remove the {Model}Status wrappers that the OpenAPI generator emits
+// for `status` properties using `oneOf` references. The correct implementations
+// are supplied from net.bunny.api.model.* and wired in via typeMappings above.
 tasks.register("fixGeneratedFiles") {
     doLast {
-        val fileToFix = file("${layout.buildDirectory.dir("generated/api/").get().asFile.absolutePath}/src/main/kotlin/org/openapitools/client/models/VideoModelStatus.kt")
-        if (fileToFix.exists()) {
-            try {
-                // Empty placeholder class that matches the package of the original file
-                val content = """
-                    /**
-                     * This is a placehodler class. The actual implementation is provided by typeMappings in GenerateTask config.
-                     */
-                    package org.openapitools.client.models
-                    
-                    // This class replaces the (wrong) auto-generated implementation
-                    class VideoModelStatus {
-                        // Intentionally left empty
-                    }
-                """.trimIndent()
-                fileToFix.writeText(content)
-            } catch (e: Exception) {
-                logger.error("Failed to modify file: ${fileToFix.absolutePath}", e)
-                //throw GradleException("Failed to modify generated file: ${fileToFix.absolutePath}", e)
+        val generatedRoot = layout.buildDirectory.dir("generated/api/").get().asFile.absolutePath
+        val brokenWrappers = listOf(
+            "VideoModelStatus",
+            "LiveStreamModelStatus",
+            "VideoModelSmartGenerateStatus",
+            "VideoPlayDataModelPreferredPlaybackSource"
+        )
+
+        brokenWrappers.forEach { className ->
+            val fileToFix = file("$generatedRoot/src/main/kotlin/org/openapitools/client/models/$className.kt")
+            if (fileToFix.exists()) {
+                try {
+                    // Empty placeholder class that matches the package of the original file
+                    val content = """
+                        /**
+                         * This is a placeholder class. The actual implementation is provided by typeMappings in GenerateTask config.
+                         */
+                        package org.openapitools.client.models
+
+                        // This class replaces the (wrong) auto-generated implementation
+                        class $className {
+                            // Intentionally left empty
+                        }
+                    """.trimIndent()
+                    fileToFix.writeText(content)
+                } catch (e: Exception) {
+                    logger.error("Failed to modify file: ${fileToFix.absolutePath}", e)
+                    //throw GradleException("Failed to modify generated file: ${fileToFix.absolutePath}", e)
+                }
+            } else {
+                logger.lifecycle("fixGeneratedFiles: file not found: ${fileToFix.absolutePath}")
             }
-        } else {
-            logger.lifecycle("fixGeneratedFiles: file not found: ${fileToFix.absolutePath}")
         }
     }
 }

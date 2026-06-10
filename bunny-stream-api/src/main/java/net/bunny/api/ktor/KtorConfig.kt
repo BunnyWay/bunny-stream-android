@@ -37,7 +37,11 @@ fun initHttpClient(accessKey: String?): HttpClient {
                     Log.v("Logger Ktor =>", message)
                 }
             }
-            level = LogLevel.ALL
+            // HEADERS, not ALL: LogLevel.ALL (and BODY) buffer the entire request/response body
+            // into a String to log it. For video uploads that body is the whole file, so logging
+            // it allocates a multi-tens-of-MB String and OOMs the app. HEADERS keeps request line,
+            // status and headers without ever touching the body.
+            level = LogLevel.HEADERS
         }
 
         install(ResponseObserver) {

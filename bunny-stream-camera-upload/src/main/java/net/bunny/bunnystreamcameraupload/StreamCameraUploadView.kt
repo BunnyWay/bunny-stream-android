@@ -9,6 +9,19 @@ interface StreamCameraUploadView {
     var hideDefaultControls: Boolean
 
     /**
+     * When set, the view broadcasts to this existing Bunny *live stream* (RTMP publish using
+     * the stream's streamKey) instead of recording a new VOD video. Set to `null` (default)
+     * for the classic camera-upload behavior.
+     */
+    var liveStreamId: String?
+
+    /**
+     * Optional override for the live RTMP ingest endpoint (e.g. a regional host shown in the
+     * Bunny dashboard). `null` uses the SDK default. Only used when [liveStreamId] is set.
+     */
+    var liveIngestEndpoint: String?
+
+    /**
      * Click listener to receive close clicked event so you can handle it,
      * e.g. finish hosting activity or navigate to some other screen
      */

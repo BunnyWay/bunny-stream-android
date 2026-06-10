@@ -7,1166 +7,2344 @@ info:
     name: bunny.net
     url: https://docs.bunny.net
     email: support@bunny.net
-  version: 1.0.0
-  description: This API allows you to manage video collections and videos on the Bunny Stream platform. It supports operations such as retrieval, creation, updating, deletion, fetching, and transcoding of collections and videos. For further details, please refer to the external documentation.
+  version: 1.4.78
+  description: ' | Synced from the official Bunny Stream (Preview) API spec v1.4.78 on 2026-06-06. Local conventions
+    applied: enums flattened to enum+x-enumNames, JSON request bodies wrapped in nullable oneOf (stable generated
+    wrapper names), and the LiveStream_Update/LiveStream_Delete operationIds retained from the previous spec. Required-field
+    lists removed from response models (VideoModel, LiveStreamModel) so generated constructors keep all-optional
+    parameters.'
 servers:
-  - url: https://video.bunnycdn.com/
+- url: https://video.bunnycdn.com
 paths:
   /library/{libraryId}/collections/{collectionId}:
     get:
       tags:
-        - Manage Collections
+      - Manage Collections
       summary: Get Collection
-      description: Retrieves details of a specific collection. Use the query parameter 'includeThumbnails' to include preview images if available.
       operationId: Collection_GetCollection
       parameters:
-        - name: libraryId
-          in: path
-          required: true
-          schema:
-            type: integer
-            format: int64
-          description: The ID of the video library containing the collection.
-        - name: collectionId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: The unique identifier of the collection.
-        - name: includeThumbnails
-          in: query
-          schema:
-            type: boolean
-            default: false
-          description: If true, the response will include preview image URLs for the collection.
+      - name: libraryId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+        x-position: 1
+      - name: collectionId
+        in: path
+        required: true
+        schema:
+          type: string
+        x-position: 2
+      - name: includeThumbnails
+        in: query
+        schema:
+          type: boolean
+          default: false
+        x-position: 3
       responses:
         '200':
-          description: The details of the requested collection, including metadata and optional thumbnails.
+          description: The details of the requested collection
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/CollectionModel'
-        '401':
-          description: The request authorization failed.
         '404':
-          description: The requested collection was not found.
+          description: The requested collection was not found
+        '401':
+          description: The request authentication failed
         '500':
-          description: Internal Server Error.
+          description: Internal Server Error
       security:
-        - AccessKey: []
+      - AccessKey: []
     post:
       tags:
-        - Manage Collections
+      - Manage Collections
       summary: Update Collection
-      description: Updates an existing collection. Provide the new collection details in the request body using the UpdateCollectionModel.
       operationId: Collection_UpdateCollection
       parameters:
-        - name: libraryId
-          in: path
-          required: true
-          schema:
-            type: integer
-            format: int64
-          description: The ID of the video library containing the collection.
-        - name: collectionId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: The unique identifier of the collection to be updated.
+      - name: libraryId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+        x-position: 1
+      - name: collectionId
+        in: path
+        required: true
+        schema:
+          type: string
+        x-position: 2
       requestBody:
-        description: Collection model containing the fields to be updated.
+        x-name: model
         content:
           application/json:
             schema:
               nullable: true
               oneOf:
-                - $ref: '#/components/schemas/UpdateCollectionModel'
+              - $ref: '#/components/schemas/UpdateCollectionModel'
         required: true
+        x-position: 3
       responses:
         '200':
-          description: The collection was successfully updated.
+          description: The collection was successfully updated
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/StatusModel'
-        '401':
-          description: The request authorization failed.
         '404':
-          description: The requested collection was not found.
+          description: The requested collection was not found
+        '401':
+          description: The request authentication failed
+        '403':
+          description: The request authorization failed
         '500':
-          description: Internal Server Error.
+          description: Internal Server Error
       security:
-        - AccessKey: []
+      - AccessKey: []
     delete:
       tags:
-        - Manage Collections
+      - Manage Collections
       summary: Delete Collection
-      description: Deletes the specified collection permanently from the video library.
       operationId: Collection_DeleteCollection
       parameters:
-        - name: libraryId
-          in: path
-          required: true
-          schema:
-            type: integer
-            format: int64
-          description: The ID of the video library containing the collection.
-        - name: collectionId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: The unique identifier of the collection to be deleted.
+      - name: libraryId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+        x-position: 1
+      - name: collectionId
+        in: path
+        required: true
+        schema:
+          type: string
+        x-position: 2
       responses:
         '200':
-          description: The collection was successfully deleted.
+          description: The collection was successfully deleted
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/StatusModel'
-        '401':
-          description: The request authorization failed.
         '404':
-          description: The requested collection was not found.
+          description: The requested collection was not found
+        '401':
+          description: The request authentication failed
+        '403':
+          description: The request authorization failed
         '500':
-          description: Internal Server Error.
+          description: Internal Server Error
       security:
-        - AccessKey: []
+      - AccessKey: []
   /library/{libraryId}/collections:
     get:
       tags:
-        - Manage Collections
+      - Manage Collections
       summary: Get Collection List
-      description: Retrieves a paginated list of collections for the specified video library. Optional query parameters allow for filtering, pagination, and ordering the results.
       operationId: Collection_List
       parameters:
-        - name: libraryId
-          in: path
-          required: true
-          schema:
-            type: integer
-            format: int64
-          description: The ID of the video library.
-        - name: page
-          in: query
-          schema:
-            type: integer
-            format: int32
-            default: 1
-          description: The page number to retrieve.
-        - name: itemsPerPage
-          in: query
-          schema:
-            type: integer
-            format: int32
-            default: 100
-          description: The number of items per page.
-        - name: search
-          in: query
-          schema:
-            type: string
-            default: ''
-            nullable: true
-          description: A search term to filter collections by name or other metadata.
-        - name: orderBy
-          in: query
-          schema:
-            type: string
-            default: date
-            nullable: true
-          description: Specifies the field by which to order the results.
-        - name: includeThumbnails
-          in: query
-          schema:
-            type: boolean
-            default: false
-          description: If true, includes thumbnail image URLs in the response.
+      - name: libraryId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+        x-position: 1
+      - name: page
+        in: query
+        schema:
+          type: integer
+          format: int32
+          default: 1
+        x-position: 2
+      - name: itemsPerPage
+        in: query
+        schema:
+          type: integer
+          format: int32
+          default: 100
+        x-position: 3
+      - name: search
+        in: query
+        schema:
+          type: string
+          default: ''
+          nullable: true
+        x-position: 4
+      - name: orderBy
+        in: query
+        schema:
+          type: string
+          default: date
+          nullable: true
+        x-position: 5
+      - name: includeThumbnails
+        in: query
+        schema:
+          type: boolean
+          default: false
+        x-position: 6
       responses:
         '200':
-          description: A paginated list of collections matching the query parameters.
+          description: The list of videos for the current parameters
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/PaginationListOfCollectionModel'
         '401':
-          description: The request authorization failed.
+          description: The request authentication failed
         '500':
-          description: Internal Server Error.
+          description: Internal Server Error
       security:
-        - AccessKey: []
+      - AccessKey: []
     post:
       tags:
-        - Manage Collections
+      - Manage Collections
       summary: Create Collection
-      description: Creates a new collection in the specified video library using the provided collection details.
       operationId: Collection_CreateCollection
       parameters:
-        - name: libraryId
-          in: path
-          required: true
-          schema:
-            type: integer
-            format: int64
-          description: The ID of the video library where the new collection will be created.
+      - name: libraryId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+        x-position: 1
       requestBody:
-        description: Collection model containing the details for the new collection.
+        x-name: model
         content:
           application/json:
             schema:
               nullable: true
               oneOf:
-                - $ref: '#/components/schemas/UpdateCollectionModel'
+              - $ref: '#/components/schemas/UpdateCollectionModel'
         required: true
+        x-position: 2
       responses:
         '200':
-          description: The collection was successfully created.
+          description: The collection was successfully created
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/CollectionModel'
         '401':
-          description: The request authorization failed.
+          description: The request authentication failed
+        '403':
+          description: The request authorization failed
         '500':
-          description: Internal Server Error.
+          description: Internal Server Error
       security:
-        - AccessKey: []
-  /library/{libraryId}/videos/{videoId}:
+      - AccessKey: []
+  /library/{libraryId}:
     get:
       tags:
-        - Manage Videos
-      summary: Get Video
-      description: Retrieves detailed metadata for the specified video, including status, dimensions, encoding progress, and more.
-      operationId: Video_GetVideo
+      - Library
+      operationId: Library_Status
       parameters:
-        - name: libraryId
-          in: path
-          required: true
-          schema:
-            type: integer
-            format: int64
-          description: The ID of the video library.
-        - name: videoId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: The unique identifier of the video.
+      - name: libraryId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+        x-position: 1
       responses:
         '200':
-          description: Detailed video information including metadata and status.
+          description: ''
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/VideoModel'
-        '401':
-          description: The request authorization failed.
-        '404':
-          description: The requested video was not found.
-        '500':
-          description: Internal Server Error.
-    post:
+                $ref: '#/components/schemas/VideoLibraryStatus'
+      security:
+      - AccessKey: []
+  /library/{libraryId}/live/{streamId}:
+    get:
       tags:
-        - Manage Videos
-      summary: Update Video
-      description: Updates metadata and other details for the specified video. Provide updated fields in the request body using the UpdateVideoModel.
-      operationId: Video_UpdateVideo
+      - Manage Live Streams
+      summary: Get live stream by ID
+      description: Gets details of a live stream contained in library by its ID.
+      operationId: LiveStream_GetByStreamId
       parameters:
-        - name: libraryId
-          in: path
-          required: true
-          schema:
-            type: integer
-            format: int64
-          description: The ID of the video library.
-        - name: videoId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: The unique identifier of the video to update.
+      - name: libraryId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+        x-position: 1
+      - name: streamId
+        in: path
+        required: true
+        schema:
+          type: string
+        x-position: 2
+      responses:
+        '200':
+          description: The details of the requested live stream
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LiveStreamModel'
+        '404':
+          description: The requested live stream was not found
+        '401':
+          description: The request authentication failed
+        '500':
+          description: Internal Server Error
+      security:
+      - AccessKey: []
+    put:
+      tags:
+      - Manage Live Streams
+      summary: Update live stream
+      description: Updates the live stream object with the specified parameters and returns it
+      operationId: LiveStream_Update
+      parameters:
+      - name: libraryId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+        x-position: 1
+      - name: streamId
+        in: path
+        required: true
+        schema:
+          type: string
+        x-position: 2
       requestBody:
-        description: Video model containing the fields to update.
+        x-name: model
         content:
           application/json:
             schema:
               nullable: true
               oneOf:
-                - $ref: '#/components/schemas/UpdateVideoModel'
+              - $ref: '#/components/schemas/UpdateLiveStreamModel'
         required: true
+        x-position: 3
       responses:
         '200':
-          description: The video was successfully updated.
+          description: The live stream was successfully updated
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/StatusModel'
-        '401':
-          description: The request authorization failed.
+                $ref: '#/components/schemas/LiveStreamModel'
+        '400':
+          description: Request was invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusModelOfListOfString'
         '404':
-          description: The requested video was not found.
+          description: The requested live stream was not found
+        '401':
+          description: The request authentication failed
+        '403':
+          description: The request authorization failed
         '500':
-          description: Internal Server Error.
+          description: Internal Server Error
       security:
-        - AccessKey: []
+      - AccessKey: []
     delete:
       tags:
-        - Manage Videos
-      summary: Delete Video
-      description: Deletes the specified video permanently from the video library.
-      operationId: Video_DeleteVideo
+      - Manage Live Streams
+      summary: Delete live stream
+      description: Deletes the live stream object and all resources associated with it. This operation cannot be
+        undone.
+      operationId: LiveStream_Delete
       parameters:
-        - name: libraryId
-          in: path
-          required: true
-          schema:
-            type: integer
-            format: int64
-          description: The ID of the video library.
-        - name: videoId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: The unique identifier of the video to be deleted.
+      - name: libraryId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+        x-position: 1
+      - name: streamId
+        in: path
+        required: true
+        schema:
+          type: string
+        x-position: 2
       responses:
         '200':
-          description: The video was successfully deleted.
+          description: The details of the requested live stream
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/StatusModel'
-        '401':
-          description: The request authorization failed.
-        '404':
-          description: The requested video was not found.
-        '500':
-          description: Internal Server Error.
-      security:
-        - AccessKey: []
-    put:
-      tags:
-        - Manage Videos
-      summary: Upload Video
-      description: Uploads a new video file to the specified video library. Additional query parameters allow customization of encoding options such as JIT encoding, enabled resolutions, and output codecs.
-      operationId: Video_UploadVideo
-      parameters:
-        - name: libraryId
-          in: path
-          required: true
-          schema:
-            type: integer
-            format: int64
-          description: The ID of the video library.
-        - name: videoId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: The unique identifier to assign to the new video.
-        - name: jitEnabled
-          in: query
-          description: Determines whether JIT encoding should be enabled for this video. Works only when Premium Encoding is enabled; overrides library settings.
-          schema:
-            type: boolean
-        - name: enabledResolutions
-          in: query
-          description: 'A comma-separated list of resolutions to enable for encoding. Options include: 240p, 360p, 480p, 720p, 1080p, 1440p, 2160p.'
-          schema:
-            type: string
-            default: ''
-            nullable: true
-        - name: enabledOutputCodecs
-          in: query
-          description: 'Specifies the codecs that will be used to encode the video. Overrides library settings. Available values: x264, vp9.'
-          schema:
-            type: string
-            default: ''
-            nullable: true
-      responses:
-        '200':
-          description: The video was successfully uploaded and is now being processed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/StatusModel'
+                $ref: '#/components/schemas/LiveStreamModel'
         '400':
-          description: The requested video was already uploaded.
-        '401':
-          description: The request authorization failed.
-        '404':
-          description: The requested video was not found.
-        '500':
-          description: Internal Server Error.
-      security:
-        - AccessKey: []
-  /library/{libraryId}/videos/{videoId}/heatmap:
-    get:
-      tags:
-        - Manage Videos
-      summary: Get Video Heatmap
-      description: Retrieves the heatmap data for the specified video, indicating the percentage of watch time across the video's duration.
-      operationId: Video_GetVideoHeatmap
-      parameters:
-        - name: libraryId
-          in: path
-          required: true
-          schema:
-            type: integer
-            format: int64
-          description: The ID of the video library.
-        - name: videoId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: The unique identifier of the video.
-      responses:
-        '200':
-          description: The heatmap data for the video, where higher values indicate greater viewer engagement.
+          description: Request was invalid
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/VideoHeatmapModel'
-        '401':
-          description: The request authorization failed.
+                $ref: '#/components/schemas/StatusModelOfListOfString'
         '404':
-          description: The requested video was not found.
+          description: The requested live stream was not found
+        '401':
+          description: The request authentication failed
+        '403':
+          description: The request authorization failed
         '500':
-          description: Internal Server Error.
+          description: Internal Server Error
       security:
-        - AccessKey: []
-  /library/{libraryId}/videos/{videoId}/play:
+      - AccessKey: []
+  /library/{libraryId}/live/{streamId}/play:
     get:
       tags:
-        - Manage Videos
-      summary: Get Video Play Data
-      description: Retrieves playback data for the specified video including video URLs, captions path, authentication tokens, and player settings.
-      operationId: Video_GetVideoPlayData
+      - Manage Live Streams
+      summary: Get live stream play data
+      operationId: LiveStream_GetStreamPlayData
       parameters:
-        - name: libraryId
-          in: path
-          required: true
-          schema:
-            type: integer
-            format: int64
-          description: The ID of the video library.
-        - name: videoId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: The unique identifier of the video.
-        - name: token
-          in: query
-          schema:
-            type: string
-            default: ''
-            nullable: true
-          description: Authentication token for accessing the video playback data.
-        - name: expires
-          in: query
-          schema:
-            type: integer
-            format: int64
-            default: 0
-          description: Expiration timestamp for the provided token.
+      - name: libraryId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+        x-position: 1
+      - name: streamId
+        in: path
+        required: true
+        schema:
+          type: string
+        x-position: 2
+      - name: token
+        in: query
+        schema:
+          type: string
+          default: ''
+          nullable: true
+        x-position: 3
+      - name: expires
+        in: query
+        schema:
+          type: integer
+          format: int64
+          default: 0
+        x-position: 4
       responses:
         '200':
-          description: The playback data for the video, including URLs and player settings.
+          description: The play data of the requested live stream
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/VideoPlayDataModel'
-        '401':
-          description: The request authorization failed.
+                $ref: '#/components/schemas/LiveStreamPlayDataModel'
         '404':
-          description: The requested video was not found.
-        '500':
-          description: Internal Server Error.
-  /library/{libraryId}/statistics:
-    get:
-      tags:
-        - Manage Videos
-      summary: Get Video Statistics
-      description: Retrieves statistical data for videos in the specified library. Supports filtering by date range, hourly grouping, and filtering by video GUID.
-      operationId: Video_GetVideoStatistics
-      parameters:
-        - name: libraryId
-          in: path
-          required: true
-          schema:
-            type: integer
-            format: int64
-          description: The ID of the video library.
-        - name: dateFrom
-          in: query
-          description: Optional start date (ISO 8601 format) for the statistics. Defaults to the last 30 days if not provided.
-          schema:
-            type: string
-            format: date-time
-            nullable: true
-        - name: dateTo
-          in: query
-          description: Optional end date (ISO 8601 format) for the statistics. Defaults to the last 30 days if not provided.
-          schema:
-            type: string
-            format: date-time
-            nullable: true
-        - name: hourly
-          in: query
-          description: If true, returns statistics data grouped by hour.
-          schema:
-            type: boolean
-            default: false
-        - name: videoGuid
-          in: query
-          description: Optional GUID of a specific video to retrieve statistics for.
-          schema:
-            type: string
-            nullable: true
-      responses:
-        '200':
-          description: The statistical data for the specified videos or video.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/VideoStatisticsModel'
+          description: The requested live stream was not found
         '401':
-          description: The request authorization failed.
-        '404':
-          description: The requested video was not found.
+          description: The request authentication failed
+        '403':
+          description: The request authorization failed
         '500':
-          description: Internal Server Error.
-      security:
-        - AccessKey: []
-  /library/{libraryId}/videos/{videoId}/reencode:
+          description: Internal Server Error
+  /library/{libraryId}/live:
     post:
       tags:
-        - Manage Videos
-      summary: Reencode Video
-      description: Initiates a re-encoding process for the specified video. This operation can be used to adjust encoding settings or to fix issues with the original encoding.
-      operationId: Video_ReencodeVideo
+      - Manage Live Streams
+      summary: Create new live stream
+      description: Creates a new live stream object with the specified parameters and returns it
+      operationId: LiveStream_Create
       parameters:
-        - name: libraryId
-          in: path
-          required: true
-          schema:
-            type: integer
-            format: int64
-          description: The ID of the video library.
-        - name: videoId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: The unique identifier of the video to reencode.
+      - name: libraryId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+        x-position: 1
+      requestBody:
+        x-name: model
+        content:
+          application/json:
+            schema:
+              nullable: true
+              oneOf:
+              - $ref: '#/components/schemas/CreateLiveStreamModel'
+        required: true
+        x-position: 2
       responses:
         '200':
-          description: The video reencoding process was initiated successfully and updated video details are returned.
+          description: The live stream was successfully created and returned as the response.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/VideoModel'
-        '400':
-          description: The original video file is missing.
+                $ref: '#/components/schemas/LiveStreamModel'
         '401':
-          description: The request authorization failed.
-        '404':
-          description: The requested video was not found.
-        '500':
-          description: Internal Server Error.
-      security:
-        - AccessKey: []
-  /library/{libraryId}/videos/{videoId}/outputs/{outputCodecId}:
-    put:
-      tags:
-        - Manage Videos
-      summary: Add output codec to video
-      description: Adds a specified output codec to the video. This enables additional encoding options for the video file.
-      operationId: Video_ReencodeUsingCodec
-      parameters:
-        - name: libraryId
-          in: path
-          required: true
-          schema:
-            type: integer
-            format: int64
-          description: The ID of the video library.
-        - name: videoId
-          in: path
-          required: true
-          schema:
-            type: string
-            format: guid
-          description: The unique identifier of the video.
-        - name: outputCodecId
-          in: path
-          required: true
-          schema:
-            $ref: '#/components/schemas/EncoderOutputCodec'
-          description: The output codec to add (e.g., x264, vp9, hevc, av1).
-      responses:
-        '200':
-          description: The output codec was successfully added and the updated video details are returned.
+          description: The request authentication failed
+        '403':
+          description: The request authorization failed
+        '400':
+          description: Request was invalid
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/VideoModel'
+                $ref: '#/components/schemas/StatusModelOfListOfString'
+        '500':
+          description: Internal Server Error
+      security:
+      - AccessKey: []
+    get:
+      tags:
+      - Manage Live Streams
+      summary: List streams
+      description: Returns a list of streams associated with this library and collection, if passed
+      operationId: LiveStream_List
+      parameters:
+      - name: libraryId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+        x-position: 1
+      - name: page
+        in: query
+        schema:
+          type: integer
+          format: int32
+          default: 1
+        x-position: 2
+      - name: itemsPerPage
+        in: query
+        schema:
+          type: integer
+          format: int32
+          default: 100
+        x-position: 3
+      - name: search
+        in: query
+        schema:
+          type: string
+          default: ''
+          nullable: true
+        x-position: 4
+      - name: orderBy
+        in: query
+        description: 'The field to order by. Possible values: date, title, status, started, ended, planned'
+        schema:
+          type: string
+          default: date
+          nullable: true
+        x-position: 5
+      - name: collectionId
+        in: query
+        schema:
+          type: string
+          nullable: true
+        x-position: 6
+      responses:
+        '200':
+          description: The list of live streams associated with this library
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginationListOfLiveStreamModel'
         '400':
-          description: Invalid request or validation failed. Check the response for details.
+          description: Request was invalid
           content:
             application/json:
               schema:
                 type: string
-        '401':
-          description: The request authorization failed.
         '404':
-          description: The requested video was not found.
+          description: The requested library was not found
+        '401':
+          description: The request authentication failed
         '500':
-          description: Internal Server Error.
+          description: Internal Server Error
       security:
-        - AccessKey: []
-  /library/{libraryId}/videos/{videoId}/repackage:
-    post:
+      - AccessKey: []
+  /library/{libraryId}/live/{streamId}/start:
+    put:
       tags:
-        - Manage Videos
-      summary: Repackage Video
-      description: Repackages the video, with an option to retain original files for faster future operations. This process may adjust resolution outputs and file formats.
-      operationId: Video_Repackage
+      - Manage Live Streams
+      summary: Start live stream
+      description: Marks the stream as started, allowing viewers to view the stream.
+      operationId: LiveStream_StartStream
       parameters:
-        - name: libraryId
-          in: path
-          required: true
-          schema:
-            type: integer
-            format: int64
-          description: The ID of the video library.
-        - name: videoId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: The unique identifier of the video to repackage.
-        - name: keepOriginalFiles
-          in: query
-          description: If true, previous file versions are kept in storage, allowing for faster future repackaging. Default is true.
-          schema:
-            type: boolean
-            default: true
+      - name: libraryId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+        x-position: 1
+      - name: streamId
+        in: path
+        required: true
+        schema:
+          type: string
+        x-position: 2
       responses:
         '200':
-          description: The video was successfully repackaged and updated details are returned.
+          description: The details of the started live stream
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LiveStreamModel'
+        '400':
+          description: Request was invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusModelOfListOfString'
+        '404':
+          description: The requested live stream was not found
+        '401':
+          description: The request authentication failed
+        '403':
+          description: The request authorization failed
+        '500':
+          description: Internal Server Error
+      security:
+      - AccessKey: []
+  /library/{libraryId}/live/{streamId}/stop:
+    put:
+      tags:
+      - Manage Live Streams
+      summary: Stop live stream
+      description: Stops the stream, if publishing is still ongoing, it will be stopped by the ingest server. If
+        'RecordVod' was set to true, the stream will be converted to a regular video as a VOD.This operation cannot
+        be undone.
+      operationId: LiveStream_StopStream
+      parameters:
+      - name: libraryId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+        x-position: 1
+      - name: streamId
+        in: path
+        required: true
+        schema:
+          type: string
+        x-position: 2
+      responses:
+        '200':
+          description: The details of the requested live stream
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LiveStreamModel'
+        '400':
+          description: Request was invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusModelOfListOfString'
+        '404':
+          description: The requested live stream was not found
+        '401':
+          description: The request authentication failed
+        '403':
+          description: The request authorization failed
+        '500':
+          description: Internal Server Error
+      security:
+      - AccessKey: []
+  /library/{libraryId}/live/{streamId}/regenerate-key:
+    put:
+      tags:
+      - Manage Live Streams
+      summary: Regenerate stream key
+      description: Regenerates the stream key for the live stream. This operation is not allowed for streams that
+        ended.
+      operationId: LiveStream_RegenerateStreamKey
+      parameters:
+      - name: libraryId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+        x-position: 1
+      - name: streamId
+        in: path
+        required: true
+        schema:
+          type: string
+        x-position: 2
+      responses:
+        '200':
+          description: The details of the live stream with regenerated stream key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LiveStreamModel'
+        '400':
+          description: Request was invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusModelOfListOfString'
+        '404':
+          description: The requested live stream was not found
+        '401':
+          description: The request authentication failed
+        '403':
+          description: The request authorization failed
+        '500':
+          description: Internal Server Error
+      security:
+      - AccessKey: []
+  /library/{libraryId}/live/{streamId}/bitrate-history:
+    get:
+      tags:
+      - Manage Live Streams
+      operationId: LiveStream_GetBitrateHistory
+      parameters:
+      - name: libraryId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+        x-position: 1
+      - name: streamId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: guid
+        x-position: 2
+      - name: startTime
+        in: query
+        schema:
+          type: string
+          format: date-time
+          nullable: true
+        x-position: 3
+      - name: endTime
+        in: query
+        schema:
+          type: string
+          format: date-time
+          nullable: true
+        x-position: 4
+      responses:
+        '200':
+          description: ''
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+  /library/{libraryId}/live/{streamId}/current-bitrate:
+    get:
+      tags:
+      - Manage Live Streams
+      operationId: LiveStream_GetLatestBitrate
+      parameters:
+      - name: libraryId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+        x-position: 1
+      - name: streamId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: guid
+        x-position: 2
+      responses:
+        '200':
+          description: ''
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+  /library/{libraryId}/live/{streamId}/thumbnail:
+    post:
+      tags:
+      - Manage Live Streams
+      summary: Set Thumbnail
+      operationId: LiveStream_SetThumbnail
+      parameters:
+      - name: libraryId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+        x-position: 1
+      - name: streamId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: guid
+        x-position: 2
+      - name: thumbnailUrl
+        in: query
+        schema:
+          type: string
+          nullable: true
+        x-position: 3
+      responses:
+        '200':
+          description: The thumbnail was successfully set
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusModel'
+        '400':
+          description: The request or URL was invalid
+          content:
+            application/json:
+              schema:
+                type: string
+        '404':
+          description: The requested stream was not found
+        '401':
+          description: The request authentication failed
+        '403':
+          description: The request authorization failed
+        '422':
+          description: Unable to fetch thumbnail from origin
+          content:
+            application/json:
+              schema:
+                type: string
+        '500':
+          description: Internal Server Error
+      security:
+      - AccessKey: []
+      description: ' SDK note: thumbnail is set from a remote URL via the thumbnailUrl query parameter; the optional
+        binary upload body is not exposed.'
+    delete:
+      tags:
+      - Manage Live Streams
+      summary: Delete Thumbnail
+      description: Removes the custom thumbnail from the live stream. When restoreLibraryDefault is true and the
+        library has a default live thumbnail set, the stream will use that instead of having no thumbnail.
+      operationId: LiveStream_DeleteThumbnail
+      parameters:
+      - name: libraryId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+        x-position: 1
+      - name: streamId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: guid
+        x-position: 2
+      - name: restoreLibraryDefault
+        in: query
+        description: When true and the library has a default live thumbnail, the stream will be set to use that
+          thumbnail after removal. When false or no library default exists, the stream will have no thumbnail.
+        schema:
+          type: boolean
+          default: false
+        x-position: 3
+      responses:
+        '204':
+          description: The thumbnail was successfully deleted
+        '404':
+          description: The requested stream was not found or no custom thumbnail is set
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusModel'
+        '401':
+          description: The request authentication failed
+        '403':
+          description: The request authorization failed
+        '500':
+          description: Internal Server Error
+      security:
+      - AccessKey: []
+  /library/{libraryId}/live/{streamId}/thumbnails:
+    get:
+      tags:
+      - Manage Live Streams
+      summary: Get live stream thumbnails
+      description: Returns recent generated thumbnail object paths for the specified live stream. You can limit
+        the number of results and optionally constrain by a time range using 'from' and 'to' in UTC.
+      operationId: LiveStream_GetThumbnails
+      parameters:
+      - name: libraryId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+        x-position: 1
+      - name: streamId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: guid
+        x-position: 2
+      - name: limit
+        in: query
+        description: 'The maximum number of thumbnails to return. Default: 5'
+        schema:
+          type: integer
+          format: int32
+          default: 5
+        x-position: 3
+      - name: from
+        in: query
+        description: Filter thumbnails created at or after this UTC timestamp
+        schema:
+          type: string
+          format: date-time
+          nullable: true
+        x-position: 4
+      - name: to
+        in: query
+        description: Filter thumbnails created at or before this UTC timestamp
+        schema:
+          type: string
+          format: date-time
+          nullable: true
+        x-position: 5
+      responses:
+        '200':
+          description: A list of thumbnail object paths (most recent first)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ThumbnailListResponseModel'
+        '400':
+          description: The request was invalid
+          content:
+            application/json:
+              schema:
+                type: string
+        '404':
+          description: The requested live stream was not found
+        '401':
+          description: The request authentication failed
+        '500':
+          description: Internal Server Error
+      security:
+      - AccessKey: []
+  /library/{libraryId}/live/{streamId}/status:
+    get:
+      tags:
+      - Manage Live Streams
+      summary: Get live stream status
+      description: Returns the current status of the specified live stream.
+      operationId: LiveStream_GetStreamStatus
+      parameters:
+      - name: libraryId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+        x-position: 1
+      - name: streamId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: guid
+        x-position: 2
+      responses:
+        '200':
+          description: The current status of the live stream
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LiveStreamStatusModel'
+        '400':
+          description: The request was invalid
+          content:
+            application/json:
+              schema:
+                type: string
+        '404':
+          description: The requested live stream was not found
+        '401':
+          description: The request authentication failed
+        '403':
+          description: The request authorization failed
+        '500':
+          description: Internal Server Error
+      security:
+      - AccessKey: []
+  /library/{libraryId}/videos/{videoId}:
+    get:
+      tags:
+      - Manage Videos
+      summary: Get Video
+      operationId: Video_GetVideo
+      parameters:
+      - name: libraryId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+        x-position: 1
+      - name: videoId
+        in: path
+        required: true
+        schema:
+          type: string
+        x-position: 2
+      responses:
+        '200':
+          description: The details of the requested video
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VideoModel'
+        '404':
+          description: The requested video was not found
+        '401':
+          description: The request authentication failed
+        '500':
+          description: Internal Server Error
+      security:
+      - AccessKey: []
+    post:
+      tags:
+      - Manage Videos
+      summary: Update Video
+      operationId: Video_UpdateVideo
+      parameters:
+      - name: libraryId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+        x-position: 1
+      - name: videoId
+        in: path
+        required: true
+        schema:
+          type: string
+        x-position: 2
+      requestBody:
+        x-name: model
+        content:
+          application/json:
+            schema:
+              nullable: true
+              oneOf:
+              - $ref: '#/components/schemas/UpdateVideoModel'
+        required: true
+        x-position: 3
+      responses:
+        '200':
+          description: The thumbnail was successfully set
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusModel'
+        '404':
+          description: The requested video was not found
+        '401':
+          description: The request authentication failed
+        '403':
+          description: The request authorization failed
+        '500':
+          description: Internal Server Error
+      security:
+      - AccessKey: []
+    delete:
+      tags:
+      - Manage Videos
+      summary: Delete Video
+      operationId: Video_DeleteVideo
+      parameters:
+      - name: libraryId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+        x-position: 1
+      - name: videoId
+        in: path
+        required: true
+        schema:
+          type: string
+        x-position: 2
+      responses:
+        '200':
+          description: The video was successfully deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusModel'
+        '404':
+          description: The requested video was not found
+        '401':
+          description: The request authentication failed
+        '403':
+          description: The request authorization failed
+        '500':
+          description: Internal Server Error
+      security:
+      - AccessKey: []
+    put:
+      tags:
+      - Manage Videos
+      summary: Upload Video
+      operationId: Video_UploadVideo
+      parameters:
+      - name: libraryId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+        x-position: 1
+      - name: videoId
+        in: path
+        required: true
+        schema:
+          type: string
+        x-position: 2
+      - name: jitEnabled
+        in: query
+        description: Marks whether JIT encoding should be enabled for this video (works only when Premium Encoding
+          is enabled), overrides library settings
+        schema:
+          type: boolean
+        x-position: 3
+      - name: enabledResolutions
+        in: query
+        description: 'Comma separated list of resolutions enabled for encoding, available options: 240p, 360p, 480p,
+          720p, 1080p, 1440p, 2160p'
+        schema:
+          type: string
+          default: ''
+          nullable: true
+        x-position: 4
+      - name: enabledOutputCodecs
+        in: query
+        description: 'List of codecs that will be used to encode the file (overrides library settings). Available
+          values: x264, vp9'
+        schema:
+          type: string
+          default: ''
+          nullable: true
+        x-position: 6
+      - name: transcribeEnabled
+        in: query
+        description: Setting this to true will enable transcription on this video. Enabling this will incur transcription
+          charges
+        schema:
+          type: boolean
+          nullable: true
+        x-position: 7
+      - name: transcribeLanguages
+        in: query
+        description: Comma separated list of languages that will be used as target languages, use ISO 639-1 language
+          codes.
+        schema:
+          type: string
+          nullable: true
+        x-position: 8
+      - name: sourceLanguage
+        in: query
+        description: Language spoken in the video, use ISO 639-1 language codes.
+        schema:
+          type: string
+          nullable: true
+        x-position: 9
+      - name: generateTitle
+        in: query
+        description: Whether video title should be generated from transcription.
+        schema:
+          type: boolean
+          nullable: true
+        x-position: 10
+      - name: generateDescription
+        in: query
+        description: Whether video description should be generated from transcription.
+        schema:
+          type: boolean
+          nullable: true
+        x-position: 11
+      - name: generateChapters
+        in: query
+        description: Whether video chapters should be generated from transcription.
+        schema:
+          type: boolean
+          nullable: true
+        x-position: 12
+      - name: generateMoments
+        in: query
+        description: Whether video moments should be generated from transcription.
+        schema:
+          type: boolean
+          nullable: true
+        x-position: 13
+      requestBody:
+        description: Video file to upload
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+              nullable: false
+        required: true
+      responses:
+        '200':
+          description: The video was successfully uploaded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusModel'
+        '400':
+          description: The requested video was already uploaded
+        '404':
+          description: The requested video was not found
+        '401':
+          description: The request authentication failed
+        '403':
+          description: The request authorization failed
+        '500':
+          description: Internal Server Error
+      security:
+      - AccessKey: []
+  /library/{libraryId}/videos/{videoId}/heatmap:
+    get:
+      tags:
+      - Manage Videos
+      summary: Get Video Heatmap
+      description: Returns the attention heatmap for a specific video, showing relative viewer interest across the
+        timeline. May be unavailable if the feature is disabled or there isn't enough viewing data.
+      operationId: Video_GetVideoHeatmap
+      parameters:
+      - name: libraryId
+        in: path
+        required: true
+        description: The ID of the video library.
+        schema:
+          type: integer
+          format: int64
+        x-position: 1
+      - name: videoId
+        in: path
+        required: true
+        description: The GUID of the video.
+        schema:
+          type: string
+        x-position: 2
+      responses:
+        '200':
+          description: The heatmap of the requested video.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VideoHeatmapModel'
+        '404':
+          description: Video not found
+        '401':
+          description: The request authentication failed
+        '500':
+          description: Internal Server Error
+      security:
+      - AccessKey: []
+  /library/{libraryId}/videos/{videoId}/play:
+    get:
+      tags:
+      - Manage Videos
+      summary: Get Video play data
+      operationId: Video_GetVideoPlayData
+      parameters:
+      - name: libraryId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+        x-position: 1
+      - name: videoId
+        in: path
+        required: true
+        schema:
+          type: string
+        x-position: 2
+      - name: token
+        in: query
+        schema:
+          type: string
+          default: ''
+          nullable: true
+        x-position: 3
+      - name: expires
+        in: query
+        schema:
+          type: integer
+          format: int64
+          default: 0
+        x-position: 4
+      responses:
+        '200':
+          description: The play data of the requested video
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VideoPlayDataModel'
+        '404':
+          description: The requested video was not found
+        '401':
+          description: The request authentication failed
+        '500':
+          description: Internal Server Error
+  /library/{libraryId}/videos/{videoId}/play/heatmap:
+    get:
+      tags:
+      - Manage Videos
+      summary: Get Video heatmap data
+      operationId: Video_GetVideoHeatmapData
+      parameters:
+      - name: libraryId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+        x-position: 1
+      - name: videoId
+        in: path
+        required: true
+        schema:
+          type: string
+        x-position: 2
+      - name: token
+        in: query
+        schema:
+          type: string
+          default: ''
+          nullable: true
+        x-position: 3
+      - name: expires
+        in: query
+        schema:
+          type: integer
+          format: int64
+          default: 0
+        x-position: 4
+      responses:
+        '200':
+          description: The heatmap data of the requested video
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VideoPlayDataModel'
+        '404':
+          description: The requested video was not found
+        '401':
+          description: The request authentication failed
+        '500':
+          description: Internal Server Error
+  /library/{libraryId}/statistics:
+    get:
+      tags:
+      - Manage Videos
+      summary: Get Video Statistics
+      description: Returns time-series views and watch time, plus country-level aggregates, at the library level
+        or for a specific video. Control the time window with dateFrom/dateTo and the granularity with hourly. Basic
+        safeguards prevent spam and bot inflation by de-duplicating sessions and ignoring obviously invalid events.
+      operationId: Video_GetVideoStatistics
+      parameters:
+      - name: libraryId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+        x-position: 1
+      - name: dateFrom
+        in: query
+        description: Optional start of the time range (UTC). If omitted or invalid, the last 30 days are returned.
+        schema:
+          type: string
+          format: date-time
+          nullable: true
+        x-position: 2
+      - name: dateTo
+        in: query
+        description: Optional end of the time range (UTC). If omitted with a valid start, defaults to now; otherwise
+          the last 30 days are returned.
+        schema:
+          type: string
+          format: date-time
+          nullable: true
+        x-position: 3
+      - name: hourly
+        in: query
+        description: Optional. If true, returns hourly data; otherwise daily (UTC). Default is daily.
+        schema:
+          type: boolean
+          default: false
+        x-position: 4
+      - name: videoGuid
+        in: query
+        description: Optional video GUID to filter results. When omitted, returns library-level aggregates.
+        schema:
+          type: string
+          nullable: true
+        x-position: 5
+      responses:
+        '200':
+          description: Statistics including time-series views and watch time, country breakdowns, and engagement
+            score when available.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VideoStatisticsModel'
+        '404':
+          description: Video not found (when filtering by videoGuid)
+        '401':
+          description: The request authentication failed
+        '500':
+          description: Internal Server Error
+      security:
+      - AccessKey: []
+  /library/{libraryId}/videos/{videoId}/reencode:
+    post:
+      tags:
+      - Manage Videos
+      summary: Reencode Video
+      operationId: Video_ReencodeVideo
+      parameters:
+      - name: libraryId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+        x-position: 1
+      - name: videoId
+        in: path
+        required: true
+        schema:
+          type: string
+        x-position: 2
+      responses:
+        '200':
+          description: The details of the requested video
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/VideoModel'
         '400':
-          description: Enterprise DRM is disabled for the library; repackaging is not available.
-        '401':
-          description: The request authorization failed.
+          description: Original file is missing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusModel'
         '404':
-          description: The requested video was not found.
+          description: The requested video was not found
+        '401':
+          description: The request authentication failed
+        '403':
+          description: The request authorization failed
         '500':
-          description: Internal Server Error.
+          description: Internal Server Error
       security:
-        - AccessKey: []
+      - AccessKey: []
+  /library/{libraryId}/videos/{videoId}/outputs/{outputCodecId}:
+    put:
+      tags:
+      - Manage Videos
+      summary: Add output codec to video
+      operationId: Video_ReencodeUsingCodec
+      parameters:
+      - name: libraryId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+        x-position: 1
+      - name: videoId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: guid
+        x-position: 2
+      - name: outputCodecId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/EncoderOutputCodec'
+        x-position: 3
+      responses:
+        '200':
+          description: The details of the requested video
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VideoModel'
+        '400':
+          description: Invalid request or validation failed, check response
+          content:
+            application/json:
+              schema:
+                type: string
+        '404':
+          description: The requested video was not found
+        '401':
+          description: The request authentication failed
+        '403':
+          description: The request authorization failed
+        '500':
+          description: Internal Server Error
+      security:
+      - AccessKey: []
+  /library/{libraryId}/videos/{videoId}/repackage:
+    post:
+      tags:
+      - Manage Videos
+      summary: Repackage Video
+      operationId: Video_Repackage
+      parameters:
+      - name: libraryId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+        x-position: 1
+      - name: videoId
+        in: path
+        required: true
+        schema:
+          type: string
+        x-position: 2
+      - name: keepOriginalFiles
+        in: query
+        description: Marks whether previous file versions should be kept in storage, allows for faster repackage
+          later on. Default is true.
+        schema:
+          type: boolean
+          default: true
+        x-position: 3
+      responses:
+        '200':
+          description: The details of the requested video
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VideoModel'
+        '400':
+          description: Enterprise DRM is disabled for the library, repackaging not available
+        '404':
+          description: The requested video was not found
+        '401':
+          description: The request authentication failed
+        '403':
+          description: The request authorization failed
+        '500':
+          description: Internal Server Error
+      security:
+      - AccessKey: []
   /library/{libraryId}/videos:
     get:
       tags:
-        - Manage Videos
+      - Manage Videos
       summary: List Videos
-      description: Retrieves a paginated list of videos from the specified video library. Supports filtering by search term, collection, and ordering by date.
       operationId: Video_List
       parameters:
-        - name: libraryId
-          in: path
-          required: true
-          schema:
-            type: integer
-            format: int64
-          description: The ID of the video library.
-        - name: page
-          in: query
-          schema:
-            type: integer
-            format: int32
-            default: 1
-          description: The page number to retrieve.
-        - name: itemsPerPage
-          in: query
-          schema:
-            type: integer
-            format: int32
-            default: 100
-          description: The number of videos per page.
-        - name: search
-          in: query
-          schema:
-            type: string
-            default: ''
-            nullable: true
-          description: A search term to filter videos by title or metadata.
-        - name: collection
-          in: query
-          schema:
-            type: string
-            default: ''
-            nullable: true
-          description: The ID of the collection to filter videos by.
-        - name: orderBy
-          in: query
-          schema:
-            type: string
-            default: date
-            nullable: true
-          description: Specifies the field by which to order the video list.
+      - name: libraryId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+        x-position: 1
+      - name: page
+        in: query
+        schema:
+          type: integer
+          format: int32
+          default: 1
+        x-position: 2
+      - name: itemsPerPage
+        in: query
+        schema:
+          type: integer
+          format: int32
+          default: 100
+        x-position: 3
+      - name: search
+        in: query
+        schema:
+          type: string
+          default: ''
+          nullable: true
+        x-position: 4
+      - name: collection
+        in: query
+        schema:
+          type: string
+          default: ''
+          nullable: true
+        x-position: 5
+      - name: orderBy
+        in: query
+        schema:
+          type: string
+          default: date
+          nullable: true
+        x-position: 6
       responses:
         '200':
-          description: A paginated list of videos matching the query parameters.
+          description: The list of videos for the current parameters
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/PaginationListOfVideoModel'
         '401':
-          description: The request authorization failed.
+          description: The request authentication failed
         '500':
-          description: Internal Server Error.
+          description: Internal Server Error
       security:
-        - AccessKey: []
+      - AccessKey: []
     post:
       tags:
-        - Manage Videos
+      - Manage Videos
       summary: Create Video
-      description: Creates a new video entry in the specified library. Provide the video details, such as title and optional thumbnail extraction time, in the request body.
       operationId: Video_CreateVideo
       parameters:
-        - name: libraryId
-          in: path
-          required: true
-          schema:
-            type: integer
-            format: int64
-          description: The ID of the video library where the video will be created.
+      - name: libraryId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+        x-position: 1
       requestBody:
-        description: Video model containing details for the new video. Title is required.
+        x-name: model
         content:
           application/json:
             schema:
               nullable: true
               oneOf:
-                - $ref: '#/components/schemas/CreateVideoModel'
+              - $ref: '#/components/schemas/CreateVideoModel'
         required: true
+        x-position: 2
       responses:
         '200':
-          description: The video was successfully created and the full video details are returned.
+          description: The video was successfully created and returned as the response.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/VideoModel'
         '401':
-          description: The request authorization failed.
+          description: The request authentication failed
+        '403':
+          description: The request authorization failed
+        '400':
+          description: Request was invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusModel'
         '500':
-          description: Internal Server Error.
+          description: Internal Server Error
       security:
-        - AccessKey: []
+      - AccessKey: []
   /library/{libraryId}/videos/{videoId}/thumbnail:
     post:
       tags:
-        - Manage Videos
+      - Manage Videos
       summary: Set Thumbnail
-      description: Sets or updates the thumbnail image for the specified video using the provided thumbnail URL.
       operationId: Video_SetThumbnail
       parameters:
-        - name: libraryId
-          in: path
-          required: true
-          schema:
-            type: integer
-            format: int64
-          description: The ID of the video library.
-        - name: videoId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: The unique identifier of the video.
-        - name: thumbnailUrl
-          in: query
-          schema:
-            type: string
-            nullable: true
-          description: The URL of the thumbnail image to set for the video.
+      - name: libraryId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+        x-position: 1
+      - name: videoId
+        in: path
+        required: true
+        schema:
+          type: string
+        x-position: 2
+      - name: thumbnailUrl
+        in: query
+        schema:
+          type: string
+          nullable: true
+        x-position: 3
+      requestBody:
+        description: Optional thumbnail file to upload
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+              nullable: true
       responses:
         '200':
-          description: The thumbnail was successfully set.
+          description: The thumbnail was successfully set
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/StatusModel'
-        '401':
-          description: The request authorization failed.
+        '400':
+          description: The request or URL was invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusModel'
         '404':
-          description: The requested video was not found.
+          description: The requested video was not found
+        '401':
+          description: The request authentication failed
+        '403':
+          description: The request authorization failed
+        '422':
+          description: Unable to fetch thumbnail from origin
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusModel'
         '500':
-          description: Internal Server Error.
+          description: Internal Server Error
       security:
-        - AccessKey: []
+      - AccessKey: []
   /library/{libraryId}/videos/fetch:
     post:
       tags:
-        - Manage Videos
+      - Manage Videos
       summary: Fetch Video
-      description: Fetches a video from a remote URL and adds it to the specified library. Optional parameters allow you to specify a collection and the time (in ms) to extract a thumbnail.
       operationId: Video_FetchNewVideo
       parameters:
-        - name: libraryId
-          in: path
-          required: true
-          schema:
-            type: integer
-            format: int64
-          description: The ID of the video library.
-        - name: collectionId
-          in: query
-          schema:
-            type: string
-            nullable: true
-          description: Optional collection ID to assign the fetched video to.
-        - name: thumbnailTime
-          in: query
-          description: Optional video time in milliseconds to extract the main video thumbnail.
-          schema:
-            type: integer
-            format: int32
-            nullable: true
+      - name: libraryId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+        x-position: 1
+      - name: collectionId
+        in: query
+        schema:
+          type: string
+          nullable: true
+        x-position: 3
+      - name: thumbnailTime
+        in: query
+        description: (Optional) Video time in ms to extract the main video thumbnail.
+        schema:
+          type: integer
+          format: int32
+          nullable: true
+        x-position: 4
       requestBody:
-        description: Fetch video request model containing the URL and optional headers for the fetch operation.
+        x-name: request
         content:
           application/json:
             schema:
               nullable: true
               oneOf:
-                - $ref: '#/components/schemas/FetchVideoRequest'
+              - $ref: '#/components/schemas/FetchVideoRequest'
         required: true
+        x-position: 2
       responses:
         '200':
-          description: The video was successfully fetched and added to the library.
+          description: The video was successfully fetched
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/StatusModel'
-        '400':
-          description: Failed fetching the video.
-        '401':
-          description: The request authorization failed.
         '404':
-          description: The requested video was not found.
+          description: The requested video was not found
+        '400':
+          description: URL validation failed or request was invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusModel'
+        '422':
+          description: Unable to fetch video from origin
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusModel'
+        '429':
+          description: Too many fetch jobs queued. Please try again later.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusModel'
+        '401':
+          description: The request authentication failed
+        '403':
+          description: The request authorization failed
         '500':
-          description: Internal Server Error.
+          description: Internal Server Error
       security:
-        - AccessKey: []
+      - AccessKey: []
+  /library/{libraryId}/videos/{videoId}/fetch:
+    post:
+      tags:
+      - Manage Videos
+      summary: Fetch Video
+      operationId: Video_FetchVideo
+      parameters:
+      - name: libraryId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+        x-position: 1
+      - name: videoId
+        in: path
+        required: true
+        schema:
+          type: string
+        x-position: 3
+      - name: collectionId
+        in: query
+        schema:
+          type: string
+          nullable: true
+        x-position: 4
+      - name: enabledResolutions
+        in: query
+        schema:
+          type: string
+          default: ''
+          nullable: true
+        x-position: 5
+      - name: lowPriority
+        in: query
+        schema:
+          type: boolean
+          default: false
+        x-position: 6
+      - name: thumbnailTime
+        in: query
+        description: (Optional) Video time in ms to extract the main video thumbnail.
+        schema:
+          type: integer
+          format: int32
+          nullable: true
+        x-position: 7
+      requestBody:
+        x-name: request
+        content:
+          application/json:
+            schema:
+              nullable: true
+              oneOf:
+              - $ref: '#/components/schemas/FetchVideoRequest'
+        required: true
+        x-position: 2
+      responses:
+        '200':
+          description: The video was successfully fetched
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusModel'
+        '404':
+          description: The requested video was not found
+        '400':
+          description: URL validation failed or request was invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusModel'
+        '422':
+          description: Unable to fetch video from origin
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusModel'
+        '429':
+          description: Too many fetch jobs queued. Please try again later.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusModel'
+        '401':
+          description: The request authentication failed
+        '403':
+          description: The request authorization failed
+        '500':
+          description: Internal Server Error
+      security:
+      - AccessKey: []
   /library/{libraryId}/videos/{videoId}/captions/{srclang}:
     post:
       tags:
-        - Manage Videos
+      - Manage Videos
       summary: Add Caption
-      description: Adds caption data to the specified video for the given language. The caption file should be provided as a base64 encoded string.
       operationId: Video_AddCaption
       parameters:
-        - name: libraryId
-          in: path
-          required: true
-          schema:
-            type: integer
-            format: int64
-          description: The ID of the video library.
-        - name: videoId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: The unique identifier of the video.
-        - name: srclang
-          in: path
-          required: true
-          schema:
-            type: string
-          description: The ISO 639-1 language code for the caption (e.g., 'en', 'fr').
+      - name: libraryId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+        x-position: 1
+      - name: videoId
+        in: path
+        required: true
+        schema:
+          type: string
+        x-position: 2
+      - name: srclang
+        in: path
+        required: true
+        schema:
+          type: string
+        x-position: 3
       requestBody:
-        description: Caption model including language, label, and base64 encoded captions file.
+        x-name: captionModel
         content:
           application/json:
             schema:
               nullable: true
               oneOf:
-                - $ref: '#/components/schemas/CaptionModelAdd'
+              - $ref: '#/components/schemas/CaptionModelAdd'
         required: true
+        x-position: 4
       responses:
         '200':
-          description: The caption was successfully uploaded.
+          description: The caption was successfully uploaded
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/StatusModel'
-        '400':
-          description: Failed uploading the captions.
-        '401':
-          description: The request authorization failed.
         '404':
-          description: The requested video was not found.
+          description: The requested video was not found
+        '400':
+          description: Failed uploading the captions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CaptionValidationModel'
+        '401':
+          description: The request authentication failed
+        '403':
+          description: The request authorization failed
         '500':
-          description: Internal Server Error.
+          description: Internal Server Error
       security:
-        - AccessKey: []
+      - AccessKey: []
     delete:
       tags:
-        - Manage Videos
+      - Manage Videos
       summary: Delete Caption
-      description: Deletes the caption for the specified language from the video.
       operationId: Video_DeleteCaption
       parameters:
-        - name: libraryId
-          in: path
-          required: true
-          schema:
-            type: integer
-            format: int64
-          description: The ID of the video library.
-        - name: videoId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: The unique identifier of the video.
-        - name: srclang
-          in: path
-          required: true
-          schema:
-            type: string
-          description: The ISO 639-1 language code of the caption to be deleted.
+      - name: libraryId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+        x-position: 1
+      - name: videoId
+        in: path
+        required: true
+        schema:
+          type: string
+        x-position: 2
+      - name: srclang
+        in: path
+        required: true
+        schema:
+          type: string
+        x-position: 3
       responses:
         '200':
-          description: The caption was successfully deleted.
+          description: The caption was successfully deleted
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/StatusModel'
-        '400':
-          description: Failed deleting the captions.
-        '401':
-          description: The request authorization failed.
         '404':
-          description: The requested video was not found.
+          description: The requested video was not found
+        '400':
+          description: Failed deleting the captions
+        '401':
+          description: The request authentication failed
+        '403':
+          description: The request authorization failed
         '500':
-          description: Internal Server Error.
+          description: Internal Server Error
       security:
-        - AccessKey: []
+      - AccessKey: []
   /library/{libraryId}/videos/{videoId}/transcribe:
     post:
       tags:
-        - Manage Videos
-      summary: Transcribe Video
-      description: Initiates the transcription process for the specified video. You can optionally override the video library transcription settings using the provided request body.
+      - Manage Videos
+      summary: Transcribe video
       operationId: Video_TranscribeVideo
       parameters:
-        - name: libraryId
-          in: path
-          required: true
-          schema:
-            type: integer
-            format: int64
-          description: The ID of the video library.
-        - name: videoId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: The unique identifier of the video to transcribe.
-        - name: language
-          in: query
-          description: The ISO 639-1 language code of the video source. This parameter is used only if not overridden by the request body.
-          schema:
-            type: string
-            nullable: true
-        - name: force
-          in: query
-          description: If true, forces the transcription process even if the video has been transcribed before.
-          schema:
-            type: boolean
-            default: false
+      - name: libraryId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+        x-position: 1
+      - name: videoId
+        in: path
+        required: true
+        schema:
+          type: string
+        x-position: 2
+      - name: force
+        in: query
+        schema:
+          type: boolean
+          default: false
+        x-position: 4
       requestBody:
-        description: Optional transcription settings that override the default video library settings.
+        x-name: transcribeSettings
+        description: Used to override video library transcription settings, null by default
         content:
           application/json:
             schema:
               nullable: true
               oneOf:
-                - $ref: '#/components/schemas/TranscribeSettings'
+              - $ref: '#/components/schemas/TranscribeSettings'
+        x-position: 5
       responses:
         '200':
-          description: The transcription process was successfully queued.
+          description: The transcription was queued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusModel'
+        '404':
+          description: The requested video was not found
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/StatusModel'
         '400':
-          description: Invalid request for transcription queue.
+          description: Invalid request for transcription queue
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusModel'
         '401':
-          description: The request authorization failed.
-        '404':
-          description: The requested video was not found.
+          description: The request authentication failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusModel'
+        '403':
+          description: The request authorization failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusModel'
         '500':
-          description: Internal Server Error.
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusModel'
       security:
-        - AccessKey: []
+      - AccessKey: []
+  /library/{libraryId}/videos/{videoId}/smart:
+    post:
+      tags:
+      - Manage Videos
+      summary: Trigger Smart actions
+      operationId: Video_SmartGenerate
+      parameters:
+      - name: libraryId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+        x-position: 1
+      - name: videoId
+        in: path
+        required: true
+        schema:
+          type: string
+        x-position: 2
+      requestBody:
+        x-name: model
+        content:
+          application/json:
+            schema:
+              nullable: true
+              oneOf:
+              - $ref: '#/components/schemas/SmartGenerateModel'
+        required: true
+        x-position: 3
+      responses:
+        '202':
+          description: The smart action was queued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusModel'
+        '404':
+          description: The requested video was not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusModel'
+        '429':
+          description: Limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusModel'
+        '400':
+          description: Invalid request for smart feature
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusModel'
+        '401':
+          description: The request authentication failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusModel'
+        '403':
+          description: The request authorization failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusModel'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusModel'
+      security:
+      - AccessKey: []
   /library/{libraryId}/videos/{videoId}/resolutions:
     get:
       tags:
-        - Manage Videos
-      summary: Video Resolutions Info
-      description: Retrieves information about the available and configured resolutions for the specified video. This includes data on storage resolutions and MP4 fallback files if available.
+      - Manage Videos
+      summary: Video resolutions info
       operationId: Video_GetVideoResolutions
       parameters:
-        - name: libraryId
-          in: path
-          required: true
-          schema:
-            type: integer
-            format: int64
-          description: The ID of the video library.
-        - name: videoId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: The unique identifier of the video.
+      - name: libraryId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+        x-position: 1
+      - name: videoId
+        in: path
+        required: true
+        schema:
+          type: string
+        x-position: 2
       responses:
         '200':
-          description: Resolution information for the video, including available and configured resolutions.
+          description: The resolutions info.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/StatusModelOfVideoResolutionsInfoModel'
-        '401':
-          description: The request authorization failed.
         '404':
-          description: The requested video was not found.
+          description: The requested video was not found
+        '401':
+          description: The request authentication failed
         '500':
-          description: Internal Server Error.
+          description: Internal Server Error
       security:
-        - AccessKey: []
+      - AccessKey: []
+  /library/{libraryId}/videos/{videoId}/storage:
+    get:
+      tags:
+      - Manage Videos
+      summary: Get video storage size info
+      operationId: Video_GetVideoStorageSize
+      parameters:
+      - name: libraryId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+        x-position: 1
+      - name: videoId
+        in: path
+        required: true
+        schema:
+          type: string
+        x-position: 2
+      responses:
+        '200':
+          description: The storage size information for the video.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusModelOfVideoStorageSizeModel'
+        '404':
+          description: The requested video was not found
+        '401':
+          description: The request authorization failed
+        '429':
+          description: Rate limit exceeded
+        '408':
+          description: Request timeout
+        '500':
+          description: Internal Server Error
+      security:
+      - AccessKey: []
   /library/{libraryId}/videos/{videoId}/resolutions/cleanup:
     post:
       tags:
-        - Manage Videos
-      summary: Cleanup Unconfigured Resolutions
-      description: Cleans up unconfigured resolutions for the specified video. Query parameters allow you to specify which resolutions to delete and whether to perform a dry run without actual file deletion.
+      - Manage Videos
+      summary: Cleanup unconfigured resolutions
       operationId: Video_DeleteResolutions
       parameters:
-        - name: libraryId
-          in: path
-          required: true
-          schema:
-            type: integer
-            format: int64
-          description: The ID of the video library.
-        - name: videoId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: The unique identifier of the video.
-        - name: resolutionsToDelete
-          in: query
-          schema:
-            type: string
-            nullable: true
-          description: Comma separated list of resolutions to delete.
-        - name: deleteNonConfiguredResolutions
-          in: query
-          schema:
-            type: boolean
-            default: false
-          description: If true, deletes resolutions that are not configured.
-        - name: deleteOriginal
-          in: query
-          schema:
-            type: boolean
-            default: false
-          description: If true, deletes the original video file.
-        - name: deleteMp4Files
-          in: query
-          schema:
-            type: boolean
-            default: false
-          description: If true, deletes MP4 fallback files.
-        - name: dryRun
-          in: query
-          description: If set to true, no files will be actually deleted; only informational data is returned.
-          schema:
-            type: boolean
-            default: false
+      - name: libraryId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+        x-position: 1
+      - name: videoId
+        in: path
+        required: true
+        schema:
+          type: string
+        x-position: 2
+      - name: resolutionsToDelete
+        in: query
+        schema:
+          type: string
+          nullable: true
+        x-position: 3
+      - name: deleteNonConfiguredResolutions
+        in: query
+        schema:
+          type: boolean
+          default: false
+        x-position: 4
+      - name: allResolutions
+        in: query
+        schema:
+          type: boolean
+          default: false
+        x-position: 5
+      - name: deleteOriginal
+        in: query
+        schema:
+          type: boolean
+          default: false
+        x-position: 6
+      - name: outputs
+        in: query
+        description: 'Outputs to clean. Supported values: hls, mp4, all'
+        schema:
+          type: string
+          nullable: true
+        x-position: 7
+      - name: deleteMp4Files
+        in: query
+        schema:
+          type: boolean
+          default: false
+        x-position: 8
+      - name: dryRun
+        in: query
+        description: If set to true, no actual file manipulation will happen, only informational data will be returned
+        schema:
+          type: boolean
+          default: false
+        x-position: 9
       responses:
         '200':
-          description: The specified resolutions were successfully deleted (or would be deleted in a dry run).
+          description: The resolutions were successfully deleted
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/StatusModel'
-        '401':
-          description: The request authorization failed.
         '404':
-          description: The requested video was not found.
+          description: The requested video was not found
+        '401':
+          description: The request authentication failed
+        '403':
+          description: The request authorization failed
         '500':
-          description: Internal Server Error.
+          description: Internal Server Error
       security:
-        - AccessKey: []
+      - AccessKey: []
   /OEmbed:
     get:
       tags:
-        - OEmbed
-      summary: Get OEmbed Data
-      description: Retrieves OEmbed information for a given video URL. This includes embed HTML, thumbnail URL, and metadata such as title and provider details.
+      - OEmbed
       operationId: OEmbed_GetOEmbed
       parameters:
-        - name: url
-          in: query
-          schema:
-            type: string
-            nullable: true
-          description: The URL for which to retrieve OEmbed information.
-        - name: maxWidth
-          in: query
-          schema:
-            type: integer
-            format: int32
-            nullable: true
-          description: Optional maximum width of the embed.
-        - name: maxHeight
-          in: query
-          schema:
-            type: integer
-            format: int32
-            nullable: true
-          description: Optional maximum height of the embed.
-        - name: token
-          in: query
-          schema:
-            type: string
-            default: ''
-            nullable: true
-          description: Authentication token if required.
-        - name: expires
-          in: query
-          schema:
-            type: integer
-            format: int64
-            default: 0
-          description: Expiration timestamp for the provided token.
+      - name: url
+        in: query
+        schema:
+          type: string
+          nullable: true
+        x-position: 1
+      - name: maxWidth
+        in: query
+        schema:
+          type: integer
+          format: int32
+          nullable: true
+        x-position: 2
+      - name: maxHeight
+        in: query
+        schema:
+          type: integer
+          format: int32
+          nullable: true
+        x-position: 3
+      - name: token
+        in: query
+        schema:
+          type: string
+          default: ''
+          nullable: true
+        x-position: 4
+      - name: expires
+        in: query
+        schema:
+          type: integer
+          format: int64
+          default: 0
+        x-position: 5
       responses:
         '200':
-          description: OEmbed data for the provided URL, including embed HTML and metadata.
+          description: ''
           content:
             application/json:
               schema:
@@ -1175,303 +2353,785 @@ components:
   schemas:
     CollectionModel:
       type: object
-      description: Represents a video collection in the library. Contains metadata such as the unique identifier, name, video count, total storage size, and preview information.
       additionalProperties: false
       properties:
         videoLibraryId:
           type: integer
-          description: The ID of the video library that contains the collection.
+          description: The video library ID that contains the collection
           format: int64
         guid:
           type: string
-          description: The unique identifier of the collection.
+          description: The unique ID of the collection
           nullable: true
         name:
           type: string
-          description: The name of the collection.
+          description: The name of the collection
           nullable: true
         videoCount:
           type: integer
-          description: The number of videos in the collection.
+          description: The number of videos that the collection contains
           format: int64
         totalSize:
           type: integer
-          description: The total storage size of the collection in bytes.
+          description: The total storage size of the collection
           format: int64
         previewVideoIds:
           type: string
-          description: Comma-separated list of video IDs used as preview icons.
+          description: The IDs of videos to be used as preview icons
           nullable: true
         previewImageUrls:
           type: array
-          description: An array of URLs for preview images of the videos in the collection.
+          description: The URLs of preview images of videos in the collection
           nullable: true
           items:
             type: string
     PaginationListOfCollectionModel:
       type: object
-      description: A paginated list of collections.
       additionalProperties: false
       properties:
         totalItems:
           type: integer
-          description: The total number of collections available.
+          description: The total number of items that can be returned
           format: int64
         currentPage:
           type: integer
-          description: The current page number.
+          description: The current page of the response
           format: int64
         itemsPerPage:
           type: integer
-          description: The number of collections per page.
+          description: The number of items returned per page
           format: int32
         items:
           type: array
-          description: The collections returned on the current page.
+          description: The result items on the current result
           nullable: true
           items:
             $ref: '#/components/schemas/CollectionModel'
     UpdateCollectionModel:
       type: object
-      description: Schema for updating collection details.
       additionalProperties: false
       properties:
         name:
           type: string
-          description: The updated name of the collection.
+          description: The name of the collection
           nullable: true
     StatusModel:
       type: object
-      description: Generic status response model indicating the success or failure of an operation.
       additionalProperties: false
       properties:
         success:
           type: boolean
-          description: Indicates whether the operation was successful.
+          description: Determines if the request was successful
         message:
           type: string
-          description: A descriptive message regarding the operation outcome.
+          description: Response message description
           nullable: true
         statusCode:
           type: integer
-          description: The HTTP status code for the response.
+          description: The response status code
           format: int32
-    VideoModel:
+    VideoLibraryStatus:
       type: object
-      description: Represents a video and its metadata including title, upload date, dimensions, encoding status, and more.
+      additionalProperties: false
+      properties:
+        videoCount:
+          type: integer
+          description: The total number of videos contained by the video library
+          format: int64
+        liveStreamCount:
+          type: integer
+          description: The total number of live streams contained by the video library
+          format: int64
+        collectionCount:
+          type: integer
+          description: The total number of collections contained by the video library
+          format: int64
+          nullable: true
+    LiveStreamModel:
+      type: object
       additionalProperties: false
       properties:
         videoLibraryId:
           type: integer
-          description: The ID of the video library that the video belongs to.
+          description: The ID of the video library that the live stream belongs to
           format: int64
         guid:
           type: string
-          description: The unique identifier of the video.
-          nullable: true
+          description: The unique ID of the live stream
+          format: guid
+          minLength: 1
         title:
           type: string
-          description: The title of the video.
+          description: The title of the live stream
+          minLength: 1
+        description:
+          type: string
+          description: The description of the live stream
+          nullable: true
+        category:
+          type: string
+          description: The category of the live stream
+          nullable: true
+        collectionId:
+          type: string
+          description: The ID of the collection where the live stream belongs
+          nullable: true
+        public:
+          type: boolean
+          description: Determines if the live stream is publicly accessible
+        status:
+          description: The status of the live stream. See LiveStreamStatus.
+          oneOf:
+          - $ref: '#/components/schemas/LiveStreamStatus'
+        dateCreated:
+          type: string
+          description: The date when the live stream was created
+          format: date-time
+          minLength: 1
+        scheduledStartTime:
+          type: string
+          description: The scheduled start time of the live stream (optional)
+          format: date-time
+          nullable: true
+        scheduledEndTime:
+          type: string
+          description: The scheduled end time of the live stream (optional)
+          format: date-time
+          nullable: true
+        startedAt:
+          type: string
+          description: The date and time when the live stream publishing started
+          format: date-time
+          nullable: true
+        endedAt:
+          type: string
+          description: The date and time when the live stream publishing ended
+          format: date-time
+          nullable: true
+        durationSeconds:
+          type: integer
+          description: The duration of the live stream in seconds
+          format: int32
+          nullable: true
+        streamKey:
+          type: string
+          description: The stream key required for publishing the live stream
+          minLength: 1
+        playbackUrlHls:
+          type: string
+          description: The HLS playback URL of the live stream
+          minLength: 1
+        dvrEnabled:
+          type: boolean
+          description: Determines if DVR is enabled for the live stream
+        dvrWindowSeconds:
+          type: integer
+          description: The DVR window size in seconds, required when DvrEnabled is true
+          format: int32
+          nullable: true
+        recordVod:
+          type: boolean
+          description: Determines if a VOD recording should be created for the live stream
+        availableResolutions:
+          type: string
+          description: The available output resolutions of the live stream
+          minLength: 1
+        width:
+          type: integer
+          description: The input video width in pixels
+          format: int32
+          nullable: true
+        height:
+          type: integer
+          description: The input video height in pixels
+          format: int32
+          nullable: true
+        framerate:
+          type: number
+          description: The framerate of the input stream
+          format: double
+          nullable: true
+        ingestRegion:
+          type: string
+          description: The primary ingest region of the live stream
+          minLength: 1
+        peakConcurrentViewers:
+          type: integer
+          description: The peak number of concurrent viewers
+          format: int32
+          nullable: true
+        totalViewerSeconds:
+          type: integer
+          description: The total viewer watch time in seconds
+          format: int64
+          nullable: true
+        thumbnailFileName:
+          type: string
+          description: The file name of the thumbnail inside of the storage
+          nullable: true
+        thumbnailUpdatedAt:
+          type: string
+          description: The date and time when the thumbnail was last updated
+          format: date-time
+          nullable: true
+        enableCountdown:
+          type: boolean
+          description: Determines if countdown should be shown in player before the stream start, if it was scheduled
+          nullable: true
+        rtmpOutputs:
+          type: array
+          description: A list of up to 4 RTMP outputs that the incoming stream will be forwarded to
+          nullable: true
+          items:
+            $ref: '#/components/schemas/RtmpOutput'
+        preStreamTrailerVideoId:
+          type: string
+          description: Video ID of the trailer that will be played before the live stream starts
+          nullable: true
+    LiveStreamStatus:
+      type: integer
+      description: (0 = Unknown, 1 = Created, 2 = Scheduled, 3 = Preview, 4 = Running, 5 = Ended, 6 = VodProcessing,
+        7 = Error)
+      enum:
+      - 0
+      - 1
+      - 2
+      - 3
+      - 4
+      - 5
+      - 6
+      - 7
+      x-enumNames:
+      - Unknown
+      - Created
+      - Scheduled
+      - Preview
+      - Running
+      - Ended
+      - VodProcessing
+      - Error
+    RtmpOutput:
+      type: object
+      additionalProperties: false
+      properties:
+        endpoint:
+          type: string
+          description: RTMP output endpoint URL
+          format: uri
+          nullable: true
+        streamKey:
+          type: string
+          nullable: true
+    LiveStreamPlayDataModel:
+      type: object
+      additionalProperties: false
+      properties:
+        liveStream:
+          description: Live stream data.
+          nullable: true
+          oneOf:
+          - $ref: '#/components/schemas/LiveStreamModel'
+        libraryName:
+          type: string
+          nullable: true
+        captionsPath:
+          type: string
+          nullable: true
+        seekPath:
+          type: string
+          nullable: true
+        thumbnailUrl:
+          type: string
+          nullable: true
+        fallbackUrl:
+          type: string
+          nullable: true
+        videoPlaylistUrl:
+          type: string
+          nullable: true
+        originalUrl:
+          type: string
+          nullable: true
+        previewUrl:
+          type: string
+          nullable: true
+        controls:
+          type: string
+          nullable: true
+        enableDRM:
+          type: boolean
+        drmVersion:
+          type: integer
+          format: int32
+        playerKeyColor:
+          type: string
+          nullable: true
+        vastTagUrl:
+          type: string
+          nullable: true
+        viAiPublisherId:
+          type: string
+          nullable: true
+        captionsFontSize:
+          type: integer
+          format: int32
+        captionsFontColor:
+          type: string
+          nullable: true
+        captionsBackground:
+          type: string
+          nullable: true
+        uiLanguage:
+          type: string
+          nullable: true
+        allowEarlyPlay:
+          type: boolean
+        tokenAuthEnabled:
+          type: boolean
+        enableMP4Fallback:
+          type: boolean
+        showHeatmap:
+          type: boolean
+        fontFamily:
+          type: string
+          nullable: true
+        playbackSpeeds:
+          type: string
+          nullable: true
+        widevineMinClientSecurityLevel:
+          type: integer
+          format: int32
+          nullable: true
+        zoneTier:
+          type: integer
+          format: int32
+          nullable: true
+        rememberPlayerPosition:
+          type: boolean
+        enableCompactControls:
+          type: boolean
+    StatusModelOfListOfString:
+      allOf:
+      - $ref: '#/components/schemas/StatusModel'
+      - type: object
+        additionalProperties: false
+        properties:
+          data:
+            type: array
+            nullable: true
+            items:
+              type: string
+    CreateLiveStreamModel:
+      type: object
+      additionalProperties: false
+      properties:
+        title:
+          type: string
+          description: The title of the live stream
+          nullable: true
+        description:
+          type: string
+          description: The description of the live stream
+          nullable: true
+        collectionId:
+          type: string
+          description: The ID of the collection where the live stream belongs
+          nullable: true
+        dvrEnabled:
+          type: boolean
+          description: Determines if DVR is enabled for the live stream
+        dvrWindowSeconds:
+          type: integer
+          description: The DVR window size in seconds, required when DvrEnabled is true, max is 12 hours
+          format: int32
+          maximum: 43200.0
+          minimum: 1.0
+          nullable: true
+        recordVod:
+          type: boolean
+          description: Determines if a VOD recording should be created for the live stream
+        scheduledStartTime:
+          type: string
+          description: The scheduled start time of the live stream (optional, UTC)
+          format: date-time
+          nullable: true
+        scheduledEndTime:
+          type: string
+          description: The scheduled end time of the live stream (optional, UTC)
+          format: date-time
+          nullable: true
+        public:
+          type: boolean
+          description: Determines if the live stream is publicly accessible, defaults to true
+        enableCountdown:
+          type: boolean
+          description: Determines if countdown should be shown in player before the stream start, if it was scheduled
+          nullable: true
+        rtmpOutputs:
+          type: array
+          description: A list of up to 4 RTMP outputs that the incoming stream will be forwarded to
+          nullable: true
+          items:
+            $ref: '#/components/schemas/RtmpOutput'
+        preStreamTrailerVideoId:
+          type: string
+          description: Video ID of the trailer that will be played before the live stream starts
+          nullable: true
+    UpdateLiveStreamModel:
+      type: object
+      additionalProperties: false
+      properties:
+        title:
+          type: string
+          description: The title of the live stream
+          nullable: true
+        description:
+          type: string
+          description: The description of the live stream
+          nullable: true
+        collectionId:
+          type: string
+          description: The ID of the collection where the live stream belongs
+          nullable: true
+        dvrEnabled:
+          type: boolean
+          description: Determines if DVR is enabled for the live stream
+        dvrWindowSeconds:
+          type: integer
+          description: The DVR window size in seconds, required when DvrEnabled is true, max is 12 hours
+          format: int32
+          maximum: 43200.0
+          minimum: 1.0
+          nullable: true
+        recordVod:
+          type: boolean
+          description: Determines if a VOD recording should be created for the live stream
+        scheduledStartTime:
+          type: string
+          description: The scheduled start time of the live stream (optional, UTC)
+          format: date-time
+          nullable: true
+        scheduledEndTime:
+          type: string
+          description: The scheduled end time of the live stream (optional, UTC)
+          format: date-time
+          nullable: true
+        public:
+          type: boolean
+          description: Determines if the live stream is publicly accessible, defaults to true
+        enableCountdown:
+          type: boolean
+          description: Determines if countdown should be shown in player before the stream start, if it was scheduled
+            (optional)
+          nullable: true
+        preStreamTrailerVideoId:
+          type: string
+          description: Video ID of the trailer that will be played before the live stream starts
+          nullable: true
+        rtmpOutputs:
+          type: array
+          description: A list of up to 4 RTMP outputs that the incoming stream will be forwarded to
+          nullable: true
+          items:
+            $ref: '#/components/schemas/RtmpOutput'
+    PaginationListOfLiveStreamModel:
+      type: object
+      additionalProperties: false
+      properties:
+        totalItems:
+          type: integer
+          description: The total number of items that can be returned
+          format: int64
+        currentPage:
+          type: integer
+          description: The current page of the response
+          format: int64
+        itemsPerPage:
+          type: integer
+          description: The number of items returned per page
+          format: int32
+        items:
+          type: array
+          description: The result items on the current result
+          nullable: true
+          items:
+            $ref: '#/components/schemas/LiveStreamModel'
+    ThumbnailListResponseModel:
+      type: object
+      additionalProperties: false
+      properties:
+        url:
+          type: string
+          nullable: true
+        timestamp:
+          type: string
+          format: date-time
+    LiveStreamStatusModel:
+      type: object
+      additionalProperties: false
+      properties:
+        readyToStart:
+          type: boolean
+          description: Determines if the stream is ready to start based on live status
+        primaryLive:
+          type: boolean
+          description: Determines if the primary ingest is live
+        backupLive:
+          type: boolean
+          description: Determines if the backup ingest is live
+        lastPingAgo:
+          type: integer
+          description: The number of milliseconds since the last ping, if available
+          format: int64
+          nullable: true
+        duration:
+          type: integer
+          description: The stream duration in seconds
+          format: int32
+          nullable: true
+        statusTimeUtc:
+          type: string
+          description: The UTC time when the status is read
+          format: date-time
+    VideoModel:
+      type: object
+      additionalProperties: false
+      properties:
+        videoLibraryId:
+          type: integer
+          description: The ID of the video library that the video belongs to
+          format: int64
+        guid:
+          type: string
+          description: The unique ID of the video
+          minLength: 1
+        title:
+          type: string
+          description: The title of the video
+          minLength: 1
+        description:
+          type: string
+          description: The description of the video
           nullable: true
         dateUploaded:
           type: string
-          description: The date and time when the video was uploaded.
+          description: The date when the video was uploaded
           format: date-time
+          minLength: 1
         views:
           type: integer
-          description: The number of views the video has received.
+          description: The number of views the video received
           format: int64
         isPublic:
           type: boolean
-          description: Determines if the video is publicly accessible.
+          description: Determines if the video is publically accessible
         length:
           type: integer
-          description: The duration of the video in seconds.
+          description: The duration of the video in seconds
           format: int32
         status:
-          description: The current status of the video (e.g., processing, finished, error).
+          description: The status of the video. See VideoModelStatus.
           oneOf:
-            - $ref: '#/components/schemas/VideoModelStatus'
+          - $ref: '#/components/schemas/VideoModelStatus'
         framerate:
           type: number
-          description: The framerate of the video.
+          description: The framerate of the video
           format: double
         rotation:
           type: integer
-          description: The rotation (in degrees) of the video if applicable.
+          description: The rotation of the video
           nullable: true
         width:
           type: integer
-          description: The width of the original video in pixels.
+          description: The width of the original video file
           format: int32
         height:
           type: integer
-          description: The height of the original video in pixels.
+          description: The height of the original video file
           format: int32
         availableResolutions:
           type: string
-          description: A comma-separated list of resolutions available for the video.
+          description: The available resolutions of the video
           nullable: true
         outputCodecs:
           type: string
-          description: A comma-separated list of output codecs used for video encoding.
-          nullable: true
+          description: Encoded output codecs of the video
+          minLength: 1
         thumbnailCount:
           type: integer
-          description: The number of thumbnails generated for the video.
+          description: The number of thumbnails generated for this video
           format: int32
         encodeProgress:
           type: integer
-          description: The current encoding progress of the video as a percentage.
+          description: The current encode progress of the video
           format: int32
         storageSize:
           type: integer
-          description: The total storage size of the video file in bytes.
+          description: The amount of storage used by this video
           format: int64
         captions:
           type: array
-          description: A list of captions available for the video.
+          description: The list of captions available for the video
           nullable: true
           items:
             $ref: '#/components/schemas/CaptionModel'
         hasMP4Fallback:
           type: boolean
-          description: Indicates if MP4 fallback files are available for the video.
+          description: Determines if the video has MP4 fallback files generated
         collectionId:
           type: string
-          description: The identifier of the collection that the video belongs to.
+          description: The ID of the collection where the video belongs
           nullable: true
         thumbnailFileName:
           type: string
-          description: The file name of the thumbnail stored on the server.
+          description: The file name of the thumbnail inside of the storage
+          nullable: true
+        thumbnailBlurhash:
+          type: string
+          description: Thumbnail blurhash to show while the actual thumbnail is being loaded
           nullable: true
         averageWatchTime:
           type: integer
-          description: The average watch time of the video in seconds.
+          description: The average watch time of the video in seconds
           format: int64
         totalWatchTime:
           type: integer
-          description: The total accumulated watch time of the video in seconds.
+          description: The total video watch time in seconds
           format: int64
         category:
           type: string
-          description: The automatically detected category of the video.
+          description: The automatically detected category of the video
           nullable: true
         chapters:
           type: array
-          description: A list of chapters within the video.
+          description: The list of chapters available for the video
           nullable: true
           items:
             $ref: '#/components/schemas/ChapterModel'
         moments:
           type: array
-          description: A list of significant moments or events in the video.
+          description: The list of moments available for the video
           nullable: true
           items:
             $ref: '#/components/schemas/MomentModel'
         metaTags:
           type: array
-          description: A list of metadata tags associated with the video.
+          description: The list of meta tags that have been added to the video
           nullable: true
           items:
             $ref: '#/components/schemas/MetaTagModel'
         transcodingMessages:
           type: array
-          description: Messages generated during transcoding that indicate warnings or errors.
+          description: The list of transcoding messages that describe potential issues while the video was transcoding
           nullable: true
           items:
             $ref: '#/components/schemas/TranscodingMessageModel'
+        jitEncodingEnabled:
+          type: boolean
+          nullable: true
+        smartGenerateStatus:
+          description: The status of smart generate action (if triggered)
+          nullable: true
+          oneOf:
+          - $ref: '#/components/schemas/SmartGenerateStatus'
+        hasOriginal:
+          type: boolean
+          description: Determines if video has the original file available in storage
+          nullable: true
+        originalHash:
+          type: string
+          description: Original uploaded file SHA256 hash
+          nullable: true
+        hasHighQualityPreview:
+          type: boolean
+          nullable: true
     VideoModelStatus:
       type: integer
-      description: 'Status of the video: 0 = Created, 1 = Uploaded, 2 = Processing, 3 = Transcoding, 4 = Finished, 5 = Error, 6 = UploadFailed, 7 = JitSegmenting, 8 = JitPlaylistsCreated'
-      x-enumNames:
-        - Created
-        - Uploaded
-        - Processing
-        - Transcoding
-        - Finished
-        - Error
-        - UploadFailed
-        - JitSegmenting
-        - JitPlaylistsCreated
+      description: (0 = Created, 1 = Uploaded, 2 = Processing, 3 = Transcoding, 4 = Finished, 5 = Error, 6 = UploadFailed,
+        7 = JitSegmenting, 8 = JitPlaylistsCreated)
       enum:
-        - 0
-        - 1
-        - 2
-        - 3
-        - 4
-        - 5
-        - 6
-        - 7
-        - 8
+      - 0
+      - 1
+      - 2
+      - 3
+      - 4
+      - 5
+      - 6
+      - 7
+      - 8
+      x-enumNames:
+      - Created
+      - Uploaded
+      - Processing
+      - Transcoding
+      - Finished
+      - Error
+      - UploadFailed
+      - JitSegmenting
+      - JitPlaylistsCreated
     CaptionModel:
       type: object
-      description: Represents caption details for a video.
       additionalProperties: false
       properties:
         srclang:
           type: string
-          description: The ISO 639-1 language code for the caption.
+          description: The unique srclang shortcode for the caption
           nullable: true
         label:
           type: string
-          description: A descriptive label for the caption.
+          description: The text description label for the caption
           nullable: true
+        version:
+          type: integer
+          format: int32
     ChapterModel:
       type: object
-      description: Represents a chapter within a video, including its title and start/end times.
       additionalProperties: false
       required:
-        - title
+      - title
       properties:
         title:
           type: string
-          description: The title of the chapter.
+          description: The title of the chapter
           minLength: 1
         start:
           type: integer
-          description: The start time of the chapter in seconds.
+          description: The start time of the chapter in seconds
           format: int32
         end:
           type: integer
-          description: The end time of the chapter in seconds.
+          description: The end time of the chapter in seconds
           format: int32
     MomentModel:
       type: object
-      description: Represents a key moment in the video with a descriptive label and timestamp.
       additionalProperties: false
       required:
-        - label
+      - label
       properties:
         label:
           type: string
-          description: A descriptive label for the moment.
+          description: The text description label for the chapter
           minLength: 1
         timestamp:
           type: integer
-          description: The timestamp of the moment in seconds.
+          description: The timestamp of the moment in seconds
           format: int32
     MetaTagModel:
       type: object
-      description: Represents a metadata tag for a video.
       additionalProperties: false
       properties:
         property:
           type: string
-          description: The property name of the meta tag.
           nullable: true
         value:
           type: string
-          description: The value associated with the meta tag property.
           nullable: true
     TranscodingMessageModel:
       type: object
-      description: Represents a message from the transcoding process indicating warnings or errors.
       additionalProperties: false
       properties:
         timeStamp:
           type: string
-          description: The timestamp when the message was generated.
           format: date-time
         level:
           $ref: '#/components/schemas/Severity'
@@ -1479,541 +3139,641 @@ components:
           $ref: '#/components/schemas/IssueCodes'
         message:
           type: string
-          description: A descriptive message detailing the transcoding issue.
           nullable: true
         value:
           type: string
-          description: An optional value providing further context for the issue.
           nullable: true
     Severity:
       type: integer
-      description: 'The severity level of a transcoding message: 0 = Undefined, 1 = Information, 2 = Warning, 3 = Error.'
-      x-enumNames:
-        - Undefined
-        - Information
-        - Warning
-        - Error
+      description: (0 = Undefined, 1 = Information, 2 = Warning, 3 = Error)
       enum:
-        - 0
-        - 1
-        - 2
-        - 3
+      - 0
+      - 1
+      - 2
+      - 3
+      x-enumNames:
+      - Undefined
+      - Information
+      - Warning
+      - Error
     IssueCodes:
       type: integer
-      description: 'The issue code representing a specific transcoding problem. Codes: 0 = Undefined, 1 = StreamLengthsDifference, 2 = TranscodingWarnings, 3 = IncompatibleResolution, 4 = InvalidFramerate, 5 = VideoExceededMaxDuration, 6 = AudioExceededMaxDuration, 7 = OriginalCorrupted, 8 = TranscriptionFailed, 9 = JitIncompatible, 10 = JitFailed.'
-      x-enumNames:
-        - Undefined
-        - StreamLengthsDifference
-        - TranscodingWarnings
-        - IncompatibleResolution
-        - InvalidFramerate
-        - VideoExceededMaxDuration
-        - AudioExceededMaxDuration
-        - OriginalCorrupted
-        - TranscriptionFailed
-        - JitIncompatible
-        - JitFailed
+      description: (0 = Undefined, 1 = StreamLengthsDifference, 2 = TranscodingWarnings, 3 = IncompatibleResolution,
+        4 = InvalidFramerate, 5 = VideoExceededMaxDuration, 6 = AudioExceededMaxDuration, 7 = OriginalCorrupted,
+        8 = TranscriptionFailed, 9 = JitIncompatible, 10 = JitFailed, 11 = CaptionGenerationFailed)
       enum:
-        - 0
-        - 1
-        - 2
-        - 3
-        - 4
-        - 5
-        - 6
-        - 7
-        - 8
-        - 9
-        - 10
+      - 0
+      - 1
+      - 2
+      - 3
+      - 4
+      - 5
+      - 6
+      - 7
+      - 8
+      - 9
+      - 10
+      - 11
+      x-enumNames:
+      - Undefined
+      - StreamLengthsDifference
+      - TranscodingWarnings
+      - IncompatibleResolution
+      - InvalidFramerate
+      - VideoExceededMaxDuration
+      - AudioExceededMaxDuration
+      - OriginalCorrupted
+      - TranscriptionFailed
+      - JitIncompatible
+      - JitFailed
+      - CaptionGenerationFailed
+    SmartGenerateStatus:
+      type: integer
+      description: (0 = None, 1 = Queued, 2 = InProgress, 3 = Finished, 4 = Failed)
+      enum:
+      - 0
+      - 1
+      - 2
+      - 3
+      - 4
+      x-enumNames:
+      - None
+      - Queued
+      - InProgress
+      - Finished
+      - Failed
     VideoHeatmapModel:
       type: object
-      description: Represents the heatmap data for a video. Each key represents a time segment and its corresponding watch percentage.
       additionalProperties: false
       properties:
         heatmap:
           type: object
-          description: The heatmap where keys are time segments and values are watch percentages.
+          description: Timeline heatmap as segment-index to intensity (0–100). Keys represent consecutive segments
+            from the start of the video; values are normalized so 100 equals the most‑watched segment. Missing segments
+            imply 0.
           nullable: true
           additionalProperties:
             type: integer
             format: int32
     VideoPlayDataModel:
       type: object
-      description: Contains all necessary playback information for a video, including various URLs and player configurations.
       additionalProperties: false
       properties:
         video:
-          description: The video data model.
+          description: Video data.
           nullable: true
           oneOf:
-            - $ref: '#/components/schemas/VideoModel'
+          - $ref: '#/components/schemas/VideoModel'
+        libraryName:
+          type: string
+          nullable: true
         captionsPath:
           type: string
-          description: The path where caption files are stored.
           nullable: true
         seekPath:
           type: string
-          description: The URL to be used for seeking within the video.
           nullable: true
         thumbnailUrl:
           type: string
-          description: The URL of the video's thumbnail.
           nullable: true
         fallbackUrl:
           type: string
-          description: The fallback URL for the video.
           nullable: true
         videoPlaylistUrl:
           type: string
-          description: The URL of the video playlist.
           nullable: true
         originalUrl:
           type: string
-          description: The URL of the original video file.
           nullable: true
         previewUrl:
           type: string
-          description: The URL of the video preview.
           nullable: true
         controls:
           type: string
-          description: Player control settings.
           nullable: true
         enableDRM:
           type: boolean
-          description: Indicates if DRM is enabled for the video.
         drmVersion:
           type: integer
-          description: The version number of DRM used.
           format: int32
         playerKeyColor:
           type: string
-          description: The primary color used for the video player interface.
           nullable: true
         vastTagUrl:
           type: string
-          description: The VAST tag URL for video ads.
+          nullable: true
+        viAiPublisherId:
+          type: string
           nullable: true
         captionsFontSize:
           type: integer
-          description: Font size for captions in the video player.
           format: int32
         captionsFontColor:
           type: string
-          description: Font color for captions in the video player.
           nullable: true
         captionsBackground:
           type: string
-          description: Background color for captions.
           nullable: true
         uiLanguage:
           type: string
-          description: The language used for the player UI.
           nullable: true
         allowEarlyPlay:
           type: boolean
-          description: Indicates if early playback is allowed.
         tokenAuthEnabled:
           type: boolean
-          description: Indicates if token-based authentication is enabled for playback.
         enableMP4Fallback:
           type: boolean
-          description: Indicates if MP4 fallback files should be used.
         showHeatmap:
           type: boolean
-          description: Indicates if the heatmap should be displayed on the player.
         fontFamily:
           type: string
-          description: The font family used for captions.
           nullable: true
         playbackSpeeds:
           type: string
-          description: Available playback speed options for the video.
           nullable: true
+        widevineMinClientSecurityLevel:
+          type: integer
+          format: int32
+          nullable: true
+        zoneTier:
+          type: integer
+          format: int32
+          nullable: true
+        isPlayable:
+          type: boolean
+          description: Determines if the video is currently playable using either playlist or original source.
+        isPlaylistPlayable:
+          type: boolean
+          description: Determines if the HLS playlist is currently playable.
+        preferredPlaybackSource:
+          description: Preferred playback source for the current video state.
+          oneOf:
+          - $ref: '#/components/schemas/VideoPlaybackSource'
+        rememberPlayerPosition:
+          type: boolean
+        customCss:
+          type: string
+          nullable: true
+        exposeVideoMetadata:
+          type: boolean
+        enableCompactControls:
+          type: boolean
+    VideoPlaybackSource:
+      type: string
+      description: (None = None, Playlist = Playlist, Original = Original)
+      enum:
+      - None
+      - Playlist
+      - Original
+      x-enumNames:
+      - None
+      - Playlist
+      - Original
     VideoStatisticsModel:
       type: object
-      description: Represents various statistics for a video including view counts, watch time, and engagement score.
       additionalProperties: false
       properties:
         viewsChart:
           type: object
-          description: A chart representing view counts over time.
+          description: Shows the number of playback starts over time, with each data point representing the count
+            of view starts in the corresponding UTC interval (hourly or daily). It is available at both the library
+            level (aggregated across all videos) and the video level (for a single video). A playback start is counted
+            once per viewer session per video and empty intervals are shown as zero.
           nullable: true
           additionalProperties:
             type: integer
             format: int64
         watchTimeChart:
           type: object
-          description: A chart representing total watch time over time.
+          description: Shows the cumulative time viewers spent watching over time, with each data point representing
+            total watch time in the corresponding UTC interval (hourly or daily). It is available at both the library
+            level (aggregated across all videos) and the video level (for a single video). Rewatches and repeated
+            visits add to the total and empty intervals are shown as zero.
           nullable: true
           additionalProperties:
             type: integer
             format: int64
         countryViewCounts:
           type: object
-          description: View counts grouped by country.
+          description: Shows the total number of playback starts by country for the selected time range. It is available
+            at both the library level (aggregated across all videos) and the video level (for a single video). Each
+            country’s value reflects unique playback starts per viewer session based on IP geolocation at playback
+            start.
           nullable: true
           additionalProperties:
             type: integer
             format: int64
         countryWatchTime:
           type: object
-          description: Total watch time grouped by country.
+          description: Shows the total watch time by country for the selected time range. It is available at both
+            the library level (aggregated across all videos) and the video level (for a single video). Values reflect
+            cumulative viewing time (rewatches and repeated visits add to the total) based on IP geolocation at
+            playback start.
           nullable: true
           additionalProperties:
             type: integer
             format: int64
         engagementScore:
           type: integer
-          description: A score representing viewer engagement.
+          description: Indicates how engaging a specific video is on a 0–100 scale based on viewing duration and
+            viewing patterns; higher values reflect stronger viewer retention. Reported at the video level only
+            and may be unavailable when there isn’t enough viewing data.
           format: int32
     EncoderOutputCodec:
       type: integer
-      description: 'Output codec used for encoding the video: 0 = x264, 1 = vp9, 2 = hevc, 3 = av1.'
-      x-enumNames:
-        - x264
-        - vp9
-        - hevc
-        - av1
+      description: (0 = x264, 1 = vp9, 2 = hevc, 3 = av1)
       enum:
-        - 0
-        - 1
-        - 2
-        - 3
+      - 0
+      - 1
+      - 2
+      - 3
+      x-enumNames:
+      - x264
+      - vp9
+      - hevc
+      - av1
     PaginationListOfVideoModel:
       type: object
-      description: A paginated list of videos.
       additionalProperties: false
       properties:
         totalItems:
           type: integer
-          description: The total number of videos available.
+          description: The total number of items that can be returned
           format: int64
         currentPage:
           type: integer
-          description: The current page number.
+          description: The current page of the response
           format: int64
         itemsPerPage:
           type: integer
-          description: The number of videos per page.
+          description: The number of items returned per page
           format: int32
         items:
           type: array
-          description: The videos returned on the current page.
+          description: The result items on the current result
           nullable: true
           items:
             $ref: '#/components/schemas/VideoModel'
     CreateVideoModel:
       type: object
-      description: Schema for creating a new video entry. 'title' is required.
       additionalProperties: false
       required:
-        - title
+      - title
       properties:
         title:
           type: string
-          description: The title of the new video.
+          description: The title of the video
           minLength: 1
         collectionId:
           type: string
-          description: Optional collection ID where the video will be placed.
+          description: The ID of the collection where the video will be put
           nullable: true
         thumbnailTime:
           type: integer
-          description: Video time in milliseconds used to extract the main video thumbnail.
+          description: Video time in ms to extract the main video thumbnail.
           format: int32
           nullable: true
     UpdateVideoModel:
       type: object
-      description: Schema for updating video metadata.
       additionalProperties: false
       properties:
         title:
           type: string
-          description: The updated title of the video.
+          description: The title of the video
           nullable: true
         collectionId:
           type: string
-          description: The ID of the collection to which the video belongs.
+          description: The ID of the collection where the video belongs
           nullable: true
         chapters:
           type: array
-          description: A list of chapters for the video.
+          description: The list of chapters available for the video
           nullable: true
           items:
             $ref: '#/components/schemas/ChapterModel'
         moments:
           type: array
-          description: A list of key moments in the video.
+          description: The list of moments available for the video
           nullable: true
           items:
             $ref: '#/components/schemas/MomentModel'
         metaTags:
           type: array
-          description: A list of meta tags to associate with the video.
+          description: The meta tags added to the video
           nullable: true
           items:
             $ref: '#/components/schemas/MetaTagModel'
     FetchVideoRequest:
       type: object
-      description: Schema for fetching a video from a remote URL. The 'url' field is required.
       additionalProperties: false
       required:
-        - url
+      - url
       properties:
         url:
           type: string
-          description: The URL from which to fetch the video.
+          description: The URL from which the video will be fetched from.
           minLength: 1
         headers:
           type: object
-          description: Optional headers to include with the fetch request.
+          description: The headers that will be sent along with the fetch request.
           nullable: true
           additionalProperties:
             type: string
         title:
           type: string
-          description: Optional title to assign to the fetched video.
+          description: The title that will be set to video.
           nullable: true
+    CaptionValidationModel:
+      type: object
+      additionalProperties: false
+      properties:
+        valid:
+          type: boolean
+          description: Denotes whether uploaded captions file was valid
+        errorList:
+          type: array
+          description: When uploaded file was invalid, will contain errors found
+          nullable: true
+          items:
+            type: string
+        warningList:
+          type: array
+          description: When uploaded file was valid but non-breaking issues were found, will contain issues found
+          nullable: true
+          items:
+            type: string
     CaptionModelAdd:
       type: object
-      description: Schema for adding a caption. Includes language code, descriptive label, and a base64 encoded captions file.
       additionalProperties: false
       properties:
         srclang:
           type: string
-          description: The ISO 639-1 language code for the caption.
+          description: The unique srclang shortcode for the caption
           nullable: true
         label:
           type: string
-          description: A descriptive label for the caption.
+          description: The text description label for the caption
           nullable: true
         captionsFile:
           type: string
-          description: The base64 encoded captions file content.
+          description: Base64 encoded captions file
           nullable: true
     TranscribeSettings:
       type: object
-      description: Settings for video transcription that allow overriding default transcription options.
       additionalProperties: false
       properties:
         targetLanguages:
           type: array
-          description: List of target language codes (ISO 639-1) for transcription.
+          description: List of languages that will be used as target languages, use ISO 639-1 language codes.
           nullable: true
           items:
             type: string
         generateTitle:
           type: boolean
-          description: Determines if the video title should be automatically generated.
-          default: false
+          description: Whether video title should be automatically generated.
+          nullable: true
         generateDescription:
           type: boolean
-          description: Determines if the video description should be automatically generated.
-          default: false
+          description: Whether video description should be automatically generated.
+          nullable: true
+        generateChapters:
+          type: boolean
+          description: Whether video chapters should be automatically generated.
+          nullable: true
+        generateMoments:
+          type: boolean
+          description: Whether video moments should be automatically generated.
+          nullable: true
         sourceLanguage:
           type: string
-          description: The source language code (ISO 639-1) of the video. This takes precedence over the query parameter if provided.
+          description: Video source language, use ISO 639-1 language code.
+          nullable: true
+    SmartGenerateModel:
+      type: object
+      additionalProperties: false
+      properties:
+        generateTitle:
+          type: boolean
+          description: Whether video title should be generated.
+          nullable: true
+        generateDescription:
+          type: boolean
+          description: Whether video description should be generated.
+          nullable: true
+        generateChapters:
+          type: boolean
+          description: Whether video chapters should be generated.
+          nullable: true
+        generateMoments:
+          type: boolean
+          description: Whether video moments should be generated.
+          nullable: true
+        sourceLanguage:
+          type: string
+          description: (Optional) Video source language, use ISO 639-1 language code.
           nullable: true
     StatusModelOfVideoResolutionsInfoModel:
       allOf:
-        - $ref: '#/components/schemas/StatusModel'
-        - type: object
-          description: Wraps the VideoResolutionsInfoModel with a status response.
-          additionalProperties: false
-          properties:
-            data:
-              nullable: true
-              oneOf:
-                - $ref: '#/components/schemas/VideoResolutionsInfoModel'
+      - $ref: '#/components/schemas/StatusModel'
+      - type: object
+        additionalProperties: false
+        properties:
+          data:
+            nullable: true
+            oneOf:
+            - $ref: '#/components/schemas/VideoResolutionsInfoModel'
     VideoResolutionsInfoModel:
       type: object
-      description: Represents detailed resolution information for a video, including available, configured, and storage resolutions.
       additionalProperties: false
       properties:
         videoId:
           type: string
-          description: The unique identifier of the video.
           nullable: true
         videoLibraryId:
           type: integer
-          description: The ID of the video library.
           format: int64
         availableResolutions:
           type: array
-          description: A list of available resolutions for the video.
           nullable: true
           items:
             type: string
         configuredResolutions:
           type: array
-          description: A list of resolutions configured for encoding.
           nullable: true
           items:
             type: string
         playlistResolutions:
           type: array
-          description: A list of resolutions used in playlists.
           nullable: true
           items:
             $ref: '#/components/schemas/ResolutionReference'
         storageResolutions:
           type: array
-          description: A list of resolutions stored on the server.
           nullable: true
           items:
             $ref: '#/components/schemas/ResolutionReference'
         mp4Resolutions:
           type: array
-          description: A list of MP4 fallback resolutions.
           nullable: true
           items:
             $ref: '#/components/schemas/ResolutionReference'
         storageObjects:
           type: array
-          description: A list of storage objects related to the video resolutions.
           nullable: true
           items:
             $ref: '#/components/schemas/StorageObjectModel'
         oldResolutions:
           type: array
-          description: A list of previous resolution objects that may be removed.
           nullable: true
           items:
             $ref: '#/components/schemas/StorageObjectModel'
         hasBothOldAndNewResolutionFormat:
           type: boolean
-          description: Indicates if both old and new resolution formats are present.
         hasOriginal:
           type: boolean
-          description: Indicates if the original video file is available.
     ResolutionReference:
       type: object
-      description: Reference to a specific video resolution including its file path.
       additionalProperties: false
       properties:
         resolution:
           type: string
-          description: The resolution (e.g., 720p, 1080p).
           nullable: true
         path:
           type: string
-          description: The file path associated with this resolution.
           nullable: true
     StorageObjectModel:
       type: object
-      description: Represents a storage object containing file details for a video.
       additionalProperties: false
       properties:
         guid:
           type: string
-          description: The unique identifier of the storage object.
           nullable: true
         storageZoneName:
           type: string
-          description: The name of the storage zone where the file is kept.
           nullable: true
         path:
           type: string
-          description: The file path of the storage object.
           nullable: true
         objectName:
           type: string
-          description: The name of the object in storage.
           nullable: true
         length:
           type: integer
-          description: The length of the file in bytes.
           format: int64
         lastChanged:
           type: string
-          description: The date and time when the file was last modified.
           format: date-time
         serverId:
           type: integer
-          description: The identifier of the server storing the file.
           format: int32
         isDirectory:
           type: boolean
-          description: Indicates if the storage object is a directory.
         userId:
           type: string
-          description: The user ID associated with the storage object.
           nullable: true
         contentType:
           type: string
-          description: The MIME type of the file.
           nullable: true
         dateCreated:
           type: string
-          description: The date and time when the file was created.
           format: date-time
         storageZoneId:
           type: integer
-          description: The identifier of the storage zone.
           format: int64
         checksum:
           type: string
-          description: A checksum value for file integrity verification.
           nullable: true
         replicatedZones:
           type: string
-          description: A list of storage zones where the file is replicated.
           nullable: true
+    StatusModelOfVideoStorageSizeModel:
+      allOf:
+      - $ref: '#/components/schemas/StatusModel'
+      - type: object
+        additionalProperties: false
+        properties:
+          data:
+            nullable: true
+            oneOf:
+            - $ref: '#/components/schemas/VideoStorageSizeModel'
+    VideoStorageSizeModel:
+      type: object
+      additionalProperties: false
+      properties:
+        encoded:
+          type: object
+          nullable: true
+          additionalProperties:
+            $ref: '#/components/schemas/CodecRenditionSizeModel'
+        thumbnails:
+          type: integer
+          format: int64
+        previews:
+          type: integer
+          format: int64
+        originals:
+          type: integer
+          format: int64
+        mp4Fallback:
+          type: integer
+          format: int64
+        miscellaneous:
+          type: integer
+          format: int64
+        calculatedAt:
+          type: string
+          format: date-time
+    CodecRenditionSizeModel:
+      type: object
+      additionalProperties: false
+      properties:
+        codec:
+          type: string
+          nullable: true
+        resolution:
+          type: string
+          nullable: true
+        size:
+          type: integer
+          format: int64
     VideoOEmbedModel:
       type: object
-      description: Represents OEmbed data for a video, including embed HTML and metadata such as title and provider information.
       additionalProperties: false
       properties:
         version:
           type: string
-          description: The version of the OEmbed specification being used.
           nullable: true
         title:
           type: string
-          description: The title of the video.
           nullable: true
         type:
           type: string
-          description: The type of the embedded object (e.g., video).
           nullable: true
-        thumbnailUrl:
+        thumbnail_url:
           type: string
-          description: The URL of the video thumbnail.
           nullable: true
         width:
           type: integer
-          description: The width of the embedded video.
           format: int32
         height:
           type: integer
-          description: The height of the embedded video.
           format: int32
         html:
           type: string
-          description: The HTML snippet for embedding the video.
           nullable: true
-        providerName:
+        provider_name:
           type: string
-          description: The name of the provider (e.g., bunny.net).
           nullable: true
-        providerUrl:
+        provider_url:
           type: string
-          description: The URL of the provider's website.
           nullable: true
   securitySchemes:
     AccessKey:
       type: apiKey
-      description: AccessKey based authentication. Pass your AccessKey in the header to authorize requests.
+      description: AccessKey based authentication
       name: AccessKey
       in: header
 tags:
-  - name: Manage Collections
-    description: Endpoints for managing video collections including creation, retrieval, updating, and deletion.
-  - name: Manage Videos
-    description: Endpoints for managing videos including upload, update, deletion, fetching metadata, transcoding, and caption management.
-  - name: OEmbed
-    description: Endpoint for retrieving OEmbed data for embedding videos.
-x-readme:
-  explorer-enabled: true
-  proxy-enabled: true
+- name: Manage Collections
+- name: Manage Live Streams
+- name: Manage Videos

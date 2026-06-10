@@ -31,13 +31,6 @@ interface BunnyPlayer {
     fun play()
 
     /**
-     * Seek to a specific playback position in milliseconds.
-     *
-     * @param position Position in milliseconds.
-     */
-    fun seekTo(position: Long)
-
-    /**
      * Get current position of video in milliseconds
      */
     fun getCurrentPosition(): Long

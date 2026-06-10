@@ -4,6 +4,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
@@ -48,6 +49,11 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Consistent edge-to-edge on all API levels. Android 15+ (API 35) enforces it anyway
+        // for apps targeting 35+; opting in explicitly makes window insets flow to Compose the
+        // same way everywhere, so the M3 TopAppBars pad themselves below the status bar.
+        enableEdgeToEdge()
 
         // Check if running on TV using the utility function
         if (isRunningOnTV(packageManager)) {

@@ -47,6 +47,10 @@ class BunnyStreamCameraUpload @JvmOverloads constructor(
             binding.streamControls.isVisible = !value
         }
 
+    override var liveStreamId: String? = null
+
+    override var liveIngestEndpoint: String? = null
+
     override var closeStreamClickListener: OnClickListener? = null
         set(value) {
             field = value
@@ -117,7 +121,12 @@ class BunnyStreamCameraUpload @JvmOverloads constructor(
 
         binding.startStop.setOnClickListener {
             if (!streamHandler.isStreaming()) {
-                streamHandler.startStreaming(libraryId)
+                val streamId = liveStreamId
+                if (streamId != null) {
+                    streamHandler.startLiveStreaming(libraryId, streamId, liveIngestEndpoint)
+                } else {
+                    streamHandler.startStreaming(libraryId)
+                }
             } else {
                 AlertDialog.Builder(binding.root.context)
                     .setTitle(context.getString(R.string.dialog_end_stream_title))

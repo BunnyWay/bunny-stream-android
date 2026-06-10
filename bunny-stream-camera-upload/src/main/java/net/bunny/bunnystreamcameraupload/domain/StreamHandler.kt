@@ -14,6 +14,12 @@ internal interface StreamHandler {
 
     fun startStreaming(libraryId: Long)
 
+    /**
+     * Starts broadcasting to an existing Bunny live stream (RTMP publish using its streamKey).
+     * Pass `null` for [ingestEndpoint] to use the SDK default ingest host.
+     */
+    fun startLiveStreaming(libraryId: Long, streamId: String, ingestEndpoint: String? = null)
+
     fun stopStreaming()
 
     fun isStreaming(): Boolean

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+        Explicit night variant: guards against library resource merges hijacking the
+        app theme in dark mode (values-night outranks values-v31 in qualifier precedence).
+    -->
+    <style name="Theme.BunnyStream" parent="Theme.AppCompat.NoActionBar" >
+    </style>
+</resources>

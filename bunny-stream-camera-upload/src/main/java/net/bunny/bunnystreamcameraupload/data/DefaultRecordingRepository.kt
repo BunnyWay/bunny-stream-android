@@ -40,4 +40,49 @@ class DefaultRecordingRepository(
             Either.Left(e.message ?: e.toString())
         }
     }
+
+    override suspend fun startLiveStream(
+        libraryId: Long,
+        streamId: String,
+    ): Either<String, Unit> = withContext(coroutineDispatcher) {
+        BunnyStreamApi.getInstance().liveStreamRepository
+            .startLiveStream(libraryId, streamId)
+            .map { stream ->
+                Log.d(TAG, "startLiveStream ok — status=${stream.status}")
+                Unit
+            }
+    }
+
+    override suspend fun stopLiveStream(
+        libraryId: Long,
+        streamId: String,
+    ): Either<String, Unit> = withContext(coroutineDispatcher) {
+        BunnyStreamApi.getInstance().liveStreamRepository
+            .stopLiveStream(libraryId, streamId)
+            .map { stream ->
+                Log.d(TAG, "stopLiveStream ok — status=${stream.status}")
+                Unit
+            }
+    }
+
+    override suspend fun prepareLiveBroadcast(
+        libraryId: Long,
+        streamId: String,
+        ingestEndpoint: String?,
+    ): Either<String, String> = withContext(coroutineDispatcher) {
+        when (val result = BunnyStreamApi.getInstance().liveStreamRepository.getLiveStream(libraryId, streamId)) {
+            is Either.Left -> Either.Left(result.value)
+            is Either.Right -> {
+                val streamKey = result.value.streamKey
+                if (streamKey.isNullOrBlank()) {
+                    Either.Left("Live stream $streamId has no stream key yet, cannot publish")
+                } else {
+                    val base = (ingestEndpoint ?: BuildConfig.LIVE_RTMP_ENDPOINT).trimEnd('/')
+                    val endpoint = "$base/$streamKey"
+                    Log.d(TAG, "live endpoint=$endpoint")
+                    Either.Right(endpoint)
+                }
+            }
+        }
+    }
 }

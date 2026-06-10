@@ -1,11 +1,14 @@
 package net.bunny.api
 
 import android.content.Context
+import android.util.Log
 import arrow.core.Either
 import kotlinx.coroutines.Dispatchers
 import net.bunny.api.api.ManageCollectionsApi
+import net.bunny.api.api.ManageLiveStreamsApi
 import net.bunny.api.api.ManageVideosApi
 import net.bunny.api.ktor.initHttpClient
+import net.bunny.api.livestream.data.DefaultLiveStreamRepository
 import net.bunny.api.settings.data.DefaultSettingsRepository
 import net.bunny.api.settings.domain.model.PlayerSettings
 import net.bunny.api.upload.DefaultVideoUploader
@@ -14,6 +17,7 @@ import net.bunny.api.upload.service.tus.TusUploaderService
 import org.openapitools.client.infrastructure.ApiClient
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
+import okio.Buffer
 
 class BunnyStreamApi private constructor(
     context: Context,
@@ -22,6 +26,8 @@ class BunnyStreamApi private constructor(
 
     companion object {
         private const val TUS_PREFS_FILE = "tusPrefs"
+        private const val HTTP_LOG_TAG = "BunnyLive/HTTP"
+        private const val HTTP_LOG_MAX_BODY_BYTES = 64L * 1024L
 
         const val baseApi = BuildConfig.BASE_API
 
@@ -77,9 +83,43 @@ class BunnyStreamApi private constructor(
 
             chain.proceed(requestBuilder.build())
         })
+        // Logs full request/response bodies for the live stream endpoints so API behavior is
+        // inspectable from logcat (tag: BunnyLive/HTTP).
+        .addInterceptor(Interceptor { chain ->
+            val request = chain.request()
+            val isLiveStreamCall = request.url.encodedPath.contains("livestream", ignoreCase = true)
+
+            if (isLiveStreamCall) {
+                val requestBody = request.body?.let { body ->
+                    val buffer = Buffer()
+                    body.writeTo(buffer)
+                    buffer.readUtf8()
+                }.orEmpty()
+                Log.d(
+                    HTTP_LOG_TAG,
+                    "--> ${request.method} ${request.url}" +
+                        if (requestBody.isNotEmpty()) "\nbody: $requestBody" else ""
+                )
+            }
+
+            val response = chain.proceed(request)
+
+            if (isLiveStreamCall) {
+                val responseBody = response.peekBody(HTTP_LOG_MAX_BODY_BYTES).string()
+                Log.d(
+                    HTTP_LOG_TAG,
+                    "<-- ${response.code} ${request.method} ${request.url}" +
+                        if (responseBody.isNotEmpty()) "\nbody: $responseBody" else ""
+                )
+            }
+
+            response
+        })
         .build()
 
     override val videosApi = ManageVideosApi(baseApi, okHttpClientWithReferer)
+
+    override val liveStreamsApi = ManageLiveStreamsApi(baseApi, okHttpClientWithReferer)
 
     private val prefs = context.getSharedPreferences(TUS_PREFS_FILE, Context.MODE_PRIVATE)
 
@@ -118,6 +158,11 @@ class BunnyStreamApi private constructor(
 
     override val settingsRepository = DefaultSettingsRepository(
         httpClient = ktorClient,
+        coroutineDispatcher = Dispatchers.IO
+    )
+
+    override val liveStreamRepository = DefaultLiveStreamRepository(
+        liveStreamsApi = liveStreamsApi,
         coroutineDispatcher = Dispatchers.IO
     )
 

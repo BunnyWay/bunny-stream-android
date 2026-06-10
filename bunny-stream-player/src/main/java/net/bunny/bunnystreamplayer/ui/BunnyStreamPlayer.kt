@@ -44,6 +44,18 @@ class BunnyStreamPlayer @JvmOverloads constructor(
     companion object {
         private const val TAG = "BunnyVideoPlayer"
         private const val AUTO_SAVE_INTERVAL = 10_000L // 10 seconds
+
+        /**
+         * Default control set for synthetic live PlayerSettings — mirrors what the Bunny dashboard
+         * sends for a "normal" player, minus captions (we surface those only when the caller asks
+         * via [playLiveUrl]'s `enableSubtitles`). Format: comma-separated control names parsed by
+         * [PlayerSettings] (`PlayerSettings.controls.contains("…")`).
+         */
+        private const val DEFAULT_LIVE_CONTROLS =
+            "play-large,play,progress,current-time,duration,mute,volume,fullscreen,settings"
+
+        private const val DEFAULT_LIVE_CONTROLS_WITH_CAPTIONS =
+            "$DEFAULT_LIVE_CONTROLS,captions"
     }
 
     private var job: Job? = null
@@ -313,6 +325,86 @@ class BunnyStreamPlayer @JvmOverloads constructor(
         }
     }
 
+    /**
+     * Play a pre-resolved HLS URL through the standard Bunny player UI (custom controller,
+     * progress text auto-contrast, fullscreen, etc.). Used by the live-stream Compose surface in
+     * `net.bunny.bunnystreamplayer.livestream` so live playback looks visually identical to VOD
+     * — same controls, same chrome.
+     *
+     * Unlike [playVideo], this method does not fetch video metadata or player settings from the
+     * server: the caller already has both (resolved from the live stream's play-data endpoint),
+     * and going through the videos play-data endpoint would 404 for a live-only stream id. We
+     * synthesise the minimal [VideoModel] and [PlayerSettings] the engine needs.
+     *
+     * @param libraryId the Bunny library id.
+     * @param streamId  the live-stream GUID (used as the engine's `currentVideoId` so position
+     *                  resume keys don't collide with VOD entries).
+     * @param videoTitle title for analytics/logging; not shown in the controls (the demo screen
+     *                  already renders a top app bar with the title).
+     * @param hlsUrl    pre-resolved playable URL (videoPlaylistUrl > fallbackUrl > playbackUrlHls).
+     * @param enableSubtitles forwarded to the synthetic PlayerSettings. Defaults to `false` for
+     *                  live (Bunny doesn't currently surface live captions through this path).
+     */
+    fun playLiveUrl(
+        libraryId: Long,
+        streamId: String,
+        videoTitle: String,
+        hlsUrl: String,
+        enableSubtitles: Boolean = false,
+    ) {
+        Log.d(TAG, "playLiveUrl streamId=$streamId hlsUrl=${hlsUrl.take(80)}")
+        if (!BunnyStreamApi.isInitialized()) {
+            Log.e(TAG, "Unable to play live, initialize BunnyStreamApi first")
+            return
+        }
+
+        currentVideoId = streamId
+        currentLibraryId = libraryId
+
+        loadVideoJob?.cancel()
+
+        // Synthetic VideoModel — the engine only reads guid/title/library id/captions for the
+        // happy path. Everything else can be null and the engine treats them as missing.
+        val video = VideoModel(
+            videoLibraryId = libraryId,
+            guid = streamId,
+            title = videoTitle,
+            captions = emptyList(),
+        )
+
+        // Synthetic PlayerSettings — videoUrl is what `DefaultBunnyPlayer.playVideo` builds the
+        // MediaItem from. `controls` mirrors the default control set so the custom controller
+        // layout shows the familiar buttons. DRM/heatmap/captions are off (live has no on-disk
+        // assets for them yet); the player engine reads the same flags either way.
+        val settings = PlayerSettings(
+            thumbnailUrl = "",
+            controls = if (enableSubtitles) DEFAULT_LIVE_CONTROLS_WITH_CAPTIONS else DEFAULT_LIVE_CONTROLS,
+            keyColor = 0,
+            captionsFontSize = 0,
+            captionsFontColor = null,
+            captionsBackgroundColor = null,
+            uiLanguage = "",
+            showHeatmap = false,
+            fontFamily = "",
+            playbackSpeeds = listOf(1.0f),
+            drmEnabled = false,
+            vastTagUrl = null,
+            videoUrl = hlsUrl,
+            seekPath = "",
+            captionsPath = "",
+        )
+
+        pendingJob = {
+            scope!!.launch { initializeVideo(video, settings) }
+        }
+        if (scope == null) {
+            Log.d(TAG, "playLiveUrl deferred — view not yet attached")
+            return
+        }
+        loadVideoJob = pendingJob?.invoke()
+        pendingJob = null
+    }
+
     override fun playVideo(videoId: String, libraryId: Long?, videoTitle: String, token: String?, expires: Long?) {
         Log.d(TAG, "playVideo videoId=$videoId")
 
@@ -414,11 +506,6 @@ class BunnyStreamPlayer @JvmOverloads constructor(
         bunnyPlayer.play()
         // Auto-save will start automatically via lifecycle observer
     }
-
-    override fun seekTo(position: Long) {
-        bunnyPlayer.seekTo(position)
-    }
-
     override fun getCurrentPosition(): Long {
         return bunnyPlayer.getCurrentPosition()
     }
