@@ -6,6 +6,7 @@ import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.client.plugins.DefaultRequest
 import io.ktor.client.plugins.HttpSend
 import io.ktor.client.plugins.HttpTimeout
+import io.ktor.client.plugins.UserAgent
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.logging.LogLevel
 import io.ktor.client.plugins.logging.Logger
@@ -14,8 +15,10 @@ import io.ktor.client.plugins.observer.ResponseObserver
 import io.ktor.client.plugins.plugin
 import io.ktor.client.request.header
 import io.ktor.http.HttpHeaders
+import io.ktor.http.HttpMethod
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.serialization.json.Json
+import net.bunny.api.BuildConfig
 
 val defaultJson = Json {
     isLenient = true
@@ -37,11 +40,13 @@ fun initHttpClient(accessKey: String?): HttpClient {
                     Log.v("Logger Ktor =>", message)
                 }
             }
-            // HEADERS, not ALL: LogLevel.ALL (and BODY) buffer the entire request/response body
-            // into a String to log it. For video uploads that body is the whole file, so logging
-            // it allocates a multi-tens-of-MB String and OOMs the app. HEADERS keeps request line,
-            // status and headers without ever touching the body.
-            level = LogLevel.HEADERS
+            // Full request/response logging, including bodies, for everything EXCEPT uploads.
+            // LogLevel.ALL buffers the whole body into a String to log it; for a video upload that
+            // body is the entire file, which allocates tens of MB and OOMs the app. Uploads are the
+            // only PUT requests here (reads are GET, creates POST), so we skip logging PUTs and log
+            // every other call in full.
+            level = LogLevel.ALL
+            filter { request -> request.method != HttpMethod.Put }
         }
 
         install(ResponseObserver) {
@@ -52,6 +57,11 @@ fun initHttpClient(accessKey: String?): HttpClient {
 
         install(DefaultRequest) {
             header(HttpHeaders.Accept, "*/*")
+        }
+
+        // Identify the SDK on every request, e.g. "bunny-stream-android/1.3.2".
+        install(UserAgent) {
+            agent = BuildConfig.USER_AGENT
         }
 
         install(HttpTimeout) {

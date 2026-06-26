@@ -7,12 +7,11 @@ info:
     name: bunny.net
     url: https://docs.bunny.net
     email: support@bunny.net
-  version: 1.4.78
-  description: ' | Synced from the official Bunny Stream (Preview) API spec v1.4.78 on 2026-06-06. Local conventions
-    applied: enums flattened to enum+x-enumNames, JSON request bodies wrapped in nullable oneOf (stable generated
-    wrapper names), and the LiveStream_Update/LiveStream_Delete operationIds retained from the previous spec. Required-field
-    lists removed from response models (VideoModel, LiveStreamModel) so generated constructors keep all-optional
-    parameters.'
+  version: 1.5.3
+  description: ' | Synced from the official Bunny Stream (Preview) API spec v1.5.3 on 2026-06-17. Local conventions applied:
+    enums flattened to enum+x-enumNames, JSON request bodies wrapped in nullable oneOf (stable generated wrapper names), the
+    LiveStream_Update/LiveStream_Delete operationIds retained from the previous spec, and required-field lists removed from
+    response models (VideoModel, LiveStreamModel) so generated constructors keep all-optional parameters.'
 servers:
 - url: https://video.bunnycdn.com
 paths:
@@ -260,6 +259,210 @@ paths:
                 $ref: '#/components/schemas/VideoLibraryStatus'
       security:
       - AccessKey: []
+  /library/{libraryId}/live/statistics/encoding:
+    get:
+      tags:
+      - Live Statistics
+      summary: Get Live Encoding Statistics
+      description: Returns live encoding seconds totals, a time-series chart (hourly or daily UTC), and breakdowns by live
+        stream, codec, and resolution. Use hourly=true for hour buckets when the range falls within the last 30 days; older
+        ranges automatically use daily buckets.
+      operationId: LiveStatistics_GetEncodingStatistics
+      parameters:
+      - name: libraryId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+        x-position: 1
+      - name: dateFrom
+        in: query
+        description: Optional start of the time range (UTC). If omitted, the last 14 days are returned.
+        schema:
+          type: string
+          format: date-time
+          nullable: true
+        x-position: 2
+      - name: dateTo
+        in: query
+        description: Optional end of the time range (UTC). If omitted, the current date is used.
+        schema:
+          type: string
+          format: date-time
+          nullable: true
+        x-position: 3
+      - name: hourly
+        in: query
+        description: Optional. If true, returns hourly data when the range is within the last 30 days; otherwise daily (UTC).
+          Default is daily.
+        schema:
+          type: boolean
+          default: false
+        x-position: 4
+      - name: liveStreamGuids
+        in: query
+        style: form
+        explode: true
+        description: Optional live stream IDs to include. Repeat the query parameter for multiple values (max 50).
+        schema:
+          type: array
+          nullable: true
+          items:
+            type: string
+        x-position: 5
+      - name: videoCodecs
+        in: query
+        style: form
+        explode: true
+        description: 'Optional video codecs to include: H264, VP9, HEVC, AV1. Repeat for multiple values.'
+        schema:
+          type: array
+          nullable: true
+          items:
+            type: string
+        x-position: 6
+      - name: resolutions
+        in: query
+        style: form
+        explode: true
+        description: 'Optional output heights to include: 240, 360, 480, 720, 1080, 1440, 2160. Repeat for multiple values.'
+        schema:
+          type: array
+          nullable: true
+          items:
+            type: integer
+            format: int32
+        x-position: 7
+      responses:
+        '200':
+          description: Returns live encoding duration statistics for the requested video library.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LiveEncodingStatisticsModel'
+        '400':
+          description: The date range or filters are invalid.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusModel'
+        '404':
+          description: The requested video library was not found.
+        '503':
+          description: ClickHouse live statistics are not available.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusModel'
+        '401':
+          description: The request authentication failed.
+        '500':
+          description: Internal Server Error
+      security:
+      - AccessKey: []
+  /videolibrary/{libraryId}/live/statistics/encoding:
+    get:
+      tags:
+      - Live Statistics
+      summary: Get Live Encoding Statistics
+      description: Returns live encoding seconds totals, a time-series chart (hourly or daily UTC), and breakdowns by live
+        stream, codec, and resolution. Use hourly=true for hour buckets when the range falls within the last 30 days; older
+        ranges automatically use daily buckets.
+      operationId: LiveStatistics_GetEncodingStatistics2
+      parameters:
+      - name: libraryId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+        x-position: 1
+      - name: dateFrom
+        in: query
+        description: Optional start of the time range (UTC). If omitted, the last 14 days are returned.
+        schema:
+          type: string
+          format: date-time
+          nullable: true
+        x-position: 2
+      - name: dateTo
+        in: query
+        description: Optional end of the time range (UTC). If omitted, the current date is used.
+        schema:
+          type: string
+          format: date-time
+          nullable: true
+        x-position: 3
+      - name: hourly
+        in: query
+        description: Optional. If true, returns hourly data when the range is within the last 30 days; otherwise daily (UTC).
+          Default is daily.
+        schema:
+          type: boolean
+          default: false
+        x-position: 4
+      - name: liveStreamGuids
+        in: query
+        style: form
+        explode: true
+        description: Optional live stream IDs to include. Repeat the query parameter for multiple values (max 50).
+        schema:
+          type: array
+          nullable: true
+          items:
+            type: string
+        x-position: 5
+      - name: videoCodecs
+        in: query
+        style: form
+        explode: true
+        description: 'Optional video codecs to include: H264, VP9, HEVC, AV1. Repeat for multiple values.'
+        schema:
+          type: array
+          nullable: true
+          items:
+            type: string
+        x-position: 6
+      - name: resolutions
+        in: query
+        style: form
+        explode: true
+        description: 'Optional output heights to include: 240, 360, 480, 720, 1080, 1440, 2160. Repeat for multiple values.'
+        schema:
+          type: array
+          nullable: true
+          items:
+            type: integer
+            format: int32
+        x-position: 7
+      responses:
+        '200':
+          description: Returns live encoding duration statistics for the requested video library.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LiveEncodingStatisticsModel'
+        '400':
+          description: The date range or filters are invalid.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusModel'
+        '404':
+          description: The requested video library was not found.
+        '503':
+          description: ClickHouse live statistics are not available.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusModel'
+        '401':
+          description: The request authentication failed.
+        '500':
+          description: Internal Server Error
+      security:
+      - AccessKey: []
   /library/{libraryId}/live/{streamId}:
     get:
       tags:
@@ -353,8 +556,7 @@ paths:
       tags:
       - Manage Live Streams
       summary: Delete live stream
-      description: Deletes the live stream object and all resources associated with it. This operation cannot be
-        undone.
+      description: Deletes the live stream object and all resources associated with it. This operation cannot be undone.
       operationId: LiveStream_Delete
       parameters:
       - name: libraryId
@@ -607,9 +809,8 @@ paths:
       tags:
       - Manage Live Streams
       summary: Stop live stream
-      description: Stops the stream, if publishing is still ongoing, it will be stopped by the ingest server. If
-        'RecordVod' was set to true, the stream will be converted to a regular video as a VOD.This operation cannot
-        be undone.
+      description: Stops the stream, if publishing is still ongoing, it will be stopped by the ingest server. If 'RecordVod'
+        was set to true, the stream will be converted to a regular video as a VOD.This operation cannot be undone.
       operationId: LiveStream_StopStream
       parameters:
       - name: libraryId
@@ -653,8 +854,7 @@ paths:
       tags:
       - Manage Live Streams
       summary: Regenerate stream key
-      description: Regenerates the stream key for the live stream. This operation is not allowed for streams that
-        ended.
+      description: Regenerates the stream key for the live stream. This operation is not allowed for streams that ended.
       operationId: LiveStream_RegenerateStreamKey
       parameters:
       - name: libraryId
@@ -790,6 +990,14 @@ paths:
           type: string
           nullable: true
         x-position: 3
+      requestBody:
+        description: Optional thumbnail file to upload
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+              nullable: true
       responses:
         '200':
           description: The thumbnail was successfully set
@@ -819,14 +1027,12 @@ paths:
           description: Internal Server Error
       security:
       - AccessKey: []
-      description: ' SDK note: thumbnail is set from a remote URL via the thumbnailUrl query parameter; the optional
-        binary upload body is not exposed.'
     delete:
       tags:
       - Manage Live Streams
       summary: Delete Thumbnail
-      description: Removes the custom thumbnail from the live stream. When restoreLibraryDefault is true and the
-        library has a default live thumbnail set, the stream will use that instead of having no thumbnail.
+      description: Removes the custom thumbnail from the live stream. When restoreLibraryDefault is true and the library has
+        a default live thumbnail set, the stream will use that instead of having no thumbnail.
       operationId: LiveStream_DeleteThumbnail
       parameters:
       - name: libraryId
@@ -845,8 +1051,8 @@ paths:
         x-position: 2
       - name: restoreLibraryDefault
         in: query
-        description: When true and the library has a default live thumbnail, the stream will be set to use that
-          thumbnail after removal. When false or no library default exists, the stream will have no thumbnail.
+        description: When true and the library has a default live thumbnail, the stream will be set to use that thumbnail
+          after removal. When false or no library default exists, the stream will have no thumbnail.
         schema:
           type: boolean
           default: false
@@ -873,8 +1079,8 @@ paths:
       tags:
       - Manage Live Streams
       summary: Get live stream thumbnails
-      description: Returns recent generated thumbnail object paths for the specified live stream. You can limit
-        the number of results and optionally constrain by a time range using 'from' and 'to' in UTC.
+      description: Returns recent generated thumbnail object paths for the specified live stream. You can limit the number
+        of results and optionally constrain by a time range using 'from' and 'to' in UTC.
       operationId: LiveStream_GetThumbnails
       parameters:
       - name: libraryId
@@ -1121,15 +1327,15 @@ paths:
         x-position: 2
       - name: jitEnabled
         in: query
-        description: Marks whether JIT encoding should be enabled for this video (works only when Premium Encoding
-          is enabled), overrides library settings
+        description: Marks whether JIT encoding should be enabled for this video (works only when Premium Encoding is enabled),
+          overrides library settings
         schema:
           type: boolean
         x-position: 3
       - name: enabledResolutions
         in: query
-        description: 'Comma separated list of resolutions enabled for encoding, available options: 240p, 360p, 480p,
-          720p, 1080p, 1440p, 2160p'
+        description: 'Comma separated list of resolutions enabled for encoding, available options: 240p, 360p, 480p, 720p,
+          1080p, 1440p, 2160p'
         schema:
           type: string
           default: ''
@@ -1137,8 +1343,8 @@ paths:
         x-position: 4
       - name: enabledOutputCodecs
         in: query
-        description: 'List of codecs that will be used to encode the file (overrides library settings). Available
-          values: x264, vp9'
+        description: 'List of codecs that will be used to encode the file (overrides library settings). Available values:
+          x264, vp9'
         schema:
           type: string
           default: ''
@@ -1154,8 +1360,7 @@ paths:
         x-position: 7
       - name: transcribeLanguages
         in: query
-        description: Comma separated list of languages that will be used as target languages, use ISO 639-1 language
-          codes.
+        description: Comma separated list of languages that will be used as target languages, use ISO 639-1 language codes.
         schema:
           type: string
           nullable: true
@@ -1228,8 +1433,8 @@ paths:
       tags:
       - Manage Videos
       summary: Get Video Heatmap
-      description: Returns the attention heatmap for a specific video, showing relative viewer interest across the
-        timeline. May be unavailable if the feature is disabled or there isn't enough viewing data.
+      description: Returns the attention heatmap for a specific video, showing relative viewer interest across the timeline.
+        May be unavailable if the feature is disabled or there isn't enough viewing data.
       operationId: Video_GetVideoHeatmap
       parameters:
       - name: libraryId
@@ -1361,9 +1566,9 @@ paths:
       tags:
       - Manage Videos
       summary: Get Video Statistics
-      description: Returns time-series views and watch time, plus country-level aggregates, at the library level
-        or for a specific video. Control the time window with dateFrom/dateTo and the granularity with hourly. Basic
-        safeguards prevent spam and bot inflation by de-duplicating sessions and ignoring obviously invalid events.
+      description: Returns time-series views and watch time, plus country-level aggregates, at the library level or for a
+        specific video. Control the time window with dateFrom/dateTo and the granularity with hourly. Basic safeguards prevent
+        spam and bot inflation by de-duplicating sessions and ignoring obviously invalid events.
       operationId: Video_GetVideoStatistics
       parameters:
       - name: libraryId
@@ -1383,8 +1588,8 @@ paths:
         x-position: 2
       - name: dateTo
         in: query
-        description: Optional end of the time range (UTC). If omitted with a valid start, defaults to now; otherwise
-          the last 30 days are returned.
+        description: Optional end of the time range (UTC). If omitted with a valid start, defaults to now; otherwise the last
+          30 days are returned.
         schema:
           type: string
           format: date-time
@@ -1406,8 +1611,8 @@ paths:
         x-position: 5
       responses:
         '200':
-          description: Statistics including time-series views and watch time, country breakdowns, and engagement
-            score when available.
+          description: Statistics including time-series views and watch time, country breakdowns, and engagement score when
+            available.
           content:
             application/json:
               schema:
@@ -1535,8 +1740,8 @@ paths:
         x-position: 2
       - name: keepOriginalFiles
         in: query
-        description: Marks whether previous file versions should be kept in storage, allows for faster repackage
-          later on. Default is true.
+        description: Marks whether previous file versions should be kept in storage, allows for faster repackage later on.
+          Default is true.
         schema:
           type: boolean
           default: true
@@ -1944,7 +2149,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CaptionValidationModel'
+                $ref: '#/components/schemas/StatusModelOfCaptionValidationModel'
         '401':
           description: The request authentication failed
         '403':
@@ -2447,6 +2652,45 @@ components:
           description: The total number of collections contained by the video library
           format: int64
           nullable: true
+    LiveEncodingStatisticsModel:
+      type: object
+      additionalProperties: false
+      properties:
+        hourly:
+          type: boolean
+          description: Indicates whether the chart uses hourly or daily UTC buckets.
+        totalEncodingSeconds:
+          type: integer
+          description: The total number of live encoding seconds in the selected period.
+          format: int64
+        encodingSecondsChart:
+          type: object
+          description: Live encoding seconds over time for the selected period, grouped hourly or daily in UTC.
+          nullable: true
+          additionalProperties:
+            type: integer
+            format: int64
+        encodingSecondsByLiveStream:
+          type: object
+          description: Live encoding seconds grouped by live stream ID.
+          nullable: true
+          additionalProperties:
+            type: integer
+            format: int64
+        encodingSecondsByVideoCodec:
+          type: object
+          description: Live encoding seconds grouped by output video codec.
+          nullable: true
+          additionalProperties:
+            type: integer
+            format: int64
+        encodingSecondsByResolution:
+          type: object
+          description: Live encoding seconds grouped by output resolution.
+          nullable: true
+          additionalProperties:
+            type: integer
+            format: int64
     LiveStreamModel:
       type: object
       additionalProperties: false
@@ -2590,8 +2834,7 @@ components:
           nullable: true
     LiveStreamStatus:
       type: integer
-      description: (0 = Unknown, 1 = Created, 2 = Scheduled, 3 = Preview, 4 = Running, 5 = Ended, 6 = VodProcessing,
-        7 = Error)
+      description: (0 = Unknown, 1 = Created, 2 = Scheduled, 3 = Preview, 4 = Running, 5 = Ended, 6 = VodProcessing, 7 = Error)
       enum:
       - 0
       - 1
@@ -2821,8 +3064,7 @@ components:
           description: Determines if the live stream is publicly accessible, defaults to true
         enableCountdown:
           type: boolean
-          description: Determines if countdown should be shown in player before the stream start, if it was scheduled
-            (optional)
+          description: Determines if countdown should be shown in player before the stream start, if it was scheduled (optional)
           nullable: true
         preStreamTrailerVideoId:
           type: string
@@ -3030,10 +3272,17 @@ components:
           type: boolean
           nullable: true
         smartGenerateStatus:
-          description: The status of smart generate action (if triggered)
+          description: 'Aggregate smart generate status derived from per-feature statuses when present: InProgress, then Queued,
+            then Failed, then Finished; otherwise the stored legacy value. See SmartGenerateFeaturesStatus.'
           nullable: true
           oneOf:
           - $ref: '#/components/schemas/SmartGenerateStatus'
+        smartGenerateFeaturesStatus:
+          description: Per-feature smart generate statuses (title, description, chapters, moments). Null for a feature on
+            legacy rows.
+          nullable: true
+          oneOf:
+          - $ref: '#/components/schemas/SmartGenerateFeaturesStatusModel'
         hasOriginal:
           type: boolean
           description: Determines if video has the original file available in storage
@@ -3158,9 +3407,9 @@ components:
       - Error
     IssueCodes:
       type: integer
-      description: (0 = Undefined, 1 = StreamLengthsDifference, 2 = TranscodingWarnings, 3 = IncompatibleResolution,
-        4 = InvalidFramerate, 5 = VideoExceededMaxDuration, 6 = AudioExceededMaxDuration, 7 = OriginalCorrupted,
-        8 = TranscriptionFailed, 9 = JitIncompatible, 10 = JitFailed, 11 = CaptionGenerationFailed)
+      description: (0 = Undefined, 1 = StreamLengthsDifference, 2 = TranscodingWarnings, 3 = IncompatibleResolution, 4 = InvalidFramerate,
+        5 = VideoExceededMaxDuration, 6 = AudioExceededMaxDuration, 7 = OriginalCorrupted, 8 = TranscriptionFailed, 9 = JitIncompatible,
+        10 = JitFailed, 11 = CaptionGenerationFailed)
       enum:
       - 0
       - 1
@@ -3202,15 +3451,38 @@ components:
       - InProgress
       - Finished
       - Failed
+    SmartGenerateFeaturesStatusModel:
+      type: object
+      additionalProperties: false
+      properties:
+        title:
+          description: Smart generate status for the video title, when applicable.
+          nullable: true
+          oneOf:
+          - $ref: '#/components/schemas/SmartGenerateStatus'
+        description:
+          description: Smart generate status for the video description, when applicable.
+          nullable: true
+          oneOf:
+          - $ref: '#/components/schemas/SmartGenerateStatus'
+        chapters:
+          description: Smart generate status for chapters, when applicable.
+          nullable: true
+          oneOf:
+          - $ref: '#/components/schemas/SmartGenerateStatus'
+        moments:
+          description: Smart generate status for moments, when applicable.
+          nullable: true
+          oneOf:
+          - $ref: '#/components/schemas/SmartGenerateStatus'
     VideoHeatmapModel:
       type: object
       additionalProperties: false
       properties:
         heatmap:
           type: object
-          description: Timeline heatmap as segment-index to intensity (0–100). Keys represent consecutive segments
-            from the start of the video; values are normalized so 100 equals the most‑watched segment. Missing segments
-            imply 0.
+          description: Timeline heatmap as segment-index to intensity (0–100). Keys represent consecutive segments from the
+            start of the video; values are normalized so 100 equals the most‑watched segment. Missing segments imply 0.
           nullable: true
           additionalProperties:
             type: integer
@@ -3335,49 +3607,47 @@ components:
       properties:
         viewsChart:
           type: object
-          description: Shows the number of playback starts over time, with each data point representing the count
-            of view starts in the corresponding UTC interval (hourly or daily). It is available at both the library
-            level (aggregated across all videos) and the video level (for a single video). A playback start is counted
-            once per viewer session per video and empty intervals are shown as zero.
+          description: Shows the number of playback starts over time, with each data point representing the count of view
+            starts in the corresponding UTC interval (hourly or daily). It is available at both the library level (aggregated
+            across all videos) and the video level (for a single video). A playback start is counted once per viewer session
+            per video and empty intervals are shown as zero.
           nullable: true
           additionalProperties:
             type: integer
             format: int64
         watchTimeChart:
           type: object
-          description: Shows the cumulative time viewers spent watching over time, with each data point representing
-            total watch time in the corresponding UTC interval (hourly or daily). It is available at both the library
-            level (aggregated across all videos) and the video level (for a single video). Rewatches and repeated
-            visits add to the total and empty intervals are shown as zero.
+          description: Shows the cumulative time viewers spent watching over time, with each data point representing total
+            watch time in the corresponding UTC interval (hourly or daily). It is available at both the library level (aggregated
+            across all videos) and the video level (for a single video). Rewatches and repeated visits add to the total and
+            empty intervals are shown as zero.
           nullable: true
           additionalProperties:
             type: integer
             format: int64
         countryViewCounts:
           type: object
-          description: Shows the total number of playback starts by country for the selected time range. It is available
-            at both the library level (aggregated across all videos) and the video level (for a single video). Each
-            country’s value reflects unique playback starts per viewer session based on IP geolocation at playback
-            start.
+          description: Shows the total number of playback starts by country for the selected time range. It is available at
+            both the library level (aggregated across all videos) and the video level (for a single video). Each country’s
+            value reflects unique playback starts per viewer session based on IP geolocation at playback start.
           nullable: true
           additionalProperties:
             type: integer
             format: int64
         countryWatchTime:
           type: object
-          description: Shows the total watch time by country for the selected time range. It is available at both
-            the library level (aggregated across all videos) and the video level (for a single video). Values reflect
-            cumulative viewing time (rewatches and repeated visits add to the total) based on IP geolocation at
-            playback start.
+          description: Shows the total watch time by country for the selected time range. It is available at both the library
+            level (aggregated across all videos) and the video level (for a single video). Values reflect cumulative viewing
+            time (rewatches and repeated visits add to the total) based on IP geolocation at playback start.
           nullable: true
           additionalProperties:
             type: integer
             format: int64
         engagementScore:
           type: integer
-          description: Indicates how engaging a specific video is on a 0–100 scale based on viewing duration and
-            viewing patterns; higher values reflect stronger viewer retention. Reported at the video level only
-            and may be unavailable when there isn’t enough viewing data.
+          description: Indicates how engaging a specific video is on a 0–100 scale based on viewing duration and viewing patterns;
+            higher values reflect stronger viewer retention. Reported at the video level only and may be unavailable when
+            there isn’t enough viewing data.
           format: int32
     EncoderOutputCodec:
       type: integer
@@ -3483,6 +3753,16 @@ components:
           type: string
           description: The title that will be set to video.
           nullable: true
+    StatusModelOfCaptionValidationModel:
+      allOf:
+      - $ref: '#/components/schemas/StatusModel'
+      - type: object
+        additionalProperties: false
+        properties:
+          data:
+            nullable: true
+            oneOf:
+            - $ref: '#/components/schemas/CaptionValidationModel'
     CaptionValidationModel:
       type: object
       additionalProperties: false
@@ -3775,5 +4055,6 @@ components:
       in: header
 tags:
 - name: Manage Collections
+- name: Live Statistics
 - name: Manage Live Streams
 - name: Manage Videos

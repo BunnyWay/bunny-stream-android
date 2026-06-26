@@ -1,10 +1,15 @@
 package net.bunny.bunnystreamplayer.ui.widget
 
+import android.app.Activity
+import android.app.PictureInPictureParams
 import android.content.Context
+import android.content.ContextWrapper
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.Rect
 import android.graphics.Typeface
+import android.os.Build
 import android.os.Handler
 import android.os.HandlerThread
 import android.os.Looper
@@ -108,6 +113,17 @@ class BunnyPlayerView @JvmOverloads constructor(
             applyStyle()
         }
 
+    /**
+     * Condensed control bar. When `true`, secondary controls (settings, captions, duration readout)
+     * are hidden to reduce clutter on small surfaces, leaving the essentials (play, progress, mute,
+     * PiP, fullscreen). Driven by the live player's [net.bunny.bunnystreamplayer.livestream.LivePlayerConfig].
+     */
+    var compactControls: Boolean = false
+        set(value) {
+            field = value
+            updateControlsVisibility()
+        }
+
     private val playStateListener = object : PlayerStateListener {
         override fun onPlayingChanged(isPlaying: Boolean) {
             playPauseButton.state = if (isPlaying) {
@@ -158,9 +174,20 @@ class BunnyPlayerView @JvmOverloads constructor(
         override fun onPlayerError(message: String) {
             showError(message)
         }
+
+        override fun onVideoSizeChanged(width: Int, height: Int) {
+            this@BunnyPlayerView.onVideoSizeChanged?.invoke(width, height)
+        }
     }
 
     var fullscreenListener: FullscreenListener? = null
+
+    /**
+     * Invoked with the current video's pixel dimensions (first frame and on change) so the host can
+     * size its container to the real aspect ratio — enabling correct display of both 16:9 and 9:16
+     * (vertical) content.
+     */
+    var onVideoSizeChanged: ((width: Int, height: Int) -> Unit)? = null
 
     var bunnyPlayer: BunnyPlayer? = null
         set(value) {
@@ -249,6 +276,10 @@ class BunnyPlayerView @JvmOverloads constructor(
 
     private val fullScreenButton by lazy {
         findViewById<ImageButton>(R.id.bunny_fullscreen)
+    }
+
+    private val pipButton by lazy {
+        findViewById<ImageButton>(R.id.bunny_pip)
     }
 
     private val progressTextView by lazy {
@@ -399,6 +430,10 @@ class BunnyPlayerView @JvmOverloads constructor(
 
         fullScreenButton.setOnClickListener {
             fullscreenListener?.onFullscreenToggleClicked()
+        }
+
+        pipButton.setOnClickListener {
+            enterPip()
         }
 
         // DVR: tapping the badge while time-shifted snaps back to the live edge
@@ -817,19 +852,58 @@ class BunnyPlayerView @JvmOverloads constructor(
     }
 
     private fun updateControlsVisibility() {
-        replyButton.isVisible = playerSettings?.rewindEnabled == true
-        forwardButton.isVisible = playerSettings?.fastForwardEnabled == true
+        // In compact mode the secondary controls (settings, captions, duration readout) are hidden
+        // to declutter; the essentials (play, progress, mute, PiP, fullscreen) stay.
+        val compact = compactControls
+
+        replyButton.isVisible = playerSettings?.rewindEnabled == true && !compact
+        forwardButton.isVisible = playerSettings?.fastForwardEnabled == true && !compact
         progressTextView.isVisible = playerSettings?.currentTimeEnabled == true
-        durationTextView.isVisible = playerSettings?.durationEnabled == true
+        durationTextView.isVisible = playerSettings?.durationEnabled == true && !compact
         fullScreenButton.isVisible = playerSettings?.fullScreenEnabled == true
-        muteButton.isVisible = playerSettings?.muteEnabled == true
-        settingsButton.isVisible = playerSettings?.settingsEnabled == true
-        subtitle.isVisible = playerSettings?.subtitlesEnabled == true
+        // The mute button doubles as the volume affordance on mobile, so show it when either is on.
+        muteButton.isVisible =
+            (playerSettings?.muteEnabled == true || playerSettings?.volumeEnabled == true)
+        settingsButton.isVisible = playerSettings?.settingsEnabled == true && !compact
+        subtitle.isVisible = playerSettings?.subtitlesEnabled == true && !compact
         timeBar.isVisible = playerSettings?.progressEnabled == true
         playPauseButton.isVisible = playerSettings?.playButtonEnabled == true
         castButton.isVisible = playerSettings?.castButtonEnabled == true
+        // PiP is hidden in compact mode and on devices/contexts that can't enter PiP.
+        pipButton.isVisible = playerSettings?.pipEnabled == true && !compact && canEnterPip()
 
         progressDurationDivider.isVisible = progressTextView.isVisible && durationTextView.isVisible
+    }
+
+    /** Walks the context chain to find the hosting [Activity], or null if there isn't one. */
+    private fun hostActivity(): Activity? {
+        var ctx: Context? = context
+        while (ctx is ContextWrapper) {
+            if (ctx is Activity) return ctx
+            ctx = ctx.baseContext
+        }
+        return null
+    }
+
+    /** True when the device + host support entering picture-in-picture. */
+    private fun canEnterPip(): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return false
+        val activity = hostActivity() ?: return false
+        return activity.packageManager.hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)
+    }
+
+    /** Enters picture-in-picture via the host activity. No-op when unsupported. */
+    private fun enterPip() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+        val activity = hostActivity() ?: run {
+            Log.w(TAG, "Cannot enter PiP — no host Activity")
+            return
+        }
+        try {
+            activity.enterPictureInPictureMode(PictureInPictureParams.Builder().build())
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to enter PiP: ${e.message}")
+        }
     }
 
     fun showPreviewThumbnail(url: String) {

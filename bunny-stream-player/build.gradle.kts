@@ -46,7 +46,21 @@ android {
     }
     viewBinding.enable = true
 
+    buildFeatures {
+        // Live-stream Compose surface ([BunnyLiveStreamPlayer]) needs the build feature on. The
+        // pre-existing View-based player still works with view binding above.
+        compose = true
+    }
 
+    testOptions {
+        unitTests {
+            // BunnyLiveStreamPlayerViewModel logs lifecycle and poll events via [android.util.Log].
+            // Without [isReturnDefaultValues], AGP makes those calls throw "not mocked", which
+            // bubbles out of the polling coroutine and trips the test as a bare RuntimeException.
+            // Defaults are fine for tests — production logging is unchanged.
+            isReturnDefaultValues = true
+        }
+    }
 }
 
 tasks.dokkaGfm {
@@ -100,6 +114,8 @@ dependencies {
     // Testing Dependencies
     // https://junit.org/junit4/
     testImplementation("junit:junit:4.13.2")
+    // Virtual-time + TestDispatcher for [BunnyLiveStreamPlayerViewModel] polling-rule tests.
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.6.4")
     // https://developer.android.com/jetpack/androidx/releases/test
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
     // https://developer.android.com/jetpack/androidx/releases/test#espresso
@@ -124,4 +140,14 @@ dependencies {
     implementation("androidx.compose.runtime:runtime")
     // https://developer.android.com/jetpack/compose/documentation
     implementation("androidx.compose.ui:ui")
+    // Live-stream Compose surface — pulls in layout/foundation/material3/animation primitives
+    // used by [BunnyLiveStreamPlayer]. Versioned via the BoM above; no explicit versions needed.
+    implementation("androidx.compose.foundation:foundation")
+    implementation("androidx.compose.material3:material3")
+    implementation("androidx.compose.animation:animation")
+    implementation("androidx.compose.ui:ui-viewbinding")
+    // collectAsStateWithLifecycle + LocalLifecycleOwner Compose interop.
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
+    // viewModel() composable factory used by BunnyLiveStreamPlayer to obtain its VM.
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
 }

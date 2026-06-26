@@ -30,4 +30,12 @@ data class PlayerSettings(
     val durationEnabled = controls.contains("duration")
     val playButtonEnabled = controls.contains("play-large") || controls.contains("play")
     val castButtonEnabled = controls.contains("chromecast")
+
+    // Additive flags used by the live player's expanded control set. These are derived the same way
+    // as the controls above and don't affect VOD playback (a VOD settings payload simply won't
+    // contain these tokens unless the dashboard enables them).
+    val bigPlayButtonEnabled = controls.contains("play-large")
+    val volumeEnabled = controls.contains("volume")
+    val pipEnabled = controls.contains("pip")
+    val airPlayEnabled = controls.contains("airplay")
 }

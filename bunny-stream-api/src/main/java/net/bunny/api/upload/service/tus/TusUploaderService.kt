@@ -70,7 +70,8 @@ class TusUploaderService(
             "AuthorizationSignature" to sha256(signature),
             "AuthorizationExpire" to expire.toString(),
             "LibraryId" to libraryId.toString(),
-            "VideoId" to videoId
+            "VideoId" to videoId,
+            "User-Agent" to BuildConfig.USER_AGENT,
         )
 
         val uploader = tusClient.resumeOrCreateUpload(upload)

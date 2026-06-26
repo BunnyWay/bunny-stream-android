@@ -31,6 +31,9 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -38,6 +41,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import net.bunny.android.demo.App
 import net.bunny.android.demo.ui.AppState
 import net.bunny.api.BunnyStreamApi
 import net.bunny.api.livestream.domain.model.LiveStream
@@ -45,6 +49,9 @@ import net.bunny.api.model.LiveStreamStatus
 import net.bunny.bunnystreamplayer.livestream.BunnyLiveStreamPlayer
 import net.bunny.bunnystreamplayer.livestream.BunnyLiveStreamPlayerViewModel
 import java.util.Locale
+
+/** Lifetime of a demo-signed playback token (1 hour) — long enough for a viewing session. */
+private const val PLAYBACK_TOKEN_TTL_SECONDS = 3600L
 
 /**
  * Demo route for live-stream playback. Mirrors the VOD player screen's structure: a 16:9 player
@@ -131,14 +138,37 @@ fun LiveStreamPlayerRoute(
                 .padding(innerPadding)
                 .verticalScroll(rememberScrollState()),
         ) {
-            // 16:9 player so the layout matches the VOD screen.
+            // Token authentication: when the library has a token-auth key configured (demo reads it
+            // from local.properties), sign a short-lived playback token so the SDK can fetch
+            // play-data for token-protected streams. Blank key → no token (token auth off).
+            // NOTE: demo-only — generate tokens server-side in production, never ship the key.
+            val tokenAuthKey = App.di.localPrefs.tokenAuthKey
+            val tokenExpires = remember(streamId, tokenAuthKey) {
+                if (tokenAuthKey.isBlank()) null
+                else System.currentTimeMillis() / 1000 + PLAYBACK_TOKEN_TTL_SECONDS
+            }
+            val playbackToken = remember(streamId, tokenAuthKey, tokenExpires) {
+                if (tokenAuthKey.isBlank() || tokenExpires == null) null
+                else EmbedToken.generate(tokenAuthKey, streamId, tokenExpires)
+            }
+
+            // Frame adapts to the stream's real aspect ratio so both 16:9 and 9:16 (vertical)
+            // content fill correctly; defaults to 16:9 until the first frame's size is known.
+            var videoAspectRatio by remember { mutableStateOf(16f / 9f) }
             BunnyLiveStreamPlayer(
                 libraryId = libraryId,
                 streamId = streamId,
+                token = playbackToken,
+                expires = tokenExpires,
                 viewModel = viewModel,
+                onVideoSizeChanged = { width, height ->
+                    if (width > 0 && height > 0) {
+                        videoAspectRatio = width.toFloat() / height.toFloat()
+                    }
+                },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .aspectRatio(16f / 9f),
+                    .aspectRatio(videoAspectRatio),
             )
 
             Spacer(modifier = Modifier.height(16.dp))

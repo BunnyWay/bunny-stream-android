@@ -1,5 +1,6 @@
 package net.bunny.bunnystreamplayer.livestream
 
+import android.content.res.Configuration
 import android.util.Log
 import android.view.ViewGroup
 import android.widget.ImageView
@@ -56,8 +57,10 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import com.bumptech.glide.Glide
+import net.bunny.player.R
 import net.bunny.bunnystreamplayer.ui.BunnyStreamPlayer
 import kotlinx.coroutines.delay
+import java.util.Locale
 import java.util.concurrent.TimeUnit
 
 /**
@@ -85,7 +88,9 @@ public fun BunnyLiveStreamPlayer(
     streamId: String,
     token: String? = null,
     expires: Long? = null,
+    config: LivePlayerConfig = LivePlayerConfig(),
     modifier: Modifier = Modifier,
+    onVideoSizeChanged: ((width: Int, height: Int) -> Unit)? = null,
     viewModel: BunnyLiveStreamPlayerViewModel = viewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -128,7 +133,7 @@ public fun BunnyLiveStreamPlayer(
 
             is LiveStreamPlayerState.Offline -> {
                 Log.d(TAG_UI, "render: Offline(${s.reason})")
-                OfflineOverlay(reason = s.reason)
+                OfflineOverlay(reason = s.reason, posterUrl = s.posterUrl, config = config)
             }
 
             is LiveStreamPlayerState.Countdown -> {
@@ -138,6 +143,7 @@ public fun BunnyLiveStreamPlayer(
                     title = s.title,
                     posterUrl = s.posterUrl,
                     trailerUrl = s.trailerUrl,
+                    config = config,
                     onTick = { viewModel.tickCountdown() },
                 )
             }
@@ -152,6 +158,7 @@ public fun BunnyLiveStreamPlayer(
                     streamId = "trailer-${streamId}",
                     title = "",
                     hlsUrl = s.hlsUrl,
+                    config = config,
                 )
             }
 
@@ -162,8 +169,11 @@ public fun BunnyLiveStreamPlayer(
                     streamId = streamId,
                     title = "",
                     hlsUrl = s.hlsUrl,
+                    config = config,
+                    onVideoSizeChanged = onVideoSizeChanged,
                 )
                 LiveBadge(
+                    primaryColor = config.primaryColor,
                     modifier = Modifier
                         .align(Alignment.TopStart)
                         .padding(16.dp),
@@ -177,6 +187,8 @@ public fun BunnyLiveStreamPlayer(
                     streamId = "vod-${streamId}",
                     title = "",
                     hlsUrl = s.hlsUrl,
+                    config = config,
+                    onVideoSizeChanged = onVideoSizeChanged,
                 )
             }
         }
@@ -190,23 +202,53 @@ public fun BunnyLiveStreamPlayer(
 // region — Offline / countdown overlays
 
 @Composable
-private fun OfflineOverlay(reason: LiveStreamPlayerState.OfflineReason) {
-    val message = when (reason) {
-        LiveStreamPlayerState.OfflineReason.NotActive -> "Live stream not active"
-        LiveStreamPlayerState.OfflineReason.Ended -> "Live stream ended"
-        LiveStreamPlayerState.OfflineReason.Error -> "Live stream error"
+private fun OfflineOverlay(
+    reason: LiveStreamPlayerState.OfflineReason,
+    posterUrl: String? = null,
+    config: LivePlayerConfig = LivePlayerConfig(),
+) {
+    val messageRes = when (reason) {
+        LiveStreamPlayerState.OfflineReason.NotActive -> R.string.live_status_not_active
+        LiveStreamPlayerState.OfflineReason.Ended -> R.string.live_status_ended
+        LiveStreamPlayerState.OfflineReason.Error -> R.string.live_status_error
     }
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-        modifier = Modifier.padding(24.dp),
-    ) {
-        Text(
-            text = message,
-            color = Color.White,
-            style = MaterialTheme.typography.titleMedium,
-            textAlign = TextAlign.Center,
-        )
+    val message = localizedString(messageRes, config.uiLanguage)
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        // Stream thumbnail (when set) stays visible behind the status — e.g. before a live stream
+        // starts — matching the web player's poster. A dark scrim keeps the message legible.
+        if (!posterUrl.isNullOrBlank()) {
+            AndroidView(
+                modifier = Modifier.fillMaxSize(),
+                factory = { ctx ->
+                    ImageView(ctx).apply {
+                        layoutParams = ViewGroup.LayoutParams(
+                            ViewGroup.LayoutParams.MATCH_PARENT,
+                            ViewGroup.LayoutParams.MATCH_PARENT,
+                        )
+                        scaleType = ImageView.ScaleType.CENTER_CROP
+                    }
+                },
+                update = { imageView -> Glide.with(imageView).load(posterUrl).into(imageView) },
+            )
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.45f)),
+            )
+        }
+
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier.padding(24.dp),
+        ) {
+            Text(
+                text = message,
+                color = Color.White,
+                style = MaterialTheme.typography.titleMedium,
+                textAlign = TextAlign.Center,
+            )
+        }
     }
 }
 
@@ -225,6 +267,7 @@ private fun CountdownOverlay(
     title: String,
     posterUrl: String?,
     trailerUrl: String?,
+    config: LivePlayerConfig = LivePlayerConfig(),
     onTick: () -> Unit,
 ) {
     // [mutableLongStateOf] returns a primitive-specialized state whose `by`-delegate operator
@@ -281,15 +324,30 @@ private fun CountdownOverlay(
             verticalArrangement = Arrangement.spacedBy(12.dp),
             modifier = Modifier.padding(24.dp),
         ) {
+            val headline = if (title.isNotBlank()) {
+                localizedString(R.string.live_label_will_start_in, config.uiLanguage, title)
+            } else {
+                localizedString(R.string.live_label_will_start_in_generic, config.uiLanguage)
+            }
+            // Tint the timer with the configured primary colour (web-player parity); fall back to
+            // white when no colour is set.
+            val timerColor = config.primaryColor
+                ?.let { Color(it) }
+                ?.takeIf { it.alpha > 0f }
+                ?: Color.White
             Text(
-                text = if (title.isNotBlank()) "$title will start in" else "Live stream will start in",
+                text = headline,
                 color = Color.White,
                 fontSize = 18.sp,
                 textAlign = TextAlign.Center,
             )
             Text(
-                text = if (remainingMs > 0) formatCountdown(remainingMs) else "Starting soon…",
-                color = Color.White,
+                text = if (remainingMs > 0) {
+                    formatCountdown(remainingMs)
+                } else {
+                    localizedString(R.string.live_label_starting_soon, config.uiLanguage)
+                },
+                color = timerColor,
                 fontWeight = FontWeight.Bold,
                 fontSize = 40.sp,
                 textAlign = TextAlign.Center,
@@ -376,11 +434,14 @@ private fun BunnyPlayerSurface(
     streamId: String,
     title: String,
     hlsUrl: String,
+    config: LivePlayerConfig = LivePlayerConfig(),
+    onVideoSizeChanged: ((width: Int, height: Int) -> Unit)? = null,
 ) {
     // [AndroidView.update] runs on every recomposition, but `playLiveUrl` tears down the engine
     // and rebuilds — calling it on a no-op recompose would interrupt playback. Track the last
-    // URL we asked the view to load and only re-issue when it actually changes.
+    // URL + config we asked the view to load and only re-issue when they actually change.
     val lastUrlState = remember { mutableStateOf<String?>(null) }
+    val lastConfigState = remember { mutableStateOf<LivePlayerConfig?>(null) }
     AndroidView(
         modifier = Modifier.fillMaxSize(),
         factory = { ctx ->
@@ -390,6 +451,7 @@ private fun BunnyPlayerSurface(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.MATCH_PARENT,
                 )
+                this.onVideoSizeChanged = onVideoSizeChanged
                 // BunnyStreamPlayer queues the play call until it's attached to the window; safe
                 // to invoke from factory.
                 playLiveUrl(
@@ -397,24 +459,53 @@ private fun BunnyPlayerSurface(
                     streamId = streamId,
                     videoTitle = title,
                     hlsUrl = hlsUrl,
+                    config = config,
                 )
                 lastUrlState.value = hlsUrl
+                lastConfigState.value = config
             }
         },
         update = { view ->
-            if (lastUrlState.value == hlsUrl) return@AndroidView
+            view.onVideoSizeChanged = onVideoSizeChanged
+            if (lastUrlState.value == hlsUrl && lastConfigState.value == config) return@AndroidView
             // URL flipped (Trailer → Live, Live → VOD recording, or a URL refresh from play-data
-            // because the stream's status changed). Swap the source without rebuilding the view.
+            // because the stream's status changed) or the config changed. Re-issue so the new
+            // source / customization takes effect.
             Log.d(TAG_PLAYER, "update: switching BunnyStreamPlayer to ${hlsUrl.take(60)}")
             view.playLiveUrl(
                 libraryId = libraryId,
                 streamId = streamId,
                 videoTitle = title,
                 hlsUrl = hlsUrl,
+                config = config,
             )
             lastUrlState.value = hlsUrl
+            lastConfigState.value = config
         },
     )
+}
+
+// endregion
+
+// region — Localization helper
+
+/**
+ * Resolves [resId] in the [lang] locale (ISO-639) so the overlay copy honours
+ * [LivePlayerConfig.uiLanguage], mirroring the transport bar's `I18n`. When [lang] is null/blank we
+ * use the device locale; an unsupported language gracefully falls back to the default resource.
+ */
+@Composable
+private fun localizedString(resId: Int, lang: String?, vararg formatArgs: Any): String {
+    val context = LocalContext.current
+    return remember(resId, lang, formatArgs.toList()) {
+        val base = if (lang.isNullOrBlank()) {
+            context
+        } else {
+            val cfg = Configuration(context.resources.configuration).apply { setLocale(Locale(lang)) }
+            context.createConfigurationContext(cfg)
+        }
+        if (formatArgs.isEmpty()) base.getString(resId) else base.getString(resId, *formatArgs)
+    }
 }
 
 // endregion
@@ -422,7 +513,10 @@ private fun BunnyPlayerSurface(
 // region — Badges + terminal error panel
 
 @Composable
-private fun LiveBadge(modifier: Modifier = Modifier) {
+private fun LiveBadge(
+    modifier: Modifier = Modifier,
+    primaryColor: Int? = null,
+) {
     val pulse = rememberInfiniteTransition(label = "live-badge-pulse")
     val dotAlpha by pulse.animateFloat(
         initialValue = 1f,
@@ -433,6 +527,11 @@ private fun LiveBadge(modifier: Modifier = Modifier) {
         ),
         label = "live-badge-pulse-alpha",
     )
+    // Default to the live red; honour the configured primary colour when provided.
+    val dotColor = primaryColor
+        ?.let { Color(it) }
+        ?.takeIf { it.alpha > 0f }
+        ?: Color(0xFFE53935)
 
     Row(
         modifier = modifier
@@ -445,7 +544,7 @@ private fun LiveBadge(modifier: Modifier = Modifier) {
         Box(
             modifier = Modifier
                 .size(8.dp)
-                .background(Color(0xFFE53935).copy(alpha = dotAlpha), CircleShape),
+                .background(dotColor.copy(alpha = dotAlpha), CircleShape),
         )
         Text(
             text = "LIVE",

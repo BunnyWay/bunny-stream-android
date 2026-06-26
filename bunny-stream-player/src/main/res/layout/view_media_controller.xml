@@ -187,6 +187,16 @@
                 app:tint="@android:color/white"/>
 
             <ImageButton
+                android:id="@+id/bunny_pip"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:src="@drawable/ic_pip_24dp"
+                android:padding="8dp"
+                android:background="@null"
+                android:visibility="gone"
+                app:tint="@android:color/white"/>
+
+            <ImageButton
                 android:id="@+id/bunny_settings"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"

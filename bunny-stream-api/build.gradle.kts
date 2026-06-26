@@ -25,6 +25,14 @@ android {
 
         buildConfigField("String", "TUS_UPLOAD_ENDPOINT", "\"https://video.bunnycdn.com/tusupload\"")
         buildConfigField("String", "BASE_API", "\"https://video.bunnycdn.com\"")
+        // Core Platform API host (api.bunny.net). The Stream API (BASE_API) has no watermark
+        // endpoint — the library watermark is managed here via
+        // PUT/DELETE /videolibrary/{id}/watermark. See DefaultLiveStreamRepository.
+        buildConfigField("String", "BASE_CORE_API", "\"https://api.bunny.net\"")
+        // SDK version + User-Agent sent on every SDK request, e.g. "bunny-stream-android/1.3.2".
+        // Sourced from the module version (resolved at build time; see root build.gradle.kts).
+        buildConfigField("String", "SDK_VERSION", "\"${project.version}\"")
+        buildConfigField("String", "USER_AGENT", "\"bunny-stream-android/${project.version}\"")
         buildConfigField("String", "RTMP_ENDPOINT", "\"rtmp://49.13.154.169/ingest\"")
         // Default RTMP ingest endpoint for *live streams* (Preview API), as shown in the
         // dashboard's "Primary ingest URL". The publish URL is built as
@@ -176,7 +184,13 @@ specs.forEach {
             "VideoModelStatus" to "net.bunny.api.model.VideoModelStatus",
             "LiveStreamModelStatus" to "net.bunny.api.model.LiveStreamStatus",
             "VideoModelSmartGenerateStatus" to "net.bunny.api.model.SmartGenerateStatus",
-            "VideoPlayDataModelPreferredPlaybackSource" to "net.bunny.api.model.VideoPlaybackSource"
+            "VideoPlayDataModelPreferredPlaybackSource" to "net.bunny.api.model.VideoPlaybackSource",
+            // Per-feature smart-generate statuses added in spec v1.5.3 — same oneOf:[$ref enum]
+            // shape as the status wrappers above, so redirect them to the shared enum too.
+            "SmartGenerateFeaturesStatusModelTitle" to "net.bunny.api.model.SmartGenerateStatus",
+            "SmartGenerateFeaturesStatusModelDescription" to "net.bunny.api.model.SmartGenerateStatus",
+            "SmartGenerateFeaturesStatusModelChapters" to "net.bunny.api.model.SmartGenerateStatus",
+            "SmartGenerateFeaturesStatusModelMoments" to "net.bunny.api.model.SmartGenerateStatus"
         ))
     }
 }
@@ -219,7 +233,13 @@ tasks.register("fixGeneratedFiles") {
             "VideoModelStatus",
             "LiveStreamModelStatus",
             "VideoModelSmartGenerateStatus",
-            "VideoPlayDataModelPreferredPlaybackSource"
+            "VideoPlayDataModelPreferredPlaybackSource",
+            // Empty `data class …()` wrappers the generator emits for the per-feature
+            // smart-generate statuses added in spec v1.5.3 (won't compile as data classes).
+            "SmartGenerateFeaturesStatusModelTitle",
+            "SmartGenerateFeaturesStatusModelDescription",
+            "SmartGenerateFeaturesStatusModelChapters",
+            "SmartGenerateFeaturesStatusModelMoments"
         )
 
         brokenWrappers.forEach { className ->

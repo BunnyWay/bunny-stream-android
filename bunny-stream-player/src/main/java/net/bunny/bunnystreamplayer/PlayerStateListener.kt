@@ -15,4 +15,12 @@ interface PlayerStateListener {
     fun onMomentsUpdated(moments: List<Moment>)
     fun onRetentionGraphUpdated(points: List<RetentionGraphEntry>)
     fun onPlayerError(message: String)
+
+    /**
+     * The current video's pixel dimensions, reported when the first frame is decoded and whenever
+     * they change (e.g. a quality switch or a different stream). Lets hosts size their container to
+     * the real aspect ratio so both 16:9 and 9:16 (vertical) content display without distortion.
+     * Default no-op so existing implementations keep compiling.
+     */
+    fun onVideoSizeChanged(width: Int, height: Int) {}
 }

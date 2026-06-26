@@ -23,6 +23,8 @@ import net.bunny.api.playback.PlaybackPosition
 import net.bunny.api.playback.ResumeConfig
 import net.bunny.api.playback.ResumePositionListener
 import net.bunny.api.settings.domain.model.PlayerSettings
+import net.bunny.bunnystreamplayer.livestream.LivePlayerConfig
+import net.bunny.bunnystreamplayer.livestream.toControlsString
 import net.bunny.bunnystreamplayer.DefaultBunnyPlayer
 import net.bunny.bunnystreamplayer.common.DeviceType
 import net.bunny.bunnystreamplayer.config.PlaybackSpeedConfig
@@ -45,17 +47,6 @@ class BunnyStreamPlayer @JvmOverloads constructor(
         private const val TAG = "BunnyVideoPlayer"
         private const val AUTO_SAVE_INTERVAL = 10_000L // 10 seconds
 
-        /**
-         * Default control set for synthetic live PlayerSettings — mirrors what the Bunny dashboard
-         * sends for a "normal" player, minus captions (we surface those only when the caller asks
-         * via [playLiveUrl]'s `enableSubtitles`). Format: comma-separated control names parsed by
-         * [PlayerSettings] (`PlayerSettings.controls.contains("…")`).
-         */
-        private const val DEFAULT_LIVE_CONTROLS =
-            "play-large,play,progress,current-time,duration,mute,volume,fullscreen,settings"
-
-        private const val DEFAULT_LIVE_CONTROLS_WITH_CAPTIONS =
-            "$DEFAULT_LIVE_CONTROLS,captions"
     }
 
     private var job: Job? = null
@@ -100,6 +91,28 @@ class BunnyStreamPlayer @JvmOverloads constructor(
         get() = playerView.progressTextColor
         set(value) {
             playerView.progressTextColor = value
+        }
+
+    /**
+     * Invoked with the current video's pixel dimensions (first frame and on change) so the host can
+     * size its container to the real aspect ratio — supporting both 16:9 and 9:16 (vertical) content.
+     *
+     * Forwards to [BunnyPlayerView.onVideoSizeChanged].
+     */
+    var onVideoSizeChanged: ((width: Int, height: Int) -> Unit)?
+        get() = playerView.onVideoSizeChanged
+        set(value) {
+            playerView.onVideoSizeChanged = value
+        }
+
+    /**
+     * Condensed control bar (hides secondary controls like settings/captions/duration). Used by the
+     * live player's [LivePlayerConfig.compactControls]. Forwards to [BunnyPlayerView.compactControls].
+     */
+    var compactControls: Boolean
+        get() = playerView.compactControls
+        set(value) {
+            playerView.compactControls = value
         }
 
     private val bunnyPlayer = DefaultBunnyPlayer.getInstance(context)
@@ -351,8 +364,9 @@ class BunnyStreamPlayer @JvmOverloads constructor(
         videoTitle: String,
         hlsUrl: String,
         enableSubtitles: Boolean = false,
+        config: LivePlayerConfig = LivePlayerConfig(),
     ) {
-        Log.d(TAG, "playLiveUrl streamId=$streamId hlsUrl=${hlsUrl.take(80)}")
+        Log.d(TAG, "playLiveUrl streamId=$streamId hlsUrl=${hlsUrl.take(80)} config=$config")
         if (!BunnyStreamApi.isInitialized()) {
             Log.e(TAG, "Unable to play live, initialize BunnyStreamApi first")
             return
@@ -372,20 +386,35 @@ class BunnyStreamPlayer @JvmOverloads constructor(
             captions = emptyList(),
         )
 
+        // Compact mode is a view-level layout concern (not part of PlayerSettings), so forward it
+        // straight to the player view before building the settings.
+        compactControls = config.compactControls
+
+        // Controls string is derived from the caller's LivePlayerConfig. The default config already
+        // yields the full live control set, so we honour it verbatim (a caller can deliberately
+        // disable everything). Captions are appended only when the caller opts in via
+        // [enableSubtitles] — config doesn't model captions.
+        val controls = buildString {
+            append(config.toControlsString())
+            if (enableSubtitles) {
+                if (isNotEmpty()) append(",")
+                append("captions")
+            }
+        }
+
         // Synthetic PlayerSettings — videoUrl is what `DefaultBunnyPlayer.playVideo` builds the
-        // MediaItem from. `controls` mirrors the default control set so the custom controller
-        // layout shows the familiar buttons. DRM/heatmap/captions are off (live has no on-disk
-        // assets for them yet); the player engine reads the same flags either way.
+        // MediaItem from. Theming + control flags now come from [config]; the player engine reads
+        // the same fields it does for VOD.
         val settings = PlayerSettings(
             thumbnailUrl = "",
-            controls = if (enableSubtitles) DEFAULT_LIVE_CONTROLS_WITH_CAPTIONS else DEFAULT_LIVE_CONTROLS,
-            keyColor = 0,
+            controls = controls,
+            keyColor = config.primaryColor ?: 0,
             captionsFontSize = 0,
             captionsFontColor = null,
             captionsBackgroundColor = null,
-            uiLanguage = "",
-            showHeatmap = false,
-            fontFamily = "",
+            uiLanguage = config.uiLanguage.orEmpty(),
+            showHeatmap = config.showWatchtimeHeatmap,
+            fontFamily = config.fontFamily.orEmpty(),
             playbackSpeeds = listOf(1.0f),
             drmEnabled = false,
             vastTagUrl = null,

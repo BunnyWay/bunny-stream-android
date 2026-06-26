@@ -37,7 +37,15 @@ public sealed interface LiveStreamPlayerState {
 
     public data object Loading : LiveStreamPlayerState
 
-    public data class Offline(val reason: OfflineReason) : LiveStreamPlayerState
+    /**
+     * Stream isn't playing. [posterUrl] is the stream's thumbnail (when available), rendered behind
+     * the status message so the thumbnail stays visible before a live stream starts — mirroring the
+     * web player's poster.
+     */
+    public data class Offline(
+        val reason: OfflineReason,
+        val posterUrl: String? = null,
+    ) : LiveStreamPlayerState
 
     /**
      * Scheduled stream with a live countdown. Carries the [title] and the background to render
@@ -116,7 +124,7 @@ public fun resolveLiveStreamPlayerState(
         return if (stream.recordVod && !playableUrl.isNullOrBlank()) {
             LiveStreamPlayerState.VodPlay(playableUrl)
         } else {
-            LiveStreamPlayerState.Offline(LiveStreamPlayerState.OfflineReason.Ended)
+            LiveStreamPlayerState.Offline(LiveStreamPlayerState.OfflineReason.Ended, posterUrl)
         }
     }
 
@@ -126,7 +134,10 @@ public fun resolveLiveStreamPlayerState(
             stream = stream,
             trailerUrl = trailerUrl,
             hasStarted = hasStarted,
-            fallback = LiveStreamPlayerState.Offline(LiveStreamPlayerState.OfflineReason.Error),
+            fallback = LiveStreamPlayerState.Offline(
+                LiveStreamPlayerState.OfflineReason.Error,
+                posterUrl,
+            ),
         )
     }
 
@@ -149,7 +160,10 @@ public fun resolveLiveStreamPlayerState(
             stream = stream,
             trailerUrl = trailerUrl,
             hasStarted = hasStarted,
-            fallback = LiveStreamPlayerState.Offline(LiveStreamPlayerState.OfflineReason.NotActive),
+            fallback = LiveStreamPlayerState.Offline(
+                LiveStreamPlayerState.OfflineReason.NotActive,
+                posterUrl,
+            ),
         )
     }
 
@@ -158,7 +172,10 @@ public fun resolveLiveStreamPlayerState(
         stream = stream,
         trailerUrl = trailerUrl,
         hasStarted = hasStarted,
-        fallback = LiveStreamPlayerState.Offline(LiveStreamPlayerState.OfflineReason.NotActive),
+        fallback = LiveStreamPlayerState.Offline(
+            LiveStreamPlayerState.OfflineReason.NotActive,
+            posterUrl,
+        ),
     )
 }
 

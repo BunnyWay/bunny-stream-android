@@ -11,11 +11,13 @@ import androidx.media3.cast.SessionAvailabilityListener
 import androidx.media3.common.C
 import androidx.media3.common.Format
 import androidx.media3.common.MediaItem
+import androidx.media3.common.MediaMetadata
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.common.Tracks
+import androidx.media3.common.VideoSize
 import androidx.media3.common.util.Util
 import androidx.media3.datasource.DataSource
 import androidx.media3.datasource.DataSpec
@@ -26,6 +28,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.analytics.AnalyticsListener
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
+import androidx.media3.exoplayer.upstream.CmcdConfiguration
 import androidx.media3.ui.PlayerView
 import com.google.android.gms.cast.framework.CastState
 import kotlinx.coroutines.CoroutineScope
@@ -173,6 +176,11 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
         override fun onIsLoadingChanged(isLoading: Boolean) {
             Log.d(TAG, "onIsLoadingChanged isLoading: $isLoading")
             playerStateListener?.onLoadingChanged(isLoading)
+        }
+
+        override fun onVideoSizeChanged(videoSize: VideoSize) {
+            Log.d(TAG, "onVideoSizeChanged: ${videoSize.width}x${videoSize.height}")
+            playerStateListener?.onVideoSizeChanged(videoSize.width, videoSize.height)
         }
 
         override fun onTracksChanged(tracks: Tracks) {
@@ -477,9 +485,13 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
             .setUserAgent(Util.getUserAgent(context, "BunnyStreamPlayer"))
             .setTransferListener(transferListener)
 
-        // Create media source factory without setDrmSessionManagerProvider
+        // Create media source factory without setDrmSessionManagerProvider.
+        // CMCD (Common Media Client Data, CTA-5004) attaches client playback telemetry — session id,
+        // buffer length, measured throughput, requested bitrate, etc. — to every media request so
+        // the CDN receives it. The DEFAULT factory sends it as CMCD-* HTTP request headers.
         val mediaSourceFactory = DefaultMediaSourceFactory(context)
             .setDataSourceFactory(httpFactory)
+            .setCmcdConfigurationFactory(CmcdConfiguration.Factory.DEFAULT)
 
         // Set up subtitle tracks if available
         val subtitleConfigs = video.captions?.map { cap ->
@@ -495,10 +507,25 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
         val drmLicenseUri = "${BunnyStreamApi.baseApi}/WidevineLicense/" +
                 "${video.videoLibraryId}/${video.guid}?contentId=${video.guid}"
 
+        // Title + artwork shown by the Chromecast receiver and the cast/notification UI (the
+        // Cast MediaItemConverter reads MediaMetadata). Applies to both VOD and live.
+        val mediaMetadata = MediaMetadata.Builder()
+            .setTitle(video.title?.takeIf { it.isNotBlank() })
+            .apply {
+                playerSettings.thumbnailUrl
+                    .takeIf { it.isNotBlank() }
+                    ?.let { setArtworkUri(Uri.parse(it)) }
+            }
+            .build()
+
         val mediaItemBuilder = MediaItem.Builder()
             .setUri(playerSettings.videoUrl)
             .setMimeType(MimeTypes.APPLICATION_M3U8)
+            .setMediaMetadata(mediaMetadata)
             .setSubtitleConfigurations(subtitleConfigs)
+
+        // Used as the CMCD content id (`cid`) so the CDN can attribute telemetry to this video.
+        video.guid?.takeIf { it.isNotBlank() }?.let { mediaItemBuilder.setMediaId(it) }
 
         if (playerSettings.drmEnabled) {
             mediaItemBuilder.setDrmConfiguration(

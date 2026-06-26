@@ -49,3 +49,25 @@ data class RtmpOutput(
     val endpoint: String?,
     val streamKey: String?,
 )
+
+/**
+ * A generated thumbnail for a live stream, returned by the Get Thumbnails endpoint
+ * (most recent first). [url] is directly loadable; [timestamp] is when it was captured.
+ */
+data class LiveStreamThumbnail(
+    val url: String?,
+    val timestamp: String?,
+)
+
+/**
+ * Library-level watermark placement, all values in percent. Read from / written to the Core
+ * Platform "Get/Update Video Library" endpoint. [hasWatermark] is read-only (true once an image
+ * has been uploaded).
+ */
+data class LibraryWatermarkSettings(
+    val hasWatermark: Boolean,
+    val positionLeft: Int,
+    val positionTop: Int,
+    val width: Int,
+    val height: Int,
+)

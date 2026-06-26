@@ -211,17 +211,21 @@ public open class BunnyLiveStreamPlayerViewModel internal constructor(
         currentStream = stream
         Log.d(TAG, "stream snapshot — status=${stream.status} startedAt=${stream.startedAt}")
 
-        // If we don't yet have a playable URL but the new status calls for one, kick off
-        // play-data again. The check covers two cases:
+        // If the new status calls for a URL we don't (or shouldn't) keep, kick off play-data again:
         //   - we just observed Running for the first time (live URL needed),
-        //   - we just observed Ended/VodProcessing+recordVod (VOD URL needed),
-        // both of which produce a different URL from what play-data returned at start time.
+        //   - we entered Ended/VodProcessing+recordVod — the play-data URL flips from the live edge
+        //     to the recorded VOD, so we MUST re-fetch on that transition even though we still hold
+        //     the (now stale) live URL; otherwise VOD playback would replay the live playlist.
+        //   - we're sitting in Ended/VodProcessing+recordVod still missing a URL (recording not
+        //     ready yet at the last fetch) — keep trying until the VOD playlist appears.
+        val statusChanged = previousStatus != stream.status
+        val isVodState = (stream.status == LiveStreamStatus.ENDED ||
+            stream.status == LiveStreamStatus.VOD_PROCESSING) &&
+            stream.recordVod
         val needsLiveUrl = stream.status == LiveStreamStatus.RUNNING &&
             resolvePlayableUrl(stream, currentPlayData).isNullOrBlank()
-        val needsVodUrl = (stream.status == LiveStreamStatus.ENDED ||
-            stream.status == LiveStreamStatus.VOD_PROCESSING) &&
-            stream.recordVod &&
-            resolvePlayableUrl(stream, currentPlayData).isNullOrBlank()
+        val needsVodUrl = isVodState &&
+            (statusChanged || resolvePlayableUrl(stream, currentPlayData).isNullOrBlank())
         if (needsLiveUrl || needsVodUrl) {
             Log.d(TAG, "status transitioned to ${stream.status} — re-fetching play-data for URL")
             // Don't await — let the poll loop continue. recomputeState() will run once play-data

@@ -18,6 +18,8 @@ import net.bunny.android.demo.library.navigateToLibrary
 import net.bunny.android.demo.livestream.liveStreamEditorScreen
 import net.bunny.android.demo.livestream.liveStreamPlayerScreen
 import net.bunny.android.demo.livestream.liveStreamsScreen
+import net.bunny.android.demo.livestream.liveThumbnailPickerScreen
+import net.bunny.android.demo.livestream.liveTrailerPickerScreen
 import net.bunny.android.demo.livestream.navigateToLiveStreams
 import net.bunny.android.demo.player.navigateToPlayer
 import net.bunny.android.demo.player.playerScreen
@@ -63,6 +65,8 @@ fun AppNavHost(
         )
         liveStreamsScreen(appState = appState)
         liveStreamEditorScreen(appState = appState)
+        liveTrailerPickerScreen(appState = appState)
+        liveThumbnailPickerScreen(appState = appState)
         liveStreamPlayerScreen(appState = appState)
         settingsScreen(appState = appState)
         playerScreen(appState = appState)

@@ -4,13 +4,16 @@ import android.graphics.Color
 import arrow.core.Either
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
+import net.bunny.api.BuildConfig
 import net.bunny.api.api.ManageLiveStreamsApi
 import net.bunny.api.livestream.domain.LiveStreamPollResult
 import net.bunny.api.livestream.domain.LiveStreamRepository
 import net.bunny.api.livestream.domain.model.LiveStream
 import net.bunny.api.livestream.domain.model.LiveStreamCreateRequest
 import net.bunny.api.livestream.domain.model.LiveStreamList
+import net.bunny.api.livestream.domain.model.LibraryWatermarkSettings
 import net.bunny.api.livestream.domain.model.LiveStreamPlayData
+import net.bunny.api.livestream.domain.model.LiveStreamThumbnail
 import net.bunny.api.livestream.domain.model.RtmpOutput
 import net.bunny.api.model.LiveStreamStatus
 import net.bunny.api.settings.PlaybackSpeedManager
@@ -19,13 +22,18 @@ import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.openapitools.client.infrastructure.ApiClient
+import org.openapitools.client.infrastructure.ClientError
 import org.openapitools.client.infrastructure.ClientException
+import org.openapitools.client.infrastructure.ResponseType
+import org.openapitools.client.infrastructure.ServerError
 import org.openapitools.client.infrastructure.ServerException
 import org.openapitools.client.models.LiveStreamModel
 import org.openapitools.client.models.LiveStreamPlayDataModel
 import org.openapitools.client.models.LiveStreamPlayDataModelLiveStream
 import org.openapitools.client.models.PaginationListOfLiveStreamModel
+import org.json.JSONObject
 import org.openapitools.client.models.StatusModel
+import org.openapitools.client.models.ThumbnailListResponseModel
 import org.openapitools.client.models.RtmpOutput as GeneratedRtmpOutput
 // Generated request wrappers — aliased to avoid clashing with the domain
 // [LiveStreamCreateRequest] above.
@@ -212,17 +220,191 @@ class DefaultLiveStreamRepository(
         }
     }
 
+    override suspend fun listLiveStreamThumbnails(
+        libraryId: Long,
+        streamId: String,
+        limit: Int?,
+        from: String?,
+        to: String?,
+    ): Either<String, List<LiveStreamThumbnail>> = withContext(coroutineDispatcher) {
+        runApi {
+            liveStreamsApi.liveStreamGetThumbnails(
+                libraryId = libraryId,
+                streamId = streamId,
+                limit = limit,
+                from = from,
+                to = to,
+            ).map { it.toDomain() }
+        }
+    }
+
+    override suspend fun deleteLiveStreamThumbnail(
+        libraryId: Long,
+        streamId: String,
+        restoreLibraryDefault: Boolean,
+    ): Either<String, Unit> = withContext(coroutineDispatcher) {
+        runApi {
+            // The generated liveStreamDeleteThumbnail returns Unit on 2xx (no body cast), so unlike
+            // liveStreamDelete it's safe to call directly.
+            liveStreamsApi.liveStreamDeleteThumbnail(
+                libraryId = libraryId,
+                streamId = streamId,
+                restoreLibraryDefault = restoreLibraryDefault,
+            )
+            Unit
+        }
+    }
+
+    override suspend fun setLibraryWatermark(
+        libraryId: Long,
+        imageBytes: ByteArray,
+        contentType: String,
+        apiKey: String?,
+    ): Either<String, Unit> = withContext(coroutineDispatcher) {
+        runApi {
+            // Watermark is a Core Platform API operation (api.bunny.net), not Stream API, and has
+            // no generated client. Issue it directly, reusing the same OkHttp client. NOTE: this
+            // endpoint expects the *account* API key, not the per-library Stream key — pass it via
+            // [apiKey]. The endpoint uploads the raw image bytes as the request body.
+            val request = coreApiRequest("/videolibrary/$libraryId/watermark", apiKey)
+                .put(imageBytes.toRequestBody(contentType.toMediaTypeOrNull()))
+                .build()
+            executeExpectingSuccess(request, "Watermark upload failed")
+            Unit
+        }
+    }
+
+    override suspend fun deleteLibraryWatermark(
+        libraryId: Long,
+        apiKey: String?,
+    ): Either<String, Unit> = withContext(coroutineDispatcher) {
+        runApi {
+            val request = coreApiRequest("/videolibrary/$libraryId/watermark", apiKey)
+                .delete()
+                .build()
+            executeExpectingSuccess(request, "Watermark removal failed")
+            Unit
+        }
+    }
+
+    override suspend fun getLibraryWatermarkSettings(
+        libraryId: Long,
+        apiKey: String?,
+    ): Either<String, LibraryWatermarkSettings> = withContext(coroutineDispatcher) {
+        runApi {
+            val request = coreApiRequest("/videolibrary/$libraryId", apiKey).get().build()
+            liveStreamsApi.client.newCall(request).execute().use { response ->
+                val body = response.body?.string().orEmpty()
+                if (!response.isSuccessful) {
+                    throw ClientException(
+                        message = body.takeIf { it.isNotBlank() } ?: "Failed to load library",
+                        statusCode = response.code,
+                    )
+                }
+                val json = JSONObject(body)
+                LibraryWatermarkSettings(
+                    hasWatermark = json.optBoolean("HasWatermark", false),
+                    positionLeft = json.optInt("WatermarkPositionLeft", 0),
+                    positionTop = json.optInt("WatermarkPositionTop", 0),
+                    width = json.optInt("WatermarkWidth", 0),
+                    height = json.optInt("WatermarkHeight", 0),
+                )
+            }
+        }
+    }
+
+    override suspend fun updateLibraryWatermarkSettings(
+        libraryId: Long,
+        positionLeft: Int,
+        positionTop: Int,
+        width: Int,
+        height: Int,
+        apiKey: String?,
+    ): Either<String, Unit> = withContext(coroutineDispatcher) {
+        runApi {
+            // Partial update — only the watermark placement fields are sent.
+            val payload = JSONObject()
+                .put("WatermarkPositionLeft", positionLeft)
+                .put("WatermarkPositionTop", positionTop)
+                .put("WatermarkWidth", width)
+                .put("WatermarkHeight", height)
+                .toString()
+            val request = coreApiRequest("/videolibrary/$libraryId", apiKey)
+                .post(payload.toRequestBody("application/json".toMediaTypeOrNull()))
+                .build()
+            executeExpectingSuccess(request, "Failed to update watermark position")
+            Unit
+        }
+    }
+
+    /**
+     * Base [Request.Builder] for a Core Platform API call: full URL, Accept and AccessKey headers.
+     * Core Platform endpoints (api.bunny.net) authenticate with the **account** API key — pass it
+     * as [apiKey]; falls back to the configured Stream key only if none is given (which those
+     * endpoints will reject with 401).
+     */
+    private fun coreApiRequest(path: String, apiKey: String? = null): Request.Builder {
+        val builder = Request.Builder()
+            .url("${BuildConfig.BASE_CORE_API}$path")
+            .header("Accept", "application/json")
+        val key = apiKey?.takeIf { it.isNotBlank() } ?: ApiClient.apiKey["AccessKey"]
+        key?.let { builder.header("AccessKey", it) }
+        return builder
+    }
+
+    /**
+     * Executes [request] on the shared OkHttp client and throws a [ClientException] (so [runApi]
+     * maps it to the shared error vocabulary) on any non-2xx response.
+     */
+    private fun executeExpectingSuccess(request: Request, failureMessage: String) {
+        liveStreamsApi.client.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) {
+                throw ClientException(
+                    message = response.body?.string()?.takeIf { it.isNotBlank() } ?: failureMessage,
+                    statusCode = response.code,
+                )
+            }
+        }
+    }
+
     override suspend fun deleteLiveStream(
         libraryId: Long,
         streamId: String,
     ): Either<String, Unit> = withContext(coroutineDispatcher) {
         runApi {
-            // Official preview API echoes the deleted LiveStreamModel back; discard it.
-            liveStreamsApi.liveStreamDelete(
+            // The delete endpoint returns 2xx with an empty body, but the generated
+            // liveStreamDelete() blindly casts that null body to a non-null LiveStreamModel and
+            // throws NPE. Use the *WithHttpInfo variant and treat any 2xx as success without
+            // touching the (absent) body.
+            val response = liveStreamsApi.liveStreamDeleteWithHttpInfo(
                 libraryId = libraryId,
                 streamId = streamId,
             )
-            Unit
+            when (response.responseType) {
+                ResponseType.Success -> Unit
+                ResponseType.ClientError -> {
+                    val err = response as ClientError<*>
+                    throw ClientException(
+                        "Client error : ${err.statusCode} ${err.message.orEmpty()}",
+                        err.statusCode,
+                        response,
+                    )
+                }
+
+                ResponseType.ServerError -> {
+                    val err = response as ServerError<*>
+                    throw ServerException(
+                        "Server error : ${err.statusCode} ${err.message.orEmpty()}",
+                        err.statusCode,
+                        response,
+                    )
+                }
+
+                else -> throw ClientException(
+                    "Unexpected response deleting live stream: ${response.responseType}",
+                    statusCode = 0,
+                )
+            }
         }
     }
 
@@ -254,6 +436,7 @@ class DefaultLiveStreamRepository(
             recordVod = recordVod,
             enableCountdown = enableCountdown,
             preStreamTrailerVideoId = preStreamTrailerVideoId,
+            rtmpOutputs = rtmpOutputs?.map { it.toGeneratedDto() },
         )
 
     private fun LiveStreamCreateRequest.toUpdateDto(): GeneratedLiveStreamUpdateRequest =
@@ -269,7 +452,18 @@ class DefaultLiveStreamRepository(
             recordVod = recordVod,
             enableCountdown = enableCountdown,
             preStreamTrailerVideoId = preStreamTrailerVideoId,
+            rtmpOutputs = rtmpOutputs?.map { it.toGeneratedDto() },
         )
+
+    /**
+     * Domain [RtmpOutput] -> generated DTO. The generated `endpoint` is a [java.net.URI]
+     * (`format: uri`); a blank or malformed endpoint is sent as null rather than crashing.
+     */
+    private fun RtmpOutput.toGeneratedDto(): GeneratedRtmpOutput = GeneratedRtmpOutput(
+        endpoint = endpoint?.takeIf { it.isNotBlank() }
+            ?.let { runCatching { java.net.URI(it) }.getOrNull() },
+        streamKey = streamKey?.takeIf { it.isNotBlank() },
+    )
 
     /**
      * Centralised mapper for the OpenAPI generator's exceptions. Matches the status-code-to-message
@@ -368,6 +562,11 @@ class DefaultLiveStreamRepository(
         enableCountdown = enableCountdown,
         rtmpOutputs = rtmpOutputs.orEmpty().map { it.toDomain() },
         preStreamTrailerVideoId = preStreamTrailerVideoId,
+    )
+
+    private fun ThumbnailListResponseModel.toDomain(): LiveStreamThumbnail = LiveStreamThumbnail(
+        url = url,
+        timestamp = timestamp,
     )
 
     private fun GeneratedRtmpOutput.toDomain(): RtmpOutput = RtmpOutput(

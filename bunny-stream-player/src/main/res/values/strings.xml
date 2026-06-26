@@ -9,4 +9,10 @@
     <string name="label_video_settings_audio_track">Audio track</string>
     <string name="label_drm_not_supported_exception">DRM is enabled for this video, BunnyStreamPlayer does not support DRM protected content.</string>
     <string name="label_live_badge">LIVE</string>
+    <string name="live_label_will_start_in">%1$s will start in</string>
+    <string name="live_label_will_start_in_generic">Live stream will start in</string>
+    <string name="live_label_starting_soon">Starting soon…</string>
+    <string name="live_status_not_active">Live stream not active</string>
+    <string name="live_status_ended">Live stream ended</string>
+    <string name="live_status_error">Live stream error</string>
 </resources>

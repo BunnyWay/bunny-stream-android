@@ -20,4 +20,6 @@ data class LiveStreamCreateRequest(
     val recordVod: Boolean? = null,
     val enableCountdown: Boolean? = null,
     val preStreamTrailerVideoId: String? = null,
+    /** Up to 4 RTMP outputs the incoming stream is forwarded to (each an endpoint + stream key). */
+    val rtmpOutputs: List<RtmpOutput>? = null,
 )
