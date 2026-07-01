@@ -2,6 +2,7 @@ package net.bunny.bunnystreamplayer.livestream
 
 import android.content.res.Configuration
 import android.util.Log
+import android.view.LayoutInflater
 import android.view.ViewGroup
 import android.widget.ImageView
 import androidx.compose.animation.core.LinearEasing
@@ -34,6 +35,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 // Use the lifecycle-package LocalLifecycleOwner — the one in compose.ui.platform was deprecated
@@ -54,7 +56,6 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import com.bumptech.glide.Glide
 import net.bunny.player.R
@@ -122,6 +123,10 @@ public fun BunnyLiveStreamPlayer(
     Box(
         modifier = modifier
             .fillMaxSize()
+            // Clip every state to the player box. RESIZE_MODE_ZOOM enlarges the trailer's surface to
+            // crop-fill the box, and without this the excess would paint outside the player (behind
+            // the host's surrounding content). TextureView surfaces honour this clip.
+            .clipToBounds()
             .background(Color.Black),
         contentAlignment = Alignment.Center,
     ) {
@@ -379,6 +384,12 @@ private fun formatCountdown(ms: Long): String {
  * [BunnyStreamPlayer] chrome) so there are no playback controls competing with the timer; it's
  * muted, set to repeat, and centre-cropped to fill. The player is created/released with the
  * composition and re-created when [hlsUrl] changes.
+ *
+ * The [PlayerView] is inflated from [R.layout.view_trailer_background] so it uses a **TextureView**
+ * surface. RESIZE_MODE_ZOOM enlarges the surface to crop-fill the portrait trailer into the
+ * landscape box; a SurfaceView's separate hardware layer would bleed past the box (showing behind
+ * the metadata cards), whereas a TextureView composites in-hierarchy and clips to its bounds.
+ * `surface_type` can only be set via the XML attribute, hence the layout.
  */
 @OptIn(UnstableApi::class)
 @Composable
@@ -397,16 +408,17 @@ private fun TrailerBackground(hlsUrl: String) {
         onDispose { exoPlayer.release() }
     }
     AndroidView(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .fillMaxSize()
+            .clipToBounds(),
         factory = { ctx ->
-            PlayerView(ctx).apply {
+            (LayoutInflater.from(ctx)
+                .inflate(R.layout.view_trailer_background, null) as PlayerView).apply {
                 layoutParams = ViewGroup.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.MATCH_PARENT,
                 )
                 player = exoPlayer
-                useController = false
-                resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
             }
         },
     )
