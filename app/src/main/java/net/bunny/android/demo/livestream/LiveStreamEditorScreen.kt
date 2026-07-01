@@ -221,7 +221,7 @@ private fun LiveStreamSummaryScreen(
     onGoLive: () -> Unit,
     onWatch: () -> Unit,
 ) {
-    val ingest = net.bunny.api.BuildConfig.LIVE_RTMP_ENDPOINT
+    val ingest = stream.primaryIngestUrl ?: net.bunny.api.BuildConfig.LIVE_RTMP_ENDPOINT
     val publishUrl = stream.streamKey?.let { "$ingest/$it" }
 
     Scaffold(
@@ -303,12 +303,12 @@ private fun LiveStreamSummaryScreen(
  */
 @Composable
 private fun RtmpStreamDetailsCard(stream: LiveStream) {
-    val ingest = net.bunny.api.BuildConfig.LIVE_RTMP_ENDPOINT
+    val fallback = net.bunny.api.BuildConfig.LIVE_RTMP_ENDPOINT
 
     SectionCard(title = "RTMP stream details") {
         CopyableRow("Stream key", stream.streamKey)
-        CopyableRow("Ingest URL", ingest, badge = "Primary")
-        CopyableRow("Ingest URL", ingest, badge = "Backup")
+        CopyableRow("Ingest URL", stream.primaryIngestUrl ?: fallback, badge = "Primary")
+        CopyableRow("Ingest URL", stream.backupIngestUrl ?: fallback, badge = "Backup")
         Spacer(modifier = Modifier.height(8.dp))
         Text(
             text = "Status",

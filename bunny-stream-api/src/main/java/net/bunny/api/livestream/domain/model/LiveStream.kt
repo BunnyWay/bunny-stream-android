@@ -40,6 +40,10 @@ data class LiveStream(
     val enableCountdown: Boolean?,
     val rtmpOutputs: List<RtmpOutput>,
     val preStreamTrailerVideoId: String?,
+    /** Primary RTMP ingest URL the broadcaster publishes to (from `ingestEndpoints.rtmp.primaryIngestUrl`). */
+    val primaryIngestUrl: String?,
+    /** Backup RTMP ingest URL, used for failover when the primary is unavailable. */
+    val backupIngestUrl: String?,
 )
 
 /**

@@ -35,6 +35,7 @@ Name | Type | Description | Notes
 **enableCountdown** | **kotlin.Boolean** | Determines if countdown should be shown in player before the stream start, if it was scheduled |  [optional]
 **rtmpOutputs** | [**kotlin.collections.List&lt;RtmpOutput&gt;**](RtmpOutput.md) | A list of up to 4 RTMP outputs that the incoming stream will be forwarded to |  [optional]
 **preStreamTrailerVideoId** | **kotlin.String** | Video ID of the trailer that will be played before the live stream starts |  [optional]
+**ingestEndpoints** | [**IngestEndpoints**](IngestEndpoints.md) |  |  [optional]
 
 
 

@@ -91,5 +91,7 @@ class LiveStreamPollResultTest {
         enableCountdown = null,
         rtmpOutputs = emptyList(),
         preStreamTrailerVideoId = null,
+        primaryIngestUrl = null,
+        backupIngestUrl = null,
     )
 }

@@ -526,6 +526,8 @@ class LiveStreamPlayerStateTest {
         enableCountdown = enableCountdown,
         rtmpOutputs = emptyList(),
         preStreamTrailerVideoId = preStreamTrailerVideoId,
+        primaryIngestUrl = null,
+        backupIngestUrl = null,
     )
 
     private fun playData(

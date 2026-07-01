@@ -278,6 +278,8 @@ class BunnyLiveStreamPlayerViewModelTest {
         enableCountdown = null,
         rtmpOutputs = emptyList(),
         preStreamTrailerVideoId = null,
+        primaryIngestUrl = null,
+        backupIngestUrl = null,
     )
 
     private fun playDataWithUrl(url: String) = LiveStreamPlayData(

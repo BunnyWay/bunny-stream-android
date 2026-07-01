@@ -528,6 +528,8 @@ class DefaultLiveStreamRepository(
         enableCountdown = enableCountdown,
         rtmpOutputs = rtmpOutputs.orEmpty().map { it.toDomain() },
         preStreamTrailerVideoId = preStreamTrailerVideoId,
+        primaryIngestUrl = ingestEndpoints?.rtmp?.primaryIngestUrl,
+        backupIngestUrl = ingestEndpoints?.rtmp?.backupIngestUrl,
     )
 
     private fun LiveStreamPlayDataModelLiveStream.toDomain(): LiveStream = LiveStream(
@@ -562,6 +564,8 @@ class DefaultLiveStreamRepository(
         enableCountdown = enableCountdown,
         rtmpOutputs = rtmpOutputs.orEmpty().map { it.toDomain() },
         preStreamTrailerVideoId = preStreamTrailerVideoId,
+        primaryIngestUrl = ingestEndpoints?.rtmp?.primaryIngestUrl,
+        backupIngestUrl = ingestEndpoints?.rtmp?.backupIngestUrl,
     )
 
     private fun ThumbnailListResponseModel.toDomain(): LiveStreamThumbnail = LiveStreamThumbnail(

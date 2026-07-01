@@ -18,6 +18,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.openapitools.client.infrastructure.ClientException
 import org.openapitools.client.infrastructure.ServerException
+import org.openapitools.client.models.IngestEndpoints
+import org.openapitools.client.models.IngestEndpointsRtmp
 import org.openapitools.client.models.LiveStreamModel
 import org.openapitools.client.models.LiveStreamPlayDataModel
 import org.openapitools.client.models.LiveStreamPlayDataModelLiveStream
@@ -230,6 +232,36 @@ class DefaultLiveStreamRepositoryTest {
             assertEquals(true, stream.enableCountdown)
             assertEquals("trailer-guid", stream.preStreamTrailerVideoId)
             assertEquals("https://list.test/p.m3u8", stream.playbackUrlHls)
+        }
+
+    @Test fun `LiveStreamModel toDomain maps primary and backup ingest URLs`() =
+        runTest(dispatcher) {
+            // The API returns distinct primary/backup RTMP ingest endpoints under
+            // ingestEndpoints.rtmp; the mapper must surface both. These used to be dropped
+            // (the spec didn't model ingestEndpoints), so the demo showed the same hardcoded
+            // URL for both the Primary and Backup badges.
+            every { api.liveStreamGetByStreamId(LIBRARY_ID, STREAM_ID) } returns liveStreamModel(
+                guid = STREAM_ID,
+                ingestEndpoints = IngestEndpoints(
+                    rtmp = IngestEndpointsRtmp(
+                        primaryIngestUrl = "rtmp://global.rtmp.mediadelivery.net/live",
+                        backupIngestUrl = "rtmp://global-backup.rtmp.mediadelivery.net/live",
+                    ),
+                ),
+            )
+
+            val stream = (repo.getLiveStream(LIBRARY_ID, STREAM_ID) as Either.Right).value
+            assertEquals("rtmp://global.rtmp.mediadelivery.net/live", stream.primaryIngestUrl)
+            assertEquals("rtmp://global-backup.rtmp.mediadelivery.net/live", stream.backupIngestUrl)
+        }
+
+    @Test fun `LiveStreamModel toDomain leaves ingest URLs null when ingestEndpoints absent`() =
+        runTest(dispatcher) {
+            every { api.liveStreamGetByStreamId(LIBRARY_ID, STREAM_ID) } returns liveStreamModel(guid = STREAM_ID)
+
+            val stream = (repo.getLiveStream(LIBRARY_ID, STREAM_ID) as Either.Right).value
+            assertNull(stream.primaryIngestUrl)
+            assertNull(stream.backupIngestUrl)
         }
 
     // endregion
@@ -487,6 +519,7 @@ class DefaultLiveStreamRepositoryTest {
         preStreamTrailerVideoId: String? = null,
         playbackUrlHls: String? = null,
         rtmpOutputs: List<GeneratedRtmpOutput>? = null,
+        ingestEndpoints: IngestEndpoints? = null,
     ): LiveStreamModel = LiveStreamModel(
         guid = guid,
         title = title,
@@ -498,6 +531,7 @@ class DefaultLiveStreamRepositoryTest {
         preStreamTrailerVideoId = preStreamTrailerVideoId,
         playbackUrlHls = playbackUrlHls,
         rtmpOutputs = rtmpOutputs,
+        ingestEndpoints = ingestEndpoints,
     )
 
     private companion object {

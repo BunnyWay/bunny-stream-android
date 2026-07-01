@@ -2832,6 +2832,8 @@ components:
           type: string
           description: Video ID of the trailer that will be played before the live stream starts
           nullable: true
+        ingestEndpoints:
+          $ref: '#/components/schemas/IngestEndpoints'
     LiveStreamStatus:
       type: integer
       description: (0 = Unknown, 1 = Created, 2 = Scheduled, 3 = Preview, 4 = Running, 5 = Ended, 6 = VodProcessing, 7 = Error)
@@ -2864,6 +2866,27 @@ components:
           nullable: true
         streamKey:
           type: string
+          nullable: true
+    IngestEndpoints:
+      type: object
+      additionalProperties: false
+      description: RTMP ingest endpoints (primary/backup) used to publish the live stream.
+      nullable: true
+      properties:
+        rtmp:
+          $ref: '#/components/schemas/IngestEndpointsRtmp'
+    IngestEndpointsRtmp:
+      type: object
+      additionalProperties: false
+      nullable: true
+      properties:
+        primaryIngestUrl:
+          type: string
+          description: Primary RTMP ingest URL where the broadcaster publishes the stream.
+          nullable: true
+        backupIngestUrl:
+          type: string
+          description: Backup RTMP ingest URL used for failover if the primary is unavailable.
           nullable: true
     LiveStreamPlayDataModel:
       type: object
