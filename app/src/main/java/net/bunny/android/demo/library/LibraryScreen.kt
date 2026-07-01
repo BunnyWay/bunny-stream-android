@@ -244,7 +244,7 @@ private fun LibraryScreen(
                         titleContentColor = MaterialTheme.colorScheme.onPrimary,
                     ),
                     title = {
-                        Text("Video upload")
+                        Text(if (showUpload) "Video upload" else "Video library")
                     },
                     navigationIcon = {
                         IconButton(
