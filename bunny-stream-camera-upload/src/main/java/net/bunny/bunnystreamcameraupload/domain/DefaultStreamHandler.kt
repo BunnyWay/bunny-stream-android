@@ -21,6 +21,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import net.bunny.bunnystreamcameraupload.DeviceCamera
+import net.bunny.bunnystreamcameraupload.IngestEndpoint
 import net.bunny.bunnystreamcameraupload.RecordingDurationListener
 import net.bunny.bunnystreamcameraupload.RecordingStateListener
 import net.bunny.bunnystreamcameraupload.util.ScreenUtil
@@ -31,6 +32,14 @@ class DefaultStreamHandler(
 ) : StreamHandler {
     companion object {
         private const val TAG = "StreamHandler"
+
+        /** Quick retries on the SAME host before failing over to the other endpoint. */
+        private const val RETRIES_BEFORE_SWITCH = 2
+
+        /** Cap on primary↔backup switches, so a total outage doesn't ping-pong forever. */
+        private const val MAX_ENDPOINT_SWITCHES = 4
+
+        private const val RETRY_DELAY_MS = 5000L
     }
 
     override var recordingStateListener: RecordingStateListener? = null
@@ -57,6 +66,28 @@ class DefaultStreamHandler(
     private var streamUrl: String? = null
     private var connectStartedAt: Long? = null
     private var connectFailures = 0
+
+    /** Failover: primary/backup RTMP URLs (with stream key) and which one is currently active. */
+    private var primaryUrl: String? = null
+    private var backupUrl: String? = null
+    private var activeEndpoint: IngestEndpoint = IngestEndpoint.PRIMARY
+
+    /** Failures since the last successful connect on the CURRENT endpoint. */
+    private var failuresOnCurrent = 0
+
+    /** How many times we've failed over, to avoid endless primary↔backup ping-pong. */
+    private var endpointSwitches = 0
+
+    /** The URL for the endpoint we'd fail over to (backup when on primary, and vice-versa). */
+    private fun otherUrl(): String? =
+        if (activeEndpoint == IngestEndpoint.PRIMARY) backupUrl else primaryUrl
+
+    private fun IngestEndpoint.flip(): IngestEndpoint =
+        if (this == IngestEndpoint.PRIMARY) IngestEndpoint.BACKUP else IngestEndpoint.PRIMARY
+
+    private fun notifyEndpoint(connected: Boolean) {
+        recordingStateListener?.onIngestEndpointChanged(activeEndpoint, connected)
+    }
 
     /** Redacts the stream key (last path segment) so URLs are safe to log. */
     private fun String.redactKey(): String =
@@ -86,21 +117,40 @@ class DefaultStreamHandler(
 
         override fun onConnectionFailed(reason: String) {
             connectFailures++
+            failuresOnCurrent++
             val elapsed = connectStartedAt?.let { System.currentTimeMillis() - it } ?: -1
             Log.w(
                 TAG,
-                "ConnectChecker onConnectionFailed: reason=\"$reason\" " +
-                        "attempt=$connectFailures elapsedMs=$elapsed " +
-                        "url=${streamUrl?.redactKey()} " +
-                        "isStreaming=${genericStream.isStreaming}"
+                "onConnectionFailed reason=\"$reason\" endpoint=$activeEndpoint " +
+                        "attempt=$failuresOnCurrent switches=$endpointSwitches elapsedMs=$elapsed " +
+                        "url=${streamUrl?.redactKey()} isStreaming=${genericStream.isStreaming}"
             )
-            if (genericStream.getStreamClient().reTry(5000, reason, null)) {
-                Log.w(TAG, "ConnectChecker retrying in 5000ms (attempt $connectFailures)")
-                Toast.makeText(openGlView.context, "Retrying connection", Toast.LENGTH_SHORT).show()
+            val client = genericStream.getStreamClient()
+            val failoverTarget = otherUrl()
+            val scheduled = when {
+                // Transient blip: a couple of quick retries on the SAME host first.
+                failuresOnCurrent < RETRIES_BEFORE_SWITCH ->
+                    client.reTry(RETRY_DELAY_MS, reason, null)
+
+                // Host looks down: fail over to the other ingest endpoint (same stream key).
+                failoverTarget != null && endpointSwitches < MAX_ENDPOINT_SWITCHES -> {
+                    activeEndpoint = activeEndpoint.flip()
+                    endpointSwitches++
+                    failuresOnCurrent = 0
+                    streamUrl = failoverTarget
+                    notifyEndpoint(connected = false)
+                    Log.w(TAG, "failover → $activeEndpoint (${failoverTarget.redactKey()})")
+                    client.reTry(RETRY_DELAY_MS, reason, failoverTarget)
+                }
+
+                else -> false
+            }
+            if (scheduled) {
+                Toast.makeText(openGlView.context, "Reconnecting…", Toast.LENGTH_SHORT).show()
             } else {
                 Log.e(
                     TAG,
-                    "ConnectChecker giving up after $connectFailures attempt(s): \"$reason\" " +
+                    "giving up after $connectFailures attempt(s): \"$reason\" " +
                             "(url=${streamUrl?.redactKey()}, totalElapsedMs=$elapsed)"
                 )
                 genericStream.stopStream()
@@ -113,15 +163,23 @@ class DefaultStreamHandler(
         override fun onConnectionStarted(url: String) {
             connectStartedAt = System.currentTimeMillis()
             connectFailures = 0
-            Log.d(TAG, "ConnectChecker onConnectionStarted: ${url.redactKey()}")
+            Log.d(TAG, "onConnectionStarted endpoint=$activeEndpoint ${url.redactKey()}")
+            notifyEndpoint(connected = false)
             recordingStateListener?.onStreamConnected()
         }
 
         override fun onConnectionSuccess() {
             val elapsed = connectStartedAt?.let { System.currentTimeMillis() - it } ?: -1
-            Log.d(TAG, "ConnectChecker onConnectionSuccess (handshake+connect took ${elapsed}ms)")
+            Log.d(TAG, "onConnectionSuccess endpoint=$activeEndpoint (handshake+connect took ${elapsed}ms)")
+            failuresOnCurrent = 0
+            notifyEndpoint(connected = true)
             recordingStateListener?.onStreamConnected()
-            recordingStartTime = System.currentTimeMillis()
+            // Preserve elapsed time across a reconnect/failover (only start fresh after a full
+            // disconnect, which nulls recordingStartTime); cancel any prior timer so they can't stack.
+            if (recordingStartTime == null) {
+                recordingStartTime = System.currentTimeMillis()
+            }
+            timerJob?.cancel()
             startTimer()
             // RTMP is connected — the Bunny live stream is now in PREVIEW. Mark it as started
             // (RUNNING) so viewers can actually watch; mirrors the dashboard's "Go live" button.
@@ -173,7 +231,8 @@ class DefaultStreamHandler(
         genericStream.getStreamClient().setSocketType(SocketType.KTOR)
         genericStream.getStreamClient().setLogs(true)
         genericStream.getStreamClient().setWriteChunkSize(4096)
-        genericStream.getStreamClient().setReTries(5)
+        // Headroom for quick same-host retries + primary↔backup failover switches.
+        genericStream.getStreamClient().setReTries(12)
         genericStream.getStreamClient().setCheckServerAlive(true)
 
 
@@ -202,7 +261,8 @@ class DefaultStreamHandler(
     override fun startStreaming(libraryId: Long) {
         activeLiveStream = null
         liveStartRequested = false
-        startWithEndpoint { streamRepository.prepareRecording(libraryId) }
+        // VOD recording has a single endpoint and no failover.
+        startWithEndpoint { streamRepository.prepareRecording(libraryId).map { ResolvedIngest(it) } }
     }
 
     override fun startLiveStreaming(libraryId: Long, streamId: String, ingestEndpoint: String?) {
@@ -211,7 +271,7 @@ class DefaultStreamHandler(
         startWithEndpoint { streamRepository.prepareLiveBroadcast(libraryId, streamId, ingestEndpoint) }
     }
 
-    private fun startWithEndpoint(prepare: suspend () -> Either<String, String>) {
+    private fun startWithEndpoint(prepare: suspend () -> Either<String, ResolvedIngest>) {
         recordingStateListener?.onStreamInitializing()
         scope.launch {
             when (val result = prepare()) {
@@ -223,15 +283,21 @@ class DefaultStreamHandler(
 
                 is Either.Right -> {
                     if (!genericStream.isStreaming) {
-                        streamUrl = result.value
+                        val ingest = result.value
+                        primaryUrl = ingest.primaryUrl
+                        backupUrl = ingest.backupUrl
+                        activeEndpoint = IngestEndpoint.PRIMARY
+                        failuresOnCurrent = 0
+                        endpointSwitches = 0
                         connectFailures = 0
+                        streamUrl = ingest.primaryUrl
                         Log.d(
                             TAG,
-                            "startStream url=${result.value.redactKey()} " +
+                            "startStream url=${ingest.primaryUrl.redactKey()} hasBackup=${ingest.backupUrl != null} " +
                                     "video=${width}x$height@${fps} vBitrate=$vBitrate " +
                                     "audio=${sampleRate}Hz aBitrate=$aBitrate"
                         )
-                        genericStream.startStream(result.value)
+                        genericStream.startStream(ingest.primaryUrl)
                     } else {
                         Log.w(TAG, "startStream skipped — already streaming")
                     }

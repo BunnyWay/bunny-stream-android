@@ -7,6 +7,7 @@ import kotlinx.coroutines.withContext
 import net.bunny.api.BuildConfig
 import net.bunny.api.BunnyStreamApi
 import net.bunny.bunnystreamcameraupload.domain.RecordingRepository
+import net.bunny.bunnystreamcameraupload.domain.ResolvedIngest
 import org.openapitools.client.infrastructure.ApiClient
 import org.openapitools.client.models.VideoCreateVideoRequest
 
@@ -69,18 +70,27 @@ class DefaultRecordingRepository(
         libraryId: Long,
         streamId: String,
         ingestEndpoint: String?,
-    ): Either<String, String> = withContext(coroutineDispatcher) {
+    ): Either<String, ResolvedIngest> = withContext(coroutineDispatcher) {
         when (val result = BunnyStreamApi.getInstance().liveStreamRepository.getLiveStream(libraryId, streamId)) {
             is Either.Left -> Either.Left(result.value)
             is Either.Right -> {
-                val streamKey = result.value.streamKey
+                val stream = result.value
+                val streamKey = stream.streamKey
                 if (streamKey.isNullOrBlank()) {
                     Either.Left("Live stream $streamId has no stream key yet, cannot publish")
                 } else {
-                    val base = (ingestEndpoint ?: BuildConfig.LIVE_RTMP_ENDPOINT).trimEnd('/')
-                    val endpoint = "$base/$streamKey"
-                    Log.d(TAG, "live endpoint=$endpoint")
-                    Either.Right(endpoint)
+                    // Publish to the real primary ingest host from the API (overridable via
+                    // [ingestEndpoint]); keep the backup host for failover. Fall back to the SDK
+                    // default host only when the API omits the primary.
+                    val primaryHost = (ingestEndpoint ?: stream.primaryIngestUrl ?: BuildConfig.LIVE_RTMP_ENDPOINT)
+                        .trimEnd('/')
+                    val primaryUrl = "$primaryHost/$streamKey"
+                    val backupUrl = stream.backupIngestUrl
+                        ?.takeIf { it.isNotBlank() }
+                        ?.let { "${it.trimEnd('/')}/$streamKey" }
+                    // Log hosts only — the stream key is a secret and must not leak to logcat.
+                    Log.d(TAG, "live ingest primaryHost=$primaryHost hasBackup=${backupUrl != null}")
+                    Either.Right(ResolvedIngest(primaryUrl, backupUrl))
                 }
             }
         }

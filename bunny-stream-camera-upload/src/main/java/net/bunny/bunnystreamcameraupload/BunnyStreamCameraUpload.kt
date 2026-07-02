@@ -3,6 +3,7 @@ package net.bunny.bunnystreamcameraupload
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
+import android.content.res.ColorStateList
 import android.util.AttributeSet
 import android.util.Log
 import android.view.LayoutInflater
@@ -113,6 +114,11 @@ class BunnyStreamCameraUpload @JvmOverloads constructor(
                 binding.mute.isActivated = muted
                 streamStateListener?.onAudioMuted(muted)
             }
+
+            override fun onIngestEndpointChanged(endpoint: IngestEndpoint, connected: Boolean) {
+                updateIngestBadges(endpoint, connected)
+                streamStateListener?.onIngestEndpointChanged(endpoint, connected)
+            }
         }
 
         binding.switchCamera.setOnClickListener {
@@ -147,7 +153,7 @@ class BunnyStreamCameraUpload @JvmOverloads constructor(
 
         streamHandler.recordingDurationListener = object : RecordingDurationListener {
             override fun onDurationUpdated(durationMillis: Long, durationFormatted: String) {
-                val recText = context.getString(R.string.rec_status_recording)
+                val recText = context.getString(statusLabelRes())
                 binding.status.text = "$recText  •  $durationFormatted"
                 streamDurationListener?.onDurationUpdated(durationMillis, durationFormatted)
             }
@@ -196,7 +202,7 @@ class BunnyStreamCameraUpload @JvmOverloads constructor(
         binding.progress.isVisible = false
 
         binding.status.isActivated = true
-        binding.status.setText(R.string.rec_status_recording)
+        binding.status.setText(statusLabelRes())
 
         binding.close.visibility = View.INVISIBLE
     }
@@ -204,6 +210,11 @@ class BunnyStreamCameraUpload @JvmOverloads constructor(
     private fun setPreparing() {
         binding.startStop.visibility = View.INVISIBLE
         binding.progress.isVisible = true
+        // Live broadcast: reveal the Primary/Backup badges (default: connecting to primary).
+        if (liveStreamId != null) {
+            binding.ingestBadges.isVisible = true
+            updateIngestBadges(IngestEndpoint.PRIMARY, connected = false)
+        }
     }
 
     private fun setNotRecording() {
@@ -215,6 +226,24 @@ class BunnyStreamCameraUpload @JvmOverloads constructor(
         binding.status.setText(R.string.rec_status_ready)
 
         binding.close.visibility = View.VISIBLE
+        binding.ingestBadges.isVisible = false
+    }
+
+    /** "LIVE" while broadcasting to a live stream, otherwise "Recording" (VOD capture). */
+    private fun statusLabelRes(): Int =
+        if (liveStreamId != null) R.string.rec_status_live else R.string.rec_status_recording
+
+    /**
+     * Tints the Primary/Backup dots: the [active] endpoint is green when [connected] / amber while
+     * (re)connecting, the other endpoint is grey (standby). Mirrors the web / iOS ingest badges.
+     */
+    private fun updateIngestBadges(active: IngestEndpoint, connected: Boolean) {
+        val activeColor = if (connected) R.color.ingest_active else R.color.ingest_connecting
+        fun tint(colorRes: Int) = ColorStateList.valueOf(ContextCompat.getColor(context, colorRes))
+        binding.primaryDot.imageTintList =
+            tint(if (active == IngestEndpoint.PRIMARY) activeColor else R.color.ingest_standby)
+        binding.backupDot.imageTintList =
+            tint(if (active == IngestEndpoint.BACKUP) activeColor else R.color.ingest_standby)
     }
 
     private fun showStreamConnectionErrorDialog(message: String) {

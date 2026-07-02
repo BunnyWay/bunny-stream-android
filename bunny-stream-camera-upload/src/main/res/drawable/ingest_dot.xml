@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Status dot for the Primary / Backup ingest badges. White by default; tinted at runtime
+     (green = active + connected, amber = active + connecting, grey = standby). -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="oval">
+    <solid android:color="@android:color/white" />
+    <size
+        android:width="9dp"
+        android:height="9dp" />
+</shape>
