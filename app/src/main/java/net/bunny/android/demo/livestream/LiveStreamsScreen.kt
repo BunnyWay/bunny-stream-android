@@ -52,6 +52,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.google.accompanist.swiperefresh.SwipeRefresh
 import com.google.accompanist.swiperefresh.rememberSwipeRefreshState
+import net.bunny.api.model.LiveStreamStatus
 import net.bunny.android.demo.library.model.Error
 import net.bunny.android.demo.recording.GoLiveActivity
 import net.bunny.android.demo.livestream.model.LiveStreamListUiState
@@ -214,6 +215,10 @@ private fun LiveStreamItem(
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
     val canWatch = !stream.playbackUrlHls.isNullOrBlank()
+    // A terminal stream (ended / processing to VOD) can't be re-published — the SDK rejects it —
+    // so disable "Go live" instead of letting the user walk into that dead end.
+    val canGoLive = stream.status != LiveStreamStatus.ENDED.name &&
+        stream.status != LiveStreamStatus.VOD_PROCESSING.name
 
     Card(
         modifier = Modifier
@@ -284,6 +289,7 @@ private fun LiveStreamItem(
                     )
                     DropdownMenuItem(
                         text = { Text("Go live") },
+                        enabled = canGoLive,
                         onClick = {
                             menuExpanded = false
                             onGoLive()

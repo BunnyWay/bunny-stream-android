@@ -6,6 +6,7 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import net.bunny.api.BuildConfig
 import net.bunny.api.BunnyStreamApi
+import net.bunny.api.model.LiveStreamStatus
 import net.bunny.bunnystreamcameraupload.domain.RecordingRepository
 import net.bunny.bunnystreamcameraupload.domain.ResolvedIngest
 import org.openapitools.client.infrastructure.ApiClient
@@ -76,21 +77,34 @@ class DefaultRecordingRepository(
             is Either.Right -> {
                 val stream = result.value
                 val streamKey = stream.streamKey
-                if (streamKey.isNullOrBlank()) {
-                    Either.Left("Live stream $streamId has no stream key yet, cannot publish")
-                } else {
-                    // Publish to the real primary ingest host from the API (overridable via
-                    // [ingestEndpoint]); keep the backup host for failover. Fall back to the SDK
-                    // default host only when the API omits the primary.
-                    val primaryHost = (ingestEndpoint ?: stream.primaryIngestUrl ?: BuildConfig.LIVE_RTMP_ENDPOINT)
-                        .trimEnd('/')
-                    val primaryUrl = "$primaryHost/$streamKey"
-                    val backupUrl = stream.backupIngestUrl
-                        ?.takeIf { it.isNotBlank() }
-                        ?.let { "${it.trimEnd('/')}/$streamKey" }
-                    // Log hosts only — the stream key is a secret and must not leak to logcat.
-                    Log.d(TAG, "live ingest primaryHost=$primaryHost hasBackup=${backupUrl != null}")
-                    Either.Right(ResolvedIngest(primaryUrl, backupUrl))
+                when {
+                    // A terminal stream can't be re-published — Bunny rejects it at the RTMP layer
+                    // with an opaque error ("stream ended, publishing not allowed"), and the
+                    // failover would burn several retries before giving up. Fail fast with a clear
+                    // message so the caller can guide the user to create a new stream.
+                    stream.status == LiveStreamStatus.ENDED ||
+                        stream.status == LiveStreamStatus.VOD_PROCESSING ->
+                        Either.Left(
+                            "This live stream has ended and can't be restarted — create a new stream.",
+                        )
+
+                    streamKey.isNullOrBlank() ->
+                        Either.Left("Live stream $streamId has no stream key yet, cannot publish")
+
+                    else -> {
+                        // Publish to the real primary ingest host from the API (overridable via
+                        // [ingestEndpoint]); keep the backup host for failover. Fall back to the SDK
+                        // default host only when the API omits the primary.
+                        val primaryHost = (ingestEndpoint ?: stream.primaryIngestUrl ?: BuildConfig.LIVE_RTMP_ENDPOINT)
+                            .trimEnd('/')
+                        val primaryUrl = "$primaryHost/$streamKey"
+                        val backupUrl = stream.backupIngestUrl
+                            ?.takeIf { it.isNotBlank() }
+                            ?.let { "${it.trimEnd('/')}/$streamKey" }
+                        // Log hosts only — the stream key is a secret and must not leak to logcat.
+                        Log.d(TAG, "live ingest primaryHost=$primaryHost hasBackup=${backupUrl != null}")
+                        Either.Right(ResolvedIngest(primaryUrl, backupUrl))
+                    }
                 }
             }
         }
