@@ -45,6 +45,73 @@
         app:layout_constraintTop_toTopOf="parent"
         />
 
+    <!-- Primary / Backup ingest badges. Only shown while broadcasting to a live stream; the dots
+         are tinted at runtime to reflect the active endpoint (green=live, amber=connecting,
+         grey=standby). Mirrors the web / iOS players. -->
+    <LinearLayout
+        android:id="@+id/ingest_badges"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="8dp"
+        android:visibility="gone"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/status"
+        tools:visibility="visible">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:background="@drawable/stream_status_background"
+            android:paddingHorizontal="10dp"
+            android:paddingVertical="5dp"
+            android:layout_marginEnd="8dp">
+
+            <ImageView
+                android:id="@+id/primary_dot"
+                android:layout_width="9dp"
+                android:layout_height="9dp"
+                android:src="@drawable/ingest_dot"
+                app:tint="@color/ingest_standby" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:text="@string/ingest_primary"
+                android:textColor="@color/stream_status_text"
+                android:textSize="12sp" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:background="@drawable/stream_status_background"
+            android:paddingHorizontal="10dp"
+            android:paddingVertical="5dp">
+
+            <ImageView
+                android:id="@+id/backup_dot"
+                android:layout_width="9dp"
+                android:layout_height="9dp"
+                android:src="@drawable/ingest_dot"
+                app:tint="@color/ingest_standby" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:text="@string/ingest_backup"
+                android:textColor="@color/stream_status_text"
+                android:textSize="12sp" />
+        </LinearLayout>
+    </LinearLayout>
+
     <androidx.constraintlayout.widget.Barrier
         android:id="@+id/barrier"
         android:layout_width="wrap_content"
