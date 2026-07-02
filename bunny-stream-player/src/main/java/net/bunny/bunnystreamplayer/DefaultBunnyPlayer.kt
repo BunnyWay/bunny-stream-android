@@ -35,6 +35,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import net.bunny.api.BunnyCdn
 import net.bunny.api.BunnyStreamApi
 import net.bunny.api.playback.DefaultPlaybackPositionManager
 import net.bunny.api.playback.PlaybackPosition
@@ -156,7 +157,7 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
     private val dataSourceFactory: DataSource.Factory = DataSource.Factory {
         val dataSource: HttpDataSource = httpDataSourceFactory.createDataSource()
         // Needed if "Block Direct Url File Access" is enabled on Dashboard
-        dataSource.setRequestProperty("Referer", "https://iframe.mediadelivery.net/")
+        dataSource.setRequestProperty("Referer", BunnyCdn.REFERER)
         dataSource
     }
 
@@ -481,7 +482,7 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
         // Create HTTP data source factory with headers
         val httpFactory = DefaultHttpDataSource.Factory()
             .setAllowCrossProtocolRedirects(true)
-            .setDefaultRequestProperties(mapOf("Referer" to "https://iframe.mediadelivery.net"))
+            .setDefaultRequestProperties(mapOf("Referer" to BunnyCdn.REFERER))
             .setUserAgent(Util.getUserAgent(context, "BunnyStreamPlayer"))
             .setTransferListener(transferListener)
 
@@ -531,7 +532,7 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
             mediaItemBuilder.setDrmConfiguration(
                 MediaItem.DrmConfiguration.Builder(C.WIDEVINE_UUID)
                     .setLicenseUri(drmLicenseUri)
-                    .setLicenseRequestHeaders(mapOf("Referer" to "https://iframe.mediadelivery.net"))
+                    .setLicenseRequestHeaders(mapOf("Referer" to BunnyCdn.REFERER))
                     .setMultiSession(true)
                     .setForceDefaultLicenseUri(true)
                     .build()

@@ -43,6 +43,8 @@ import androidx.media3.ui.SubtitleView
 import androidx.media3.ui.TimeBar
 import androidx.mediarouter.app.MediaRouteButton
 import com.bumptech.glide.Glide
+import com.bumptech.glide.load.model.GlideUrl
+import net.bunny.api.BunnyCdn
 import com.google.android.gms.cast.framework.CastButtonFactory
 import net.bunny.api.settings.capitalizeWords
 import net.bunny.api.settings.domain.model.PlayerSettings
@@ -911,7 +913,11 @@ class BunnyPlayerView @JvmOverloads constructor(
         val thumbnail = ImageView(context)
         overlay.removeAllViews()
         overlay.addView(thumbnail)
-        Glide.with(context).load(url).into(thumbnail)
+        // Referer for the CDN's block-direct-url (hotlink) protection — see the player data source.
+        val glideUrl = GlideUrl(url) {
+            mapOf("Referer" to BunnyCdn.REFERER)
+        }
+        Glide.with(context).load(glideUrl).into(thumbnail)
     }
 
     fun showError(message: String) {

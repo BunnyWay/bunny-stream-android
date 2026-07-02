@@ -88,7 +88,7 @@ class BunnyStreamApi private constructor(
             val requestBuilder = originalRequest.newBuilder()
 
             if (isPlayEndpoint) {
-                requestBuilder.header("Referer", "https://iframe.mediadelivery.net/")
+                requestBuilder.header("Referer", BunnyCdn.REFERER)
             }
 
             chain.proceed(requestBuilder.build())

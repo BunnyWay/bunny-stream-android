@@ -55,9 +55,13 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.ui.PlayerView
 import com.bumptech.glide.Glide
+import com.bumptech.glide.load.model.GlideUrl
+import net.bunny.api.BunnyCdn
 import net.bunny.player.R
 import net.bunny.bunnystreamplayer.ui.BunnyStreamPlayer
 import kotlinx.coroutines.delay
@@ -233,7 +237,14 @@ private fun OfflineOverlay(
                         scaleType = ImageView.ScaleType.CENTER_CROP
                     }
                 },
-                update = { imageView -> Glide.with(imageView).load(posterUrl).into(imageView) },
+                update = { imageView ->
+                    // Referer for the CDN's block-direct-url (hotlink) protection — see the main
+                    // player's data source and PreviewLoader.
+                    val glideUrl = GlideUrl(posterUrl) {
+                        mapOf("Referer" to BunnyCdn.REFERER)
+                    }
+                    Glide.with(imageView).load(glideUrl).into(imageView)
+                },
             )
             Box(
                 modifier = Modifier
@@ -313,7 +324,14 @@ private fun CountdownOverlay(
                         scaleType = ImageView.ScaleType.CENTER_CROP
                     }
                 },
-                update = { imageView -> Glide.with(imageView).load(posterUrl).into(imageView) },
+                update = { imageView ->
+                    // Referer for the CDN's block-direct-url (hotlink) protection — see the main
+                    // player's data source and PreviewLoader.
+                    val glideUrl = GlideUrl(posterUrl) {
+                        mapOf("Referer" to BunnyCdn.REFERER)
+                    }
+                    Glide.with(imageView).load(glideUrl).into(imageView)
+                },
             )
         }
 
@@ -396,13 +414,21 @@ private fun formatCountdown(ms: Long): String {
 private fun TrailerBackground(hlsUrl: String) {
     val context = LocalContext.current
     val exoPlayer = remember(hlsUrl) {
-        ExoPlayer.Builder(context).build().apply {
-            setMediaItem(MediaItem.fromUri(hlsUrl))
-            repeatMode = Player.REPEAT_MODE_ALL
-            volume = 0f
-            playWhenReady = true
-            prepare()
-        }
+        // Send the CDN Referer so the trailer keeps loading when the library has "Block direct url
+        // file access" on (referer-based hotlink protection) — mirrors the main player's data source.
+        val mediaSourceFactory = DefaultMediaSourceFactory(context).setDataSourceFactory(
+            DefaultHttpDataSource.Factory()
+                .setDefaultRequestProperties(mapOf("Referer" to BunnyCdn.REFERER)),
+        )
+        ExoPlayer.Builder(context)
+            .setMediaSourceFactory(mediaSourceFactory)
+            .build().apply {
+                setMediaItem(MediaItem.fromUri(hlsUrl))
+                repeatMode = Player.REPEAT_MODE_ALL
+                volume = 0f
+                playWhenReady = true
+                prepare()
+            }
     }
     DisposableEffect(hlsUrl) {
         onDispose { exoPlayer.release() }
