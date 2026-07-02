@@ -25,6 +25,7 @@ import net.bunny.bunnystreamcameraupload.IngestEndpoint
 import net.bunny.bunnystreamcameraupload.RecordingDurationListener
 import net.bunny.bunnystreamcameraupload.RecordingStateListener
 import net.bunny.bunnystreamcameraupload.util.ScreenUtil
+import net.bunny.recording.R
 
 class DefaultStreamHandler(
     private val streamRepository: RecordingRepository,
@@ -33,11 +34,11 @@ class DefaultStreamHandler(
     companion object {
         private const val TAG = "StreamHandler"
 
-        /** Quick retries on the SAME host before failing over to the other endpoint. */
+        /**
+         * Quick retries on the SAME host before failing over to the backup. Kept in sync with the
+         * iOS SDK's `maxRetryCount` so both platforms behave identically.
+         */
         private const val RETRIES_BEFORE_SWITCH = 2
-
-        /** Cap on primary↔backup switches, so a total outage doesn't ping-pong forever. */
-        private const val MAX_ENDPOINT_SWITCHES = 4
 
         private const val RETRY_DELAY_MS = 5000L
     }
@@ -74,16 +75,6 @@ class DefaultStreamHandler(
 
     /** Failures since the last successful connect on the CURRENT endpoint. */
     private var failuresOnCurrent = 0
-
-    /** How many times we've failed over, to avoid endless primary↔backup ping-pong. */
-    private var endpointSwitches = 0
-
-    /** The URL for the endpoint we'd fail over to (backup when on primary, and vice-versa). */
-    private fun otherUrl(): String? =
-        if (activeEndpoint == IngestEndpoint.PRIMARY) backupUrl else primaryUrl
-
-    private fun IngestEndpoint.flip(): IngestEndpoint =
-        if (this == IngestEndpoint.PRIMARY) IngestEndpoint.BACKUP else IngestEndpoint.PRIMARY
 
     private fun notifyEndpoint(connected: Boolean) {
         recordingStateListener?.onIngestEndpointChanged(activeEndpoint, connected)
@@ -122,31 +113,34 @@ class DefaultStreamHandler(
             Log.w(
                 TAG,
                 "onConnectionFailed reason=\"$reason\" endpoint=$activeEndpoint " +
-                        "attempt=$failuresOnCurrent switches=$endpointSwitches elapsedMs=$elapsed " +
+                        "attempt=$failuresOnCurrent elapsedMs=$elapsed " +
                         "url=${streamUrl?.redactKey()} isStreaming=${genericStream.isStreaming}"
             )
             val client = genericStream.getStreamClient()
-            val failoverTarget = otherUrl()
+            val backup = backupUrl
+            var toast = openGlView.context.getString(R.string.stream_reconnecting)
             val scheduled = when {
                 // Transient blip: a couple of quick retries on the SAME host first.
                 failuresOnCurrent < RETRIES_BEFORE_SWITCH ->
                     client.reTry(RETRY_DELAY_MS, reason, null)
 
-                // Host looks down: fail over to the other ingest endpoint (same stream key).
-                failoverTarget != null && endpointSwitches < MAX_ENDPOINT_SWITCHES -> {
-                    activeEndpoint = activeEndpoint.flip()
-                    endpointSwitches++
+                // Primary won't come up → fail over to the backup, once. We deliberately never
+                // switch back to primary (mirrors the iOS SDK + Bunny's guidance); once on the
+                // backup, exhausting the retries ends the stream.
+                activeEndpoint == IngestEndpoint.PRIMARY && backup != null -> {
+                    activeEndpoint = IngestEndpoint.BACKUP
                     failuresOnCurrent = 0
-                    streamUrl = failoverTarget
+                    streamUrl = backup
                     notifyEndpoint(connected = false)
-                    Log.w(TAG, "failover → $activeEndpoint (${failoverTarget.redactKey()})")
-                    client.reTry(RETRY_DELAY_MS, reason, failoverTarget)
+                    toast = openGlView.context.getString(R.string.ingest_switched_to_backup)
+                    Log.w(TAG, "failover → BACKUP (${backup.redactKey()})")
+                    client.reTry(RETRY_DELAY_MS, reason, backup)
                 }
 
                 else -> false
             }
             if (scheduled) {
-                Toast.makeText(openGlView.context, "Reconnecting…", Toast.LENGTH_SHORT).show()
+                Toast.makeText(openGlView.context, toast, Toast.LENGTH_SHORT).show()
             } else {
                 Log.e(
                     TAG,
@@ -288,7 +282,6 @@ class DefaultStreamHandler(
                         backupUrl = ingest.backupUrl
                         activeEndpoint = IngestEndpoint.PRIMARY
                         failuresOnCurrent = 0
-                        endpointSwitches = 0
                         connectFailures = 0
                         streamUrl = ingest.primaryUrl
                         Log.d(

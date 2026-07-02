@@ -5,6 +5,8 @@
     <string name="rec_status_live">LIVE</string>
     <string name="ingest_primary">Primary</string>
     <string name="ingest_backup">Backup</string>
+    <string name="ingest_switched_to_backup">Switched to backup ingest</string>
+    <string name="stream_reconnecting">Reconnecting…</string>
     <string name="dialog_ok">Ok</string>
     <string name="stream_auth_error">Authentication error</string>
     <string name="stream_connection_error">Connection error</string>
