@@ -87,6 +87,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import net.bunny.android.demo.player.BunnyPlayerComposable
+import net.bunny.android.demo.App
 import net.bunny.android.demo.recording.GoLiveActivity
 import net.bunny.android.demo.ui.AppState
 import net.bunny.api.BunnyStreamApi
@@ -203,7 +204,7 @@ fun LiveStreamEditorRoute(
             onRemoveWatermark = viewModel::removeWatermark,
             savedStateHandle = savedStateHandle,
             onBack = { appState.navController.popBackStack() },
-            onSubmit = { request, thumbnail -> viewModel.save(streamId, request, thumbnail) },
+            onSubmit = { request, thumbnail, dual -> viewModel.save(streamId, request, thumbnail, dual) },
         )
     }
 }
@@ -436,7 +437,7 @@ private fun LiveStreamEditorScreen(
     onRemoveWatermark: () -> Unit,
     savedStateHandle: SavedStateHandle?,
     onBack: () -> Unit,
-    onSubmit: (LiveStreamCreateRequest, LiveStreamEditorViewModel.ThumbnailSource?) -> Unit,
+    onSubmit: (LiveStreamCreateRequest, LiveStreamEditorViewModel.ThumbnailSource?, Boolean) -> Unit,
 ) {
     val context = LocalContext.current
     // Form state, re-seeded when the stream loads (edit mode). Uses rememberSaveable so it survives
@@ -467,6 +468,11 @@ private fun LiveStreamEditorScreen(
     var dvrEnabled by rememberSaveable(initial) { mutableStateOf(initial?.dvrEnabled ?: false) }
     var dvrWindow by rememberSaveable(initial) {
         mutableStateOf(initial?.dvrWindowSeconds?.let(::formatHms) ?: "12:00:00")
+    }
+    // Client-side broadcast option (not a Bunny stream field): seeded from the per-stream local
+    // preference in edit mode, off for a new stream.
+    var dualPublish by rememberSaveable(initial) {
+        mutableStateOf(initial?.id?.let { App.di.dualPublishPreferences.isDualPublish(it) } ?: false)
     }
     // Pre-stream trailer on/off. The trailer video itself is owned by the ViewModel ([trailer]);
     // this only toggles whether the form submits it. Seeded on from an existing trailer (edit mode).
@@ -851,6 +857,17 @@ private fun LiveStreamEditorScreen(
                 }
             }
 
+            Spacer(modifier = Modifier.height(16.dp))
+
+            SectionCard(title = "Dual publish") {
+                SwitchRow(
+                    label = "Publish to primary + backup at once",
+                    checked = dualPublish,
+                    subtitle = "Streams to both ingests simultaneously for instant failover. " +
+                        "Doubles the upload bandwidth, so use it only on a strong connection.",
+                ) { dualPublish = it }
+            }
+
             Spacer(modifier = Modifier.height(24.dp))
 
             Button(
@@ -890,6 +907,7 @@ private fun LiveStreamEditorScreen(
                                 .takeIf { it.isNotEmpty() },
                         ),
                         thumbnail,
+                        dualPublish,
                     )
                 },
                 enabled = canSubmit,

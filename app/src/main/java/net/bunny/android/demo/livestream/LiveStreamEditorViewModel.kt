@@ -229,6 +229,8 @@ class LiveStreamEditorViewModel : ViewModel() {
         streamId: String?,
         request: LiveStreamCreateRequest,
         thumbnail: ThumbnailSource? = null,
+        // Client-side broadcast option (not a Bunny stream property), remembered locally per stream.
+        dualPublish: Boolean = false,
     ) {
         Log.d(TAG, "save id=$streamId request=$request thumbnail=${thumbnail?.let { it::class.simpleName }}")
         mutableUiState.update { it.copy(saving = true) }
@@ -245,6 +247,7 @@ class LiveStreamEditorViewModel : ViewModel() {
                             "create ok — id=${created.id} streamKey=${created.streamKey} " +
                                 "hls=${created.playbackUrlHls}",
                         )
+                        App.di.dualPublishPreferences.setDualPublish(created.id, dualPublish)
                         // Thumbnail is best-effort: a failure here shouldn't hide the created
                         // stream, but it's surfaced as a non-fatal error over the summary screen.
                         val thumbError = thumbnail?.let { applyThumbnail(created.id, it) }
@@ -261,6 +264,7 @@ class LiveStreamEditorViewModel : ViewModel() {
                     },
                     ifRight = {
                         Log.d(TAG, "update ok")
+                        App.di.dualPublishPreferences.setDualPublish(streamId, dualPublish)
                         val thumbError = thumbnail?.let { applyThumbnail(streamId, it) }
                         mutableUiState.update {
                             it.copy(saving = false, saved = thumbError == null, error = thumbError)

@@ -3,6 +3,7 @@ package net.bunny.android.demo.di
 import android.annotation.SuppressLint
 import android.content.Context
 import net.bunny.android.demo.library.DefaultVideoUploadService
+import net.bunny.android.demo.settings.DualPublishPreferences
 import net.bunny.android.demo.settings.LocalPrefs
 import net.bunny.android.demo.settings.ResumePositionPreferences
 import net.bunny.api.BunnyStreamApi
@@ -13,9 +14,11 @@ class Di(val context: Context) {
 
     private val prefs = context.getSharedPreferences("", Context.MODE_PRIVATE)
     private val resumePrefs = context.getSharedPreferences("resume_position_prefs", Context.MODE_PRIVATE)
+    private val dualPublishPrefs = context.getSharedPreferences("dual_publish_prefs", Context.MODE_PRIVATE)
 
     val localPrefs = LocalPrefs(prefs)
     val resumePositionPrefs = ResumePositionPreferences(resumePrefs) // Add this line
+    val dualPublishPreferences = DualPublishPreferences(dualPublishPrefs)
 
     init {
         BunnyStreamApi.initialize(context, localPrefs.accessKey, localPrefs.libraryId)

@@ -14,6 +14,7 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
+import net.bunny.android.demo.App
 import net.bunny.android.demo.R
 import net.bunny.android.demo.databinding.ActivityRecordingBinding
 
@@ -54,6 +55,9 @@ class GoLiveActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         binding.recordingView.liveStreamId = streamId
+        // Per-stream client option set in the editor (not stored on Bunny); off unless the user
+        // enabled "Dual publish" for this stream.
+        binding.recordingView.dualPublish = App.di.dualPublishPreferences.isDualPublish(streamId)
 
         binding.recordingView.closeStreamClickListener = OnClickListener {
             finish()

@@ -22,6 +22,17 @@ interface StreamCameraUploadView {
     var liveIngestEndpoint: String?
 
     /**
+     * When `true`, publishes to BOTH the primary and backup ingest **simultaneously**
+     * (dual-publish), so a failover is instant — the second ingest is already running.
+     *
+     * **This doubles the upload bandwidth / data cost**, so it is `false` by default and strictly
+     * opt-in — the host app should warn the user before enabling it. Only takes effect when
+     * [liveStreamId] is set and the stream actually has a backup ingest; otherwise the SDK falls
+     * back to single-publish with active/standby failover. Set before [startPreview].
+     */
+    var dualPublish: Boolean
+
+    /**
      * Click listener to receive close clicked event so you can handle it,
      * e.g. finish hosting activity or navigate to some other screen
      */

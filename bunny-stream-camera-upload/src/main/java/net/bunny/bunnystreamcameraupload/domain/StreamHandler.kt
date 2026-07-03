@@ -10,6 +10,9 @@ internal interface StreamHandler {
 
     var recordingDurationListener: RecordingDurationListener?
 
+    /** Publish to primary + backup simultaneously (see [StreamCameraUploadView.dualPublish]). */
+    var dualPublish: Boolean
+
     fun initialize(container: ViewGroup, deviceCamera: DeviceCamera)
 
     fun startStreaming(libraryId: Long)

@@ -52,6 +52,12 @@ class BunnyStreamCameraUpload @JvmOverloads constructor(
 
     override var liveIngestEndpoint: String? = null
 
+    override var dualPublish: Boolean
+        get() = streamHandler.dualPublish
+        set(value) {
+            streamHandler.dualPublish = value
+        }
+
     override var closeStreamClickListener: OnClickListener? = null
         set(value) {
             field = value
@@ -115,9 +121,9 @@ class BunnyStreamCameraUpload @JvmOverloads constructor(
                 streamStateListener?.onAudioMuted(muted)
             }
 
-            override fun onIngestEndpointChanged(endpoint: IngestEndpoint, connected: Boolean) {
-                updateIngestBadges(endpoint, connected)
-                streamStateListener?.onIngestEndpointChanged(endpoint, connected)
+            override fun onIngestEndpointChanged(endpoint: IngestEndpoint, state: IngestEndpointState) {
+                updateIngestBadge(endpoint, state)
+                streamStateListener?.onIngestEndpointChanged(endpoint, state)
             }
         }
 
@@ -210,10 +216,12 @@ class BunnyStreamCameraUpload @JvmOverloads constructor(
     private fun setPreparing() {
         binding.startStop.visibility = View.INVISIBLE
         binding.progress.isVisible = true
-        // Live broadcast: reveal the Primary/Backup badges (default: connecting to primary).
+        // Live broadcast: reveal the Primary/Backup badges; the handler drives their colours as
+        // each ingest connects (both can be live at once in dual-publish mode).
         if (liveStreamId != null) {
             binding.ingestBadges.isVisible = true
-            updateIngestBadges(IngestEndpoint.PRIMARY, connected = false)
+            updateIngestBadge(IngestEndpoint.PRIMARY, IngestEndpointState.OFFLINE)
+            updateIngestBadge(IngestEndpoint.BACKUP, IngestEndpointState.OFFLINE)
         }
     }
 
@@ -234,16 +242,18 @@ class BunnyStreamCameraUpload @JvmOverloads constructor(
         if (liveStreamId != null) R.string.rec_status_live else R.string.rec_status_recording
 
     /**
-     * Tints the Primary/Backup dots: the [active] endpoint is green when [connected] / amber while
-     * (re)connecting, the other endpoint is grey (standby). Mirrors the web / iOS ingest badges.
+     * Tints one ingest dot by its [state]: green = live, amber = connecting, grey = offline/standby.
+     * Each endpoint is independent, so in dual-publish mode both dots can be green at once. Mirrors
+     * the web / iOS ingest badges.
      */
-    private fun updateIngestBadges(active: IngestEndpoint, connected: Boolean) {
-        val activeColor = if (connected) R.color.ingest_active else R.color.ingest_connecting
-        fun tint(colorRes: Int) = ColorStateList.valueOf(ContextCompat.getColor(context, colorRes))
-        binding.primaryDot.imageTintList =
-            tint(if (active == IngestEndpoint.PRIMARY) activeColor else R.color.ingest_standby)
-        binding.backupDot.imageTintList =
-            tint(if (active == IngestEndpoint.BACKUP) activeColor else R.color.ingest_standby)
+    private fun updateIngestBadge(endpoint: IngestEndpoint, state: IngestEndpointState) {
+        val colorRes = when (state) {
+            IngestEndpointState.LIVE -> R.color.ingest_active
+            IngestEndpointState.CONNECTING -> R.color.ingest_connecting
+            IngestEndpointState.OFFLINE -> R.color.ingest_standby
+        }
+        val dot = if (endpoint == IngestEndpoint.PRIMARY) binding.primaryDot else binding.backupDot
+        dot.imageTintList = ColorStateList.valueOf(ContextCompat.getColor(context, colorRes))
     }
 
     private fun showStreamConnectionErrorDialog(message: String) {
