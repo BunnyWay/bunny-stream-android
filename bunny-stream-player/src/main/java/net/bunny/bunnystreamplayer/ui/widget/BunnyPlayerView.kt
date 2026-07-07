@@ -910,8 +910,12 @@ class BunnyPlayerView @JvmOverloads constructor(
 
     fun showPreviewThumbnail(url: String) {
         Log.d(TAG, "onShowPreviewThumbnail: $url")
-        val thumbnail = ImageView(context)
         overlay.removeAllViews()
+        // Live streams (and still-processing uploads) carry no preview thumbnail — the synthetic
+        // live PlayerSettings pass an empty URL here. GlideUrl's constructor throws on a null/empty
+        // string, so skip rendering rather than crash the player.
+        if (url.isBlank()) return
+        val thumbnail = ImageView(context)
         overlay.addView(thumbnail)
         // Referer for the CDN's block-direct-url (hotlink) protection — see the player data source.
         val glideUrl = GlideUrl(url) {

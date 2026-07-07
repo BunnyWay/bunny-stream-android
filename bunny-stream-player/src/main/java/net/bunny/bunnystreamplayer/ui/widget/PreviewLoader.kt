@@ -31,7 +31,10 @@ class PreviewLoader(
         val currentFrameLocal = currentFrameGlobal % seekThumbnail.thumbnailsPerImage
         val currentPositionWithinJpg = (currentFrameLocal * seekThumbnail.frameDurationPerThumbnail).toLong()
 
-        val glideUrl = GlideUrl(seekThumbnail.seekThumbnailUrls[safeJpgIndex]) {
+        val thumbnailUrl = seekThumbnail.seekThumbnailUrls[safeJpgIndex]
+        // GlideUrl throws on a null/empty string; skip rather than crash on degenerate metadata.
+        if (thumbnailUrl.isBlank()) return
+        val glideUrl = GlideUrl(thumbnailUrl) {
             mapOf("Referer" to BunnyCdn.REFERER)
         }
         Glide
