@@ -27,6 +27,7 @@ import net.bunny.bunnystreamplayer.livestream.LivePlayerConfig
 import net.bunny.bunnystreamplayer.livestream.liveControlsFor
 import net.bunny.bunnystreamplayer.livestream.toControlsString
 import net.bunny.bunnystreamplayer.DefaultBunnyPlayer
+import net.bunny.bunnystreamplayer.cmcd.CmcdStreamType
 import net.bunny.bunnystreamplayer.common.DeviceType
 import net.bunny.bunnystreamplayer.config.PlaybackSpeedConfig
 import net.bunny.bunnystreamplayer.model.PlayerIconSet
@@ -432,6 +433,12 @@ class BunnyStreamPlayer @JvmOverloads constructor(
             captionsPath = "",
         )
 
+        // CMCD (CTA-5004 v2) stream type: a DVR-enabled live stream reports st=e (event), a plain
+        // live stream st=l. The transmission mode itself is fixed internally by the SDK.
+        (bunnyPlayer as? DefaultBunnyPlayer)?.setCmcdStreamType(
+            if (dvrEnabled) CmcdStreamType.EVENT else CmcdStreamType.LIVE,
+        )
+
         pendingJob = {
             scope!!.launch { initializeVideo(video, settings) }
         }
@@ -457,6 +464,9 @@ class BunnyStreamPlayer @JvmOverloads constructor(
             )
             return
         }
+
+        // CMCD (CTA-5004 v2) stream type for VOD playback (st=v).
+        (bunnyPlayer as? DefaultBunnyPlayer)?.setCmcdStreamType(CmcdStreamType.VOD)
 
         // Save previous video position before switching
         saveCurrentPosition()

@@ -23,13 +23,17 @@ import androidx.media3.datasource.DataSource
 import androidx.media3.datasource.DataSpec
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.datasource.HttpDataSource
+import androidx.media3.datasource.ResolvingDataSource
 import androidx.media3.datasource.TransferListener
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.analytics.AnalyticsListener
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
-import androidx.media3.exoplayer.upstream.CmcdConfiguration
 import androidx.media3.ui.PlayerView
+import net.bunny.bunnystreamplayer.cmcd.CmcdPlayerSnapshot
+import net.bunny.bunnystreamplayer.cmcd.CmcdResolver
+import net.bunny.bunnystreamplayer.cmcd.CmcdSession
+import net.bunny.bunnystreamplayer.cmcd.CmcdStreamType
 import com.google.android.gms.cast.framework.CastState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -118,6 +122,19 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
 
     private var autoSaveJob: Job? = null
     private val autoSaveInterval = 10_000L // 10 seconds
+
+    // CMCD (CTA-5004 v2) telemetry — always attached as a ?CMCD= query param (internal SDK logic,
+    // no integrator toggle, mirroring iOS's fixed-transport design). Only the stream type varies per
+    // playback (VOD -> st=v, live -> st=l/e), set by the caller. The buffer snapshot is refreshed on
+    // the main thread by cmcdSnapshotJob and read (via @Volatile) from the ExoPlayer loader threads.
+    @Volatile
+    private var cmcdStreamType: CmcdStreamType = CmcdStreamType.VOD
+    @Volatile
+    private var cmcdBufferLengthMs: Long = 0L
+    @Volatile
+    private var cmcdBufferStarved: Boolean = false
+    private var cmcdSnapshotJob: Job? = null
+    private val cmcdSnapshotInterval = 1_000L // 1 second
     private var chapters = listOf<Chapter>()
         set(value) {
             field = value
@@ -361,12 +378,53 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
             }
         }
         Log.d(TAG, "Auto-save position started with interval: ${interval}ms")
+        startCmcdSnapshotUpdates()
     }
 
     private fun stopAutoSavePosition() {
         autoSaveJob?.cancel()
         autoSaveJob = null
+        stopCmcdSnapshotUpdates()
         Log.d(TAG, "Auto-save position stopped")
+    }
+
+    /** Sets the CMCD `st` for subsequent playback (VOD -> v, live -> l, DVR live -> e). Internal. */
+    internal fun setCmcdStreamType(streamType: CmcdStreamType) {
+        cmcdStreamType = streamType
+        Log.d(TAG, "CMCD streamType=$streamType (query)")
+    }
+
+    /** Refreshes the CMCD buffer snapshot on the main thread so loader threads can read it safely. */
+    private fun startCmcdSnapshotUpdates() {
+        stopCmcdSnapshotUpdates()
+        cmcdSnapshotJob = coroutineScope.launch(Dispatchers.Main) {
+            while (isActive) {
+                currentPlayer?.let { player ->
+                    cmcdBufferLengthMs = (player.bufferedPosition - player.currentPosition).coerceAtLeast(0L)
+                    cmcdBufferStarved = player.playbackState == Player.STATE_BUFFERING
+                }
+                delay(cmcdSnapshotInterval)
+            }
+        }
+    }
+
+    private fun stopCmcdSnapshotUpdates() {
+        cmcdSnapshotJob?.cancel()
+        cmcdSnapshotJob = null
+    }
+
+    /** Wraps [http] so every media request gets a CMCD v2 `?CMCD=` query param. */
+    @SuppressLint("UnsafeOptInUsageError")
+    private fun buildCmcdDataSourceFactory(
+        http: DataSource.Factory,
+        contentId: String,
+    ): DataSource.Factory {
+        val session = CmcdSession(
+            contentId = contentId,
+            streamType = cmcdStreamType,
+            snapshotProvider = { CmcdPlayerSnapshot(cmcdBufferLengthMs, cmcdBufferStarved) },
+        )
+        return ResolvingDataSource.Factory(http, CmcdResolver(session))
     }
 
     private fun checkForSavedPosition(videoId: String) {
@@ -487,12 +545,15 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
             .setTransferListener(transferListener)
 
         // Create media source factory without setDrmSessionManagerProvider.
-        // CMCD (Common Media Client Data, CTA-5004) attaches client playback telemetry — session id,
-        // buffer length, measured throughput, requested bitrate, etc. — to every media request so
-        // the CDN receives it. The DEFAULT factory sends it as CMCD-* HTTP request headers.
+        // CMCD (Common Media Client Data, CTA-5004 **v2**) attaches client playback telemetry — session
+        // id, buffer length, stream/object type, startup + buffer-starvation flags — to every media
+        // request so the CDN receives it. media3's built-in CmcdConfiguration is v1-only, so we inject
+        // it ourselves: buildCmcdDataSourceFactory wraps the HTTP data source with a ResolvingDataSource
+        // that appends a v2 `?CMCD=` query parameter per request.
+        val cmcdContentId = video.guid?.takeIf { it.isNotBlank() }.orEmpty()
+        val cmcdDataSourceFactory = buildCmcdDataSourceFactory(httpFactory, cmcdContentId)
         val mediaSourceFactory = DefaultMediaSourceFactory(context)
-            .setDataSourceFactory(httpFactory)
-            .setCmcdConfigurationFactory(CmcdConfiguration.Factory.DEFAULT)
+            .setDataSourceFactory(cmcdDataSourceFactory)
 
         // Set up subtitle tracks if available
         val subtitleConfigs = video.captions?.map { cap ->
@@ -525,7 +586,8 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
             .setMediaMetadata(mediaMetadata)
             .setSubtitleConfigurations(subtitleConfigs)
 
-        // Used as the CMCD content id (`cid`) so the CDN can attribute telemetry to this video.
+        // MediaItem id (used by Cast/analytics). The CMCD content id (`cid`) is set separately by
+        // buildCmcdDataSourceFactory from the same guid.
         video.guid?.takeIf { it.isNotBlank() }?.let { mediaItemBuilder.setMediaId(it) }
 
         if (playerSettings.drmEnabled) {
