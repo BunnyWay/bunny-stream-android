@@ -179,6 +179,7 @@ public fun BunnyLiveStreamPlayer(
                     title = "",
                     hlsUrl = s.hlsUrl,
                     config = config,
+                    dvrEnabled = s.dvrEnabled,
                     onVideoSizeChanged = onVideoSizeChanged,
                 )
                 LiveBadge(
@@ -473,6 +474,7 @@ private fun BunnyPlayerSurface(
     title: String,
     hlsUrl: String,
     config: LivePlayerConfig = LivePlayerConfig(),
+    dvrEnabled: Boolean = false,
     onVideoSizeChanged: ((width: Int, height: Int) -> Unit)? = null,
 ) {
     // [AndroidView.update] runs on every recomposition, but `playLiveUrl` tears down the engine
@@ -498,6 +500,7 @@ private fun BunnyPlayerSurface(
                     videoTitle = title,
                     hlsUrl = hlsUrl,
                     config = config,
+                    dvrEnabled = dvrEnabled,
                 )
                 lastUrlState.value = hlsUrl
                 lastConfigState.value = config
@@ -516,6 +519,7 @@ private fun BunnyPlayerSurface(
                 videoTitle = title,
                 hlsUrl = hlsUrl,
                 config = config,
+                dvrEnabled = dvrEnabled,
             )
             lastUrlState.value = hlsUrl
             lastConfigState.value = config

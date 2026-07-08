@@ -190,6 +190,28 @@ class LiveStreamPlayerStateTest {
     }
 
     @Test
+    fun `Running propagates the stream's DVR flag to LivePlay`() {
+        assertEquals(
+            LiveStreamPlayerState.LivePlay("https://live.test/playlist.m3u8", dvrEnabled = true),
+            resolveLiveStreamPlayerState(
+                stream = stream(status = LiveStreamStatus.RUNNING, dvrEnabled = true),
+                playableUrl = "https://live.test/playlist.m3u8",
+                trailerUrl = null,
+                nowEpochMs = now,
+            ),
+        )
+        assertEquals(
+            LiveStreamPlayerState.LivePlay("https://live.test/playlist.m3u8", dvrEnabled = false),
+            resolveLiveStreamPlayerState(
+                stream = stream(status = LiveStreamStatus.RUNNING, dvrEnabled = false),
+                playableUrl = "https://live.test/playlist.m3u8",
+                trailerUrl = null,
+                nowEpochMs = now,
+            ),
+        )
+    }
+
+    @Test
     fun `Running without URL renders Loading rather than offline`() {
         // While the URL is being fetched, we'd rather hold the spinner than flash an offline
         // overlay. The VM kicks off a play-data re-fetch when it sees Running with no URL.
@@ -494,6 +516,7 @@ class LiveStreamPlayerStateTest {
         startedAt: String? = null,
         preStreamTrailerVideoId: String? = null,
         playbackUrlHls: String? = null,
+        dvrEnabled: Boolean = false,
     ): LiveStream = LiveStream(
         id = "stream-guid",
         videoLibraryId = 1L,
@@ -511,7 +534,7 @@ class LiveStreamPlayerStateTest {
         durationSeconds = null,
         streamKey = null,
         playbackUrlHls = playbackUrlHls,
-        dvrEnabled = false,
+        dvrEnabled = dvrEnabled,
         dvrWindowSeconds = null,
         recordVod = recordVod,
         availableResolutions = null,

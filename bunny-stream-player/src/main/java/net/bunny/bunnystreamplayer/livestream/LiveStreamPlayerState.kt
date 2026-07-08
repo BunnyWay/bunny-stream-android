@@ -63,7 +63,15 @@ public sealed interface LiveStreamPlayerState {
 
     public data class Trailer(val hlsUrl: String) : LiveStreamPlayerState
 
-    public data class LivePlay(val hlsUrl: String) : LiveStreamPlayerState
+    /**
+     * Stream is Running. Play [hlsUrl]. [dvrEnabled] mirrors the stream's DVR setting: a DVR live
+     * stream shows a seekable timeline (+ jump-to-live); a non-DVR one hides the VOD-style timeline
+     * and time counter (its window-relative position is meaningless), leaving just the LIVE badge.
+     */
+    public data class LivePlay(
+        val hlsUrl: String,
+        val dvrEnabled: Boolean = false,
+    ) : LiveStreamPlayerState
 
     public data class VodPlay(val hlsUrl: String) : LiveStreamPlayerState
 
@@ -112,7 +120,7 @@ public fun resolveLiveStreamPlayerState(
     // 1) Running -> live playback if we have a URL; otherwise treat as Loading (the URL fetch is
     //    in flight — we'd rather show the spinner than flash an offline overlay).
     if (status == LiveStreamStatus.RUNNING) {
-        return playableUrl?.let { LiveStreamPlayerState.LivePlay(it) }
+        return playableUrl?.let { LiveStreamPlayerState.LivePlay(it, stream.dvrEnabled) }
             ?: LiveStreamPlayerState.Loading
     }
 

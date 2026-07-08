@@ -100,3 +100,19 @@ internal fun LivePlayerConfig.toControlsString(): String {
         if (c.airplay) add("airplay")
     }.joinToString(",")
 }
+
+/**
+ * Adjusts a live control set for the stream's DVR capability. A live stream WITHOUT DVR has no
+ * meaningful timeline — its position/duration are relative to the sliding HLS window (they jump and
+ * rewind) — so the VOD-style scrub bar (`progress`) and time counter (`current-time`, `duration`)
+ * are dropped, leaving just the LIVE indicator. A DVR live stream keeps them (seekable window +
+ * jump-to-live). Mirrors the iOS/web live player.
+ */
+internal fun liveControlsFor(controls: String, dvrEnabled: Boolean): String {
+    if (dvrEnabled) return controls
+    val drop = setOf("progress", "current-time", "duration")
+    return controls.split(",")
+        .map { it.trim() }
+        .filter { it.isNotEmpty() && it !in drop }
+        .joinToString(",")
+}

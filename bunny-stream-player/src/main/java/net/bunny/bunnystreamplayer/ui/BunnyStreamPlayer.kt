@@ -24,6 +24,7 @@ import net.bunny.api.playback.ResumeConfig
 import net.bunny.api.playback.ResumePositionListener
 import net.bunny.api.settings.domain.model.PlayerSettings
 import net.bunny.bunnystreamplayer.livestream.LivePlayerConfig
+import net.bunny.bunnystreamplayer.livestream.liveControlsFor
 import net.bunny.bunnystreamplayer.livestream.toControlsString
 import net.bunny.bunnystreamplayer.DefaultBunnyPlayer
 import net.bunny.bunnystreamplayer.common.DeviceType
@@ -365,6 +366,7 @@ class BunnyStreamPlayer @JvmOverloads constructor(
         hlsUrl: String,
         enableSubtitles: Boolean = false,
         config: LivePlayerConfig = LivePlayerConfig(),
+        dvrEnabled: Boolean = false,
     ) {
         Log.d(TAG, "playLiveUrl streamId=$streamId hlsUrl=${hlsUrl.take(80)} config=$config")
         if (!BunnyStreamApi.isInitialized()) {
@@ -394,13 +396,20 @@ class BunnyStreamPlayer @JvmOverloads constructor(
         // yields the full live control set, so we honour it verbatim (a caller can deliberately
         // disable everything). Captions are appended only when the caller opts in via
         // [enableSubtitles] — config doesn't model captions.
-        val controls = buildString {
-            append(config.toControlsString())
-            if (enableSubtitles) {
-                if (isNotEmpty()) append(",")
-                append("captions")
-            }
-        }
+        // A live stream WITHOUT DVR has no meaningful timeline — its position/duration are relative
+        // to the sliding HLS window (they jump and rewind), so strip the VOD-style scrub bar + time
+        // counter (progress/current-time/duration), leaving just the LIVE badge. A DVR live stream
+        // keeps them (seekable window + tap-LIVE-to-jump-to-edge). Mirrors iOS/web.
+        val controls = liveControlsFor(
+            buildString {
+                append(config.toControlsString())
+                if (enableSubtitles) {
+                    if (isNotEmpty()) append(",")
+                    append("captions")
+                }
+            },
+            dvrEnabled = dvrEnabled,
+        )
 
         // Synthetic PlayerSettings — videoUrl is what `DefaultBunnyPlayer.playVideo` builds the
         // MediaItem from. Theming + control flags now come from [config]; the player engine reads

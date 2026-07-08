@@ -12,6 +12,8 @@ import net.bunny.api.livestream.domain.model.LiveStream
 import net.bunny.api.livestream.domain.model.LiveStreamCreateRequest
 import net.bunny.api.livestream.domain.model.LiveStreamList
 import net.bunny.api.livestream.domain.model.LiveStreamPlayData
+import net.bunny.api.livestream.domain.model.LiveStreamThumbnail
+import net.bunny.api.livestream.domain.model.LibraryWatermarkSettings
 import net.bunny.api.model.LiveStreamStatus
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -365,6 +367,31 @@ class BunnyLiveStreamPlayerViewModelTest {
 
         override suspend fun uploadLiveStreamThumbnail(
             libraryId: Long, streamId: String, imageBytes: ByteArray, contentType: String,
+        ): Either<String, Unit> = error("not implemented for test")
+
+        override suspend fun listLiveStreamThumbnails(
+            libraryId: Long, streamId: String, limit: Int?, from: String?, to: String?,
+        ): Either<String, List<LiveStreamThumbnail>> = error("not implemented for test")
+
+        override suspend fun deleteLiveStreamThumbnail(
+            libraryId: Long, streamId: String, restoreLibraryDefault: Boolean,
+        ): Either<String, Unit> = error("not implemented for test")
+
+        override suspend fun setLibraryWatermark(
+            libraryId: Long, imageBytes: ByteArray, contentType: String, apiKey: String?,
+        ): Either<String, Unit> = error("not implemented for test")
+
+        override suspend fun deleteLibraryWatermark(
+            libraryId: Long, apiKey: String?,
+        ): Either<String, Unit> = error("not implemented for test")
+
+        override suspend fun getLibraryWatermarkSettings(
+            libraryId: Long, apiKey: String?,
+        ): Either<String, LibraryWatermarkSettings> = error("not implemented for test")
+
+        override suspend fun updateLibraryWatermarkSettings(
+            libraryId: Long, positionLeft: Int, positionTop: Int, width: Int, height: Int,
+            apiKey: String?,
         ): Either<String, Unit> = error("not implemented for test")
     }
 

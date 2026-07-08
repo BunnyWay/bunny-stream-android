@@ -108,4 +108,45 @@ class LivePlayerConfigTest {
         )
         assertTrue(s.airPlayEnabled)
     }
+
+    // region — liveControlsFor (DVR-aware timeline gating, bug 4)
+
+    private fun settingsForControls(controls: String) =
+        settingsFor(LivePlayerConfig()).copy(controls = controls)
+
+    @Test
+    fun `liveControlsFor is a no-op when dvr is enabled`() {
+        val base = "play-large,play,progress,current-time,duration,mute,fullscreen"
+        assertEquals(base, liveControlsFor(base, dvrEnabled = true))
+    }
+
+    @Test
+    fun `liveControlsFor drops only the timeline tokens when dvr is off`() {
+        val base = "play-large,play,progress,current-time,duration,mute,fullscreen"
+        assertEquals("play-large,play,mute,fullscreen", liveControlsFor(base, dvrEnabled = false))
+    }
+
+    @Test
+    fun `non-dvr live hides the scrub bar and time counter but keeps the essentials`() {
+        val s = settingsForControls(liveControlsFor(LivePlayerConfig().toControlsString(), dvrEnabled = false))
+
+        assertFalse("no scrub bar without DVR", s.progressEnabled)
+        assertFalse("no position readout without DVR", s.currentTimeEnabled)
+        assertFalse("no duration readout without DVR", s.durationEnabled)
+
+        assertTrue(s.playButtonEnabled)
+        assertTrue(s.muteEnabled)
+        assertTrue(s.fullScreenEnabled)
+        assertTrue(s.settingsEnabled)
+        assertTrue(s.castButtonEnabled)
+    }
+
+    @Test
+    fun `dvr live keeps the scrub bar and time counter`() {
+        val s = settingsForControls(liveControlsFor(LivePlayerConfig().toControlsString(), dvrEnabled = true))
+
+        assertTrue(s.progressEnabled)
+        assertTrue(s.currentTimeEnabled)
+        assertTrue(s.durationEnabled)
+    }
 }
