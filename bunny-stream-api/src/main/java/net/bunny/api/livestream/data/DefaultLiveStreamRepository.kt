@@ -51,6 +51,14 @@ class DefaultLiveStreamRepository(
     private val coroutineDispatcher: CoroutineDispatcher,
 ) : LiveStreamRepository {
 
+    /**
+     * CDN base (`scheme://host`) learned best-effort from a stream's `playbackUrlHls` in the DTO
+     * mappers. Used to turn the Get-Thumbnails endpoint's *relative* paths into absolute, loadable
+     * URLs; falls back to the relative path when still unknown.
+     */
+    @Volatile
+    private var cdnBaseUrl: String? = null
+
     override suspend fun listLiveStreams(
         libraryId: Long,
         page: Int?,
@@ -180,11 +188,19 @@ class DefaultLiveStreamRepository(
         thumbnailUrl: String,
     ): Either<String, Unit> = withContext(coroutineDispatcher) {
         runApi {
-            liveStreamsApi.liveStreamSetThumbnail(
-                libraryId = libraryId,
-                streamId = streamId,
-                thumbnailUrl = thumbnailUrl,
-            ).requireSuccess()
+            // The generated liveStreamSetThumbnail models the endpoint's optional octet-stream body
+            // and throws ("requestBody currently only supports JSON body, byte body and File body")
+            // when called with just the thumbnailUrl query and no body. Issue the POST directly —
+            // same pattern as [uploadLiveStreamThumbnail] — with the URL as a query param and an
+            // empty body, reusing the generated client's base URL, OkHttp client and AccessKey.
+            val url = setThumbnailRequestUrl(liveStreamsApi.baseUrl, libraryId, streamId, thumbnailUrl)
+            val requestBuilder = Request.Builder()
+                .url(url)
+                .post(ByteArray(0).toRequestBody(null))
+                .header("Accept", "application/json")
+            ApiClient.apiKey["AccessKey"]?.let { requestBuilder.header("AccessKey", it) }
+            executeExpectingSuccess(requestBuilder.build(), "Failed to set thumbnail")
+            Unit
         }
     }
 
@@ -496,6 +512,11 @@ class DefaultLiveStreamRepository(
         items = items.orEmpty().map { it.toDomain() },
     )
 
+    /** Best-effort capture of the CDN base from a stream's playback URL (see [cdnBaseUrl]). */
+    private fun captureCdnBase(playbackUrlHls: String?) {
+        cdnBaseFromPlaybackUrl(playbackUrlHls)?.let { cdnBaseUrl = it }
+    }
+
     private fun LiveStreamModel.toDomain(): LiveStream = LiveStream(
         id = guid.orEmpty(),
         videoLibraryId = videoLibraryId ?: 0L,
@@ -530,7 +551,7 @@ class DefaultLiveStreamRepository(
         preStreamTrailerVideoId = preStreamTrailerVideoId,
         primaryIngestUrl = ingestEndpoints?.rtmp?.primaryIngestUrl,
         backupIngestUrl = ingestEndpoints?.rtmp?.backupIngestUrl,
-    )
+    ).also { captureCdnBase(it.playbackUrlHls) }
 
     private fun LiveStreamPlayDataModelLiveStream.toDomain(): LiveStream = LiveStream(
         id = guid.orEmpty(),
@@ -566,10 +587,12 @@ class DefaultLiveStreamRepository(
         preStreamTrailerVideoId = preStreamTrailerVideoId,
         primaryIngestUrl = ingestEndpoints?.rtmp?.primaryIngestUrl,
         backupIngestUrl = ingestEndpoints?.rtmp?.backupIngestUrl,
-    )
+    ).also { captureCdnBase(it.playbackUrlHls) }
 
     private fun ThumbnailListResponseModel.toDomain(): LiveStreamThumbnail = LiveStreamThumbnail(
-        url = url,
+        // The endpoint returns paths relative to the library CDN host; make them absolute so they're
+        // directly loadable (see [cdnBaseUrl]). Falls back to the raw path when the base is unknown.
+        url = resolveThumbnailUrl(cdnBaseUrl, url),
         timestamp = timestamp,
     )
 

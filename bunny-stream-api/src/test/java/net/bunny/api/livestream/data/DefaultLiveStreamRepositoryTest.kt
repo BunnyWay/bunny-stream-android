@@ -18,6 +18,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.openapitools.client.infrastructure.ClientException
 import org.openapitools.client.infrastructure.ServerException
+import org.openapitools.client.infrastructure.Success
 import org.openapitools.client.models.IngestEndpoints
 import org.openapitools.client.models.IngestEndpointsRtmp
 import org.openapitools.client.models.LiveStreamModel
@@ -455,13 +456,14 @@ class DefaultLiveStreamRepositoryTest {
 
     @Test fun `deleteLiveStream returns Right(Unit) and discards the echoed model`() =
         runTest(dispatcher) {
-            // Official preview API echoes the deleted LiveStreamModel back.
+            // The repo uses the *WithHttpInfo variant — the plain liveStreamDelete() NPEs casting
+            // the empty 2xx body to a non-null model — and treats any 2xx as success.
             every {
-                api.liveStreamDelete(LIBRARY_ID, STREAM_ID)
-            } returns liveStreamModel(guid = STREAM_ID)
+                api.liveStreamDeleteWithHttpInfo(LIBRARY_ID, STREAM_ID)
+            } returns Success<LiveStreamModel?>(data = null, statusCode = 200)
 
             assertEquals(Either.Right(Unit), repo.deleteLiveStream(LIBRARY_ID, STREAM_ID))
-            verify(exactly = 1) { api.liveStreamDelete(LIBRARY_ID, STREAM_ID) }
+            verify(exactly = 1) { api.liveStreamDeleteWithHttpInfo(LIBRARY_ID, STREAM_ID) }
         }
 
     // endregion

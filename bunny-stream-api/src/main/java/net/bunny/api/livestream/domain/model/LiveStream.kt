@@ -56,7 +56,9 @@ data class RtmpOutput(
 
 /**
  * A generated thumbnail for a live stream, returned by the Get Thumbnails endpoint
- * (most recent first). [url] is directly loadable; [timestamp] is when it was captured.
+ * (most recent first). [url] is resolved to an absolute, loadable CDN URL once the SDK knows the
+ * library CDN host (learned from a stream's playback URL); until then it is the raw relative path.
+ * [timestamp] is when it was captured.
  */
 data class LiveStreamThumbnail(
     val url: String?,
