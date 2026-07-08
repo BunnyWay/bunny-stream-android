@@ -734,7 +734,10 @@ class BunnyPlayerView @JvmOverloads constructor(
             timeBar.tintColor = Color.WHITE
             subtitles.setStyle(CaptionStyleCompat.DEFAULT)
         } else {
-            timeBar.tintColor = settings.keyColor
+            // A fully-transparent keyColor (alpha 0) means "no colour set" — the live path passes
+            // keyColor = config.primaryColor ?: 0, so the default live config would otherwise tint
+            // the scrub bar transparent (invisible). Fall back to the same WHITE default used above.
+            timeBar.tintColor = settings.keyColor.takeIf { Color.alpha(it) != 0 } ?: Color.WHITE
 
             subtitles.setStyle(
                 getSubtitleStyle(
