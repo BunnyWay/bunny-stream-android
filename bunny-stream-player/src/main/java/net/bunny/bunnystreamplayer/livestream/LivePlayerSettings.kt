@@ -25,8 +25,10 @@ internal const val DEFAULT_LIVE_CONTROLS: String =
  * @param playData        live `/play` response; `null` (not yet fetched) falls back to defaults.
  * @param hlsUrl          pre-resolved playable URL the engine builds its MediaItem from.
  * @param dvrEnabled      whether the stream has DVR — gates the timeline via [liveControlsFor].
- * @param enableSubtitles appends the `captions` token; live captions aren't surfaced through this
- *                        path today, so callers default it to `false`.
+ * @param enableSubtitles keeps/adds the `captions` token. Live playback surfaces no caption tracks
+ *                        through this path (the synthetic VideoModel carries none), so a dashboard
+ *                        `captions` token would render a dead button — it is stripped unless a
+ *                        caller opts in here. Callers default it to `false`.
  * @param isVodRecording  the URL is an ended stream's recording, not the live edge. A recording is
  *                        a fully seekable VOD, so the timeline is NOT stripped regardless of
  *                        [dvrEnabled] (which describes the *live* time-shift capability only).
@@ -39,14 +41,19 @@ internal fun livePlayerSettings(
     isVodRecording: Boolean = false,
 ): PlayerSettings {
     val serverControls = playData?.controls?.takeIf { it.isNotBlank() } ?: DEFAULT_LIVE_CONTROLS
-    val merged = buildString {
-        append(serverControls)
-        if (enableSubtitles && !serverControls.contains("captions")) {
-            if (isNotEmpty()) append(",")
-            append("captions")
+    // Strip the dashboard's `captions` token by default: live has no caption tracks here, so the
+    // button would be dead. Re-add it only when the caller explicitly opts in.
+    val captioned = if (enableSubtitles) {
+        if (serverControls.split(",").any { it.trim() == "captions" }) {
+            serverControls
+        } else {
+            listOf(serverControls, "captions").filter { it.isNotEmpty() }.joinToString(",")
         }
+    } else {
+        stripControlTokens(serverControls, setOf("captions"))
     }
-    val controls = if (isVodRecording) merged else liveControlsFor(merged, dvrEnabled = dvrEnabled)
+    val controls =
+        if (isVodRecording) captioned else liveControlsFor(captioned, dvrEnabled = dvrEnabled)
     return PlayerSettings(
         thumbnailUrl = playData?.thumbnailUrl.orEmpty(),
         controls = controls,
@@ -78,9 +85,12 @@ internal fun livePlayerSettings(
  */
 internal fun liveControlsFor(controls: String, dvrEnabled: Boolean): String {
     if (dvrEnabled) return controls
-    val drop = setOf("progress", "current-time", "duration", "rewind", "fast-forward")
-    return controls.split(",")
+    return stripControlTokens(controls, setOf("progress", "current-time", "duration", "rewind", "fast-forward"))
+}
+
+/** Removes [drop] tokens from a comma-separated control string, trimming and dropping blanks. */
+internal fun stripControlTokens(controls: String, drop: Set<String>): String =
+    controls.split(",")
         .map { it.trim() }
         .filter { it.isNotEmpty() && it !in drop }
         .joinToString(",")
-}

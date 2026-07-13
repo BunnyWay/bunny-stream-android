@@ -888,11 +888,7 @@ class BunnyPlayerView @JvmOverloads constructor(
         muteButton.isVisible =
             (playerSettings?.muteEnabled == true || playerSettings?.volumeEnabled == true)
         settingsButton.isVisible = playerSettings?.settingsEnabled == true && !compact
-        // The dashboard's control list can include `captions` even when the current video has no
-        // subtitle tracks (always true for live streams, whose synthetic VideoModel carries none)
-        // — a captions button with nothing to select is dead weight, so require actual tracks.
-        val hasSubtitleTracks = bunnyPlayer?.getSubtitles()?.subtitles?.isNotEmpty() == true
-        subtitle.isVisible = playerSettings?.subtitlesEnabled == true && !compact && hasSubtitleTracks
+        subtitle.isVisible = playerSettings?.subtitlesEnabled == true && !compact
         timeBar.isVisible = playerSettings?.progressEnabled == true
         playPauseButton.isVisible = playerSettings?.playButtonEnabled == true
         castButton.isVisible = playerSettings?.castButtonEnabled == true

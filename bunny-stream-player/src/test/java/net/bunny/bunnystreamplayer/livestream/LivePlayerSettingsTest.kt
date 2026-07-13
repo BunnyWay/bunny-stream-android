@@ -103,7 +103,7 @@ class LivePlayerSettingsTest {
     }
 
     @Test
-    fun `enableSubtitles appends the captions token once`() {
+    fun `enableSubtitles keeps or adds the captions token once`() {
         val s = livePlayerSettings(
             playData = playData(controls = "play,captions"),
             hlsUrl = "u",
@@ -119,6 +119,19 @@ class LivePlayerSettingsTest {
             enableSubtitles = true,
         )
         assertEquals("play,captions", appended.controls)
+    }
+
+    @Test
+    fun `dashboard captions token is stripped from live by default`() {
+        // Live playback surfaces no caption tracks through this path, so a dashboard `captions`
+        // token would paint a dead button — drop it (the caller didn't opt in via enableSubtitles).
+        val s = livePlayerSettings(
+            playData = playData(controls = "play,captions,mute,settings"),
+            hlsUrl = "u",
+            dvrEnabled = true,
+        )
+        assertEquals("play,mute,settings", s.controls)
+        assertFalse("captions stripped -> subtitles disabled", s.subtitlesEnabled)
     }
 
     // region — liveControlsFor (DVR-aware timeline gating)
