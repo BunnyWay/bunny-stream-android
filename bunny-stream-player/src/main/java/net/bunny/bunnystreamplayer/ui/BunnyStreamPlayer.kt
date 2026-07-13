@@ -1,7 +1,10 @@
 package net.bunny.bunnystreamplayer.ui
 
+import android.app.Activity
 import android.content.Context
+import android.content.ContextWrapper
 import android.content.pm.PackageManager
+import android.os.Build
 import android.util.AttributeSet
 import android.util.Log
 import android.view.LayoutInflater
@@ -107,6 +110,16 @@ class BunnyStreamPlayer @JvmOverloads constructor(
         }
 
     /**
+     * Invoked when the engine reports a playback error. The live player uses it to re-poll the
+     * stream and rebuild playback from the live edge. Forwards to [BunnyPlayerView.onPlaybackError].
+     */
+    var onPlaybackError: ((message: String) -> Unit)?
+        get() = playerView.onPlaybackError
+        set(value) {
+            playerView.onPlaybackError = value
+        }
+
+    /**
      * Condensed control bar (hides secondary controls like settings/captions/duration). Driven for
      * live playback by the dashboard's `enableCompactControls` from the live `/play` customization.
      * Forwards to [BunnyPlayerView.compactControls].
@@ -182,6 +195,17 @@ class BunnyStreamPlayer @JvmOverloads constructor(
         }
     }
 
+    /** True when the hosting Activity is currently in picture-in-picture mode. */
+    private fun isInPictureInPictureMode(): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return false
+        var ctx: Context? = context
+        while (ctx is ContextWrapper) {
+            if (ctx is Activity) return ctx.isInPictureInPictureMode
+            ctx = ctx.baseContext
+        }
+        return false
+    }
+
     private val lifecycleObserver = object : DefaultLifecycleObserver {
         override fun onResume(owner: LifecycleOwner) {
             if (bunnyPlayer.autoPaused) {
@@ -191,6 +215,12 @@ class BunnyStreamPlayer @JvmOverloads constructor(
         }
 
         override fun onPause(owner: LifecycleOwner) {
+            // Entering picture-in-picture fires ON_PAUSE on the host Activity too — playback must
+            // keep running inside the PiP window, so skip the auto-pause (auto-save keeps going).
+            if (isInPictureInPictureMode()) {
+                Log.d(TAG, "ON_PAUSE while in PiP — keeping playback running")
+                return
+            }
             val autoPaused = bunnyPlayer.isPlaying()
             bunnyPlayer.pause(autoPaused)
 
@@ -202,6 +232,13 @@ class BunnyStreamPlayer @JvmOverloads constructor(
         }
 
         override fun onStop(owner: LifecycleOwner) {
+            // Closing the PiP window skips the (PiP-guarded) ON_PAUSE pause and lands here —
+            // stop playback so audio doesn't keep playing in the background. autoPaused=false:
+            // the user dismissed the window deliberately, don't auto-resume on return. In the
+            // normal background flow ON_PAUSE already paused, so this is a no-op.
+            if (bunnyPlayer.isPlaying()) {
+                bunnyPlayer.pause(autoPaused = false)
+            }
             // Save when app goes to background - use coroutine
             scope?.launch {
                 saveCurrentPosition()
@@ -364,6 +401,8 @@ class BunnyStreamPlayer @JvmOverloads constructor(
      * @param playData  the live `/play` response carrying the dashboard customization (accent
      *                  colour, font, UI language, control tokens, compact mode, heatmap). `null`
      *                  (not fetched yet) falls back to SDK defaults.
+     * @param isVodRecording the URL is the ended stream's recording (live→VOD hand-off): the
+     *                  timeline stays (a recording is fully seekable) and CMCD reports `st=v`.
      */
     fun playLiveUrl(
         libraryId: Long,
@@ -373,6 +412,7 @@ class BunnyStreamPlayer @JvmOverloads constructor(
         enableSubtitles: Boolean = false,
         playData: LiveStreamPlayData? = null,
         dvrEnabled: Boolean = false,
+        isVodRecording: Boolean = false,
     ) {
         Log.d(
             TAG,
@@ -403,18 +443,25 @@ class BunnyStreamPlayer @JvmOverloads constructor(
         compactControls = playData?.enableCompactControls ?: false
 
         // Theming + control flags come from the dashboard's live /play customization (server-
-        // driven, like iOS); DVR gating strips the timeline tokens for non-DVR streams.
+        // driven, like iOS); DVR gating strips the timeline tokens for non-DVR live streams,
+        // while an ended stream's recording keeps its full, seekable timeline.
         val settings = livePlayerSettings(
             playData = playData,
             hlsUrl = hlsUrl,
             dvrEnabled = dvrEnabled,
             enableSubtitles = enableSubtitles,
+            isVodRecording = isVodRecording,
         )
 
-        // CMCD (CTA-5004 v2) stream type: a DVR-enabled live stream reports st=e (event), a plain
-        // live stream st=l. The transmission mode itself is fixed internally by the SDK.
+        // CMCD (CTA-5004 v2) stream type: the ended stream's recording is plain VOD (st=v); a
+        // DVR-enabled live stream reports st=e (event), a plain live stream st=l. The
+        // transmission mode itself is fixed internally by the SDK.
         (bunnyPlayer as? DefaultBunnyPlayer)?.setCmcdStreamType(
-            if (dvrEnabled) CmcdStreamType.EVENT else CmcdStreamType.LIVE,
+            when {
+                isVodRecording -> CmcdStreamType.VOD
+                dvrEnabled -> CmcdStreamType.EVENT
+                else -> CmcdStreamType.LIVE
+            },
         )
 
         pendingJob = {
@@ -615,6 +662,10 @@ class BunnyStreamPlayer @JvmOverloads constructor(
     }
 
     private suspend fun initializeVideo(video: VideoModel, playerSettings: PlayerSettings) {
+        // A fresh load invalidates any error from the previous source — without this, a
+        // late-arriving error from the torn-down player (e.g. the stale live URL during the
+        // live→VOD hand-off) stays painted over working playback.
+        playerView.hideError()
         playerView.showPreviewThumbnail(playerSettings.thumbnailUrl)
 
         var retentionData: Map<Int, Int> = mutableMapOf()

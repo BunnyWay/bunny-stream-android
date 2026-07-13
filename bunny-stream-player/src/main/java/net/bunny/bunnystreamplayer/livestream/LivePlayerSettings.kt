@@ -27,24 +27,26 @@ internal const val DEFAULT_LIVE_CONTROLS: String =
  * @param dvrEnabled      whether the stream has DVR — gates the timeline via [liveControlsFor].
  * @param enableSubtitles appends the `captions` token; live captions aren't surfaced through this
  *                        path today, so callers default it to `false`.
+ * @param isVodRecording  the URL is an ended stream's recording, not the live edge. A recording is
+ *                        a fully seekable VOD, so the timeline is NOT stripped regardless of
+ *                        [dvrEnabled] (which describes the *live* time-shift capability only).
  */
 internal fun livePlayerSettings(
     playData: LiveStreamPlayData?,
     hlsUrl: String,
     dvrEnabled: Boolean,
     enableSubtitles: Boolean = false,
+    isVodRecording: Boolean = false,
 ): PlayerSettings {
     val serverControls = playData?.controls?.takeIf { it.isNotBlank() } ?: DEFAULT_LIVE_CONTROLS
-    val controls = liveControlsFor(
-        buildString {
-            append(serverControls)
-            if (enableSubtitles && !serverControls.contains("captions")) {
-                if (isNotEmpty()) append(",")
-                append("captions")
-            }
-        },
-        dvrEnabled = dvrEnabled,
-    )
+    val merged = buildString {
+        append(serverControls)
+        if (enableSubtitles && !serverControls.contains("captions")) {
+            if (isNotEmpty()) append(",")
+            append("captions")
+        }
+    }
+    val controls = if (isVodRecording) merged else liveControlsFor(merged, dvrEnabled = dvrEnabled)
     return PlayerSettings(
         thumbnailUrl = playData?.thumbnailUrl.orEmpty(),
         controls = controls,

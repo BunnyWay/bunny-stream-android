@@ -108,6 +108,9 @@ public fun BunnyLiveStreamPlayer(
     // Dashboard-configured player customization from the live /play endpoint (colour, font,
     // language, controls, compact). Null until the first successful play-data fetch.
     val playData by viewModel.playData.collectAsStateWithLifecycle()
+    // Bumped after a mid-live playback failure once the VM confirmed the stream is still live —
+    // forces the surface to rebuild the player from the live edge even on an unchanged URL.
+    val rebuildToken by viewModel.playerRebuildToken.collectAsStateWithLifecycle()
 
     LaunchedEffect(libraryId, streamId) {
         Log.d(TAG_UI, "BunnyLiveStreamPlayer entered — libraryId=$libraryId streamId=$streamId")
@@ -193,6 +196,8 @@ public fun BunnyLiveStreamPlayer(
                     hlsUrl = s.hlsUrl,
                     playData = playData,
                     dvrEnabled = s.dvrEnabled,
+                    rebuildToken = rebuildToken,
+                    onPlaybackError = { message -> viewModel.onPlaybackFailure(message) },
                     onVideoSizeChanged = onVideoSizeChanged,
                 )
                 LiveBadge(
@@ -211,6 +216,9 @@ public fun BunnyLiveStreamPlayer(
                     title = "",
                     hlsUrl = s.hlsUrl,
                     playData = playData,
+                    // The ended stream's recording is a fully seekable VOD — keep the timeline
+                    // (dvrEnabled only describes the live time-shift capability).
+                    isVodRecording = true,
                     onVideoSizeChanged = onVideoSizeChanged,
                 )
             }
@@ -489,14 +497,19 @@ private fun BunnyPlayerSurface(
     hlsUrl: String,
     playData: LiveStreamPlayData? = null,
     dvrEnabled: Boolean = false,
+    isVodRecording: Boolean = false,
+    rebuildToken: Int = 0,
+    onPlaybackError: ((message: String) -> Unit)? = null,
     onVideoSizeChanged: ((width: Int, height: Int) -> Unit)? = null,
 ) {
     // [AndroidView.update] runs on every recomposition, but `playLiveUrl` tears down the engine
     // and rebuilds — calling it on a no-op recompose would interrupt playback. Track the last
-    // URL + play-data we asked the view to load and only re-issue when they actually change
-    // (LiveStreamPlayData is a data class, so an unchanged re-fetch compares equal).
+    // URL + play-data + rebuild token we asked the view to load and only re-issue when one of
+    // them actually changes (LiveStreamPlayData is a data class, so an unchanged re-fetch
+    // compares equal; the token forces a rebuild after a playback failure on the same URL).
     val lastUrlState = remember { mutableStateOf<String?>(null) }
     val lastPlayDataState = remember { mutableStateOf<LiveStreamPlayData?>(null) }
+    val lastRebuildTokenState = remember { mutableStateOf(0) }
     AndroidView(
         modifier = Modifier.fillMaxSize(),
         factory = { ctx ->
@@ -507,6 +520,7 @@ private fun BunnyPlayerSurface(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                 )
                 this.onVideoSizeChanged = onVideoSizeChanged
+                this.onPlaybackError = onPlaybackError?.let { cb -> { message -> cb(message) } }
                 // BunnyStreamPlayer queues the play call until it's attached to the window; safe
                 // to invoke from factory.
                 playLiveUrl(
@@ -516,19 +530,26 @@ private fun BunnyPlayerSurface(
                     hlsUrl = hlsUrl,
                     playData = playData,
                     dvrEnabled = dvrEnabled,
+                    isVodRecording = isVodRecording,
                 )
                 lastUrlState.value = hlsUrl
                 lastPlayDataState.value = playData
+                lastRebuildTokenState.value = rebuildToken
             }
         },
         update = { view ->
             view.onVideoSizeChanged = onVideoSizeChanged
-            if (lastUrlState.value == hlsUrl && lastPlayDataState.value == playData) {
+            view.onPlaybackError = onPlaybackError?.let { cb -> { message -> cb(message) } }
+            if (lastUrlState.value == hlsUrl &&
+                lastPlayDataState.value == playData &&
+                lastRebuildTokenState.value == rebuildToken
+            ) {
                 return@AndroidView
             }
             // URL flipped (Trailer → Live, Live → VOD recording, or a URL refresh from play-data
-            // because the stream's status changed) or the server customization changed. Re-issue
-            // so the new source / customization takes effect.
+            // because the stream's status changed), the server customization changed, or a
+            // playback-failure recovery requested a rebuild. Re-issue so the new source /
+            // customization takes effect.
             Log.d(TAG_PLAYER, "update: switching BunnyStreamPlayer to ${hlsUrl.take(60)}")
             view.playLiveUrl(
                 libraryId = libraryId,
@@ -537,9 +558,11 @@ private fun BunnyPlayerSurface(
                 hlsUrl = hlsUrl,
                 playData = playData,
                 dvrEnabled = dvrEnabled,
+                isVodRecording = isVodRecording,
             )
             lastUrlState.value = hlsUrl
             lastPlayDataState.value = playData
+            lastRebuildTokenState.value = rebuildToken
         },
     )
 }

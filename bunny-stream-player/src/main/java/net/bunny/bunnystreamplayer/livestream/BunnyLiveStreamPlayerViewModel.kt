@@ -93,6 +93,15 @@ public open class BunnyLiveStreamPlayerViewModel internal constructor(
     private val mutableTerminalError = MutableStateFlow<String?>(null)
     public val terminalError: StateFlow<String?> = mutableTerminalError.asStateFlow()
 
+    /**
+     * Monotonic token the playback surface uses to force a player rebuild after a mid-live
+     * playback failure ([onPlaybackFailure]) when the refreshed play-data yields the *same* URL —
+     * e.g. a transient network drop or falling behind the live window. Bumped only while the
+     * stream is still live; a status change (offline/ended) re-routes through [state] instead.
+     */
+    private val mutableRebuildToken = MutableStateFlow(0)
+    public val playerRebuildToken: StateFlow<Int> = mutableRebuildToken.asStateFlow()
+
     // Inputs frozen at start() — we don't support "restart this VM with a different stream".
     private var libraryId: Long = -1L
     private var streamId: String = ""
@@ -117,6 +126,8 @@ public open class BunnyLiveStreamPlayerViewModel internal constructor(
     private var trailerVideoIdRequested: String? = null
     private var terminated: Boolean = false
     private var started: Boolean = false
+    private var lastRecoveryAtMs: Long? = null
+    private var deferredRecoveryJob: Job? = null
 
     /**
      * Initialise the view model. Idempotent; subsequent calls with the same [streamId] are
@@ -363,6 +374,66 @@ public open class BunnyLiveStreamPlayerViewModel internal constructor(
             posterUrl = currentPlayData?.thumbnailUrl,
         )
         mutableState.update { resolved }
+
+        // Once the ENDED stream's recording is playing there is nothing left to poll for — an
+        // ended stream can't restart, and the recording URL is final. Stop the loop permanently
+        // (matching the iOS player) instead of pinging the API every 5 s for the rest of the
+        // session. VOD_PROCESSING keeps polling: its play-data can still change until it settles
+        // into ENDED.
+        if (resolved is LiveStreamPlayerState.VodPlay &&
+            currentStream?.status == LiveStreamStatus.ENDED &&
+            !terminated
+        ) {
+            Log.d(TAG, "recording is playing and stream is ENDED — stopping polling permanently")
+            terminated = true
+            pollJob?.cancel()
+            pollJob = null
+        }
+    }
+
+    /**
+     * Called by the playback surface when the live player errors mid-play (network drop, falling
+     * behind the live window, stale segment URLs). Mirrors the iOS player's recovery: re-poll the
+     * status and refresh play-data immediately; if the stream is still live afterwards, bump
+     * [playerRebuildToken] so the surface rebuilds the player from the live edge even when the
+     * URL didn't change. If the status flipped (offline/ended), [state] re-routes the UI instead.
+     *
+     * Throttled to one recovery per poll interval so a persistently failing stream doesn't spin
+     * in a tight rebuild loop. A failure inside the throttle window is NOT dropped: it schedules
+     * one deferred recovery for when the window closes — an errored ExoPlayer never re-raises,
+     * so without this a rebuild that fails immediately (segments still missing) would strand the
+     * viewer on a frozen frame forever. The result is one recovery attempt per interval until
+     * playback sticks or the stream stops being live.
+     */
+    public fun onPlaybackFailure(message: String? = null) {
+        if (terminated || !started) return
+        val now = nowEpochMs()
+        val last = lastRecoveryAtMs
+        if (last != null && now - last < pollIntervalMs) {
+            if (deferredRecoveryJob?.isActive != true) {
+                val remaining = pollIntervalMs - (now - last)
+                Log.d(TAG, "onPlaybackFailure inside throttle window — retrying in ${remaining}ms")
+                deferredRecoveryJob = viewModelScope.launch {
+                    delay(remaining)
+                    performRecovery(reason = "deferred-retry after: $message")
+                }
+            } else {
+                Log.d(TAG, "onPlaybackFailure — deferred retry already scheduled")
+            }
+            return
+        }
+        viewModelScope.launch { performRecovery(reason = message ?: "playback failure") }
+    }
+
+    private suspend fun performRecovery(reason: String) {
+        if (terminated) return
+        lastRecoveryAtMs = nowEpochMs()
+        Log.w(TAG, "playback failure — re-polling and refreshing play-data: $reason")
+        pollOnce(reason = "playback-failure")
+        fetchPlayData(reason = "playback-failure")
+        if (!terminated && mutableState.value is LiveStreamPlayerState.LivePlay) {
+            mutableRebuildToken.update { it + 1 }
+        }
     }
 
     /**

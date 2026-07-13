@@ -171,6 +171,22 @@ class LivePlayerSettingsTest {
     }
 
     @Test
+    fun `ended stream's recording keeps the full timeline regardless of dvr`() {
+        // Live→VOD hand-off: the recording is a fully seekable VOD, so the timeline must NOT be
+        // stripped even though the stream itself had no DVR.
+        val s = livePlayerSettings(
+            playData = null,
+            hlsUrl = "https://vod.test/recording.m3u8",
+            dvrEnabled = false,
+            isVodRecording = true,
+        )
+
+        assertTrue("recording must keep the scrub bar", s.progressEnabled)
+        assertTrue("recording must keep the position readout", s.currentTimeEnabled)
+        assertTrue("recording must keep the duration readout", s.durationEnabled)
+    }
+
+    @Test
     fun `compact flag rides on play-data not on settings`() {
         // enableCompactControls is a view-level concern forwarded by playLiveUrl; assert it's
         // present on the domain model the surface reads.

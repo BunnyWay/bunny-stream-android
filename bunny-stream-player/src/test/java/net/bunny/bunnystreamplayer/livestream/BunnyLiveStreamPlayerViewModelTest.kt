@@ -237,6 +237,158 @@ class BunnyLiveStreamPlayerViewModelTest {
         }
     }
 
+    @Test
+    fun `playback failure while live re-polls and bumps the rebuild token`() {
+        val pollCount = AtomicInteger(0)
+        val playDataCount = AtomicInteger(0)
+        val repo = FakeRepo(
+            pollResult = {
+                pollCount.incrementAndGet()
+                LiveStreamPollResult.Success(runningStream())
+            },
+            playData = {
+                playDataCount.incrementAndGet()
+                Either.Right(playDataWithUrl("https://live.test/p.m3u8"))
+            },
+        )
+        val vm = newVm(repo)
+        try {
+            vm.start(libraryId = 1L, streamId = "s")
+            scheduler.runCurrent()
+            vm.onForeground()
+            scheduler.runCurrent()
+            assertTrue(vm.state.value is LiveStreamPlayerState.LivePlay)
+            val pollsBefore = pollCount.get()
+            val playDataBefore = playDataCount.get()
+
+            vm.onPlaybackFailure("boom")
+            scheduler.runCurrent()
+
+            assertTrue("failure should trigger an immediate poll", pollCount.get() > pollsBefore)
+            assertTrue(
+                "failure should refresh play-data",
+                playDataCount.get() > playDataBefore,
+            )
+            assertEquals(
+                "still-live stream should request a player rebuild",
+                1,
+                vm.playerRebuildToken.value,
+            )
+        } finally {
+            vm.onBackground()
+        }
+    }
+
+    @Test
+    fun `failure inside the throttle window defers one retry instead of dropping it`() {
+        // nowEpochMs is pinned to 0 in these tests, so the second call lands "0 ms later": it
+        // must not rebuild immediately (throttle) but MUST schedule a deferred retry — an errored
+        // ExoPlayer never re-raises, so dropping it would strand the viewer on a frozen frame.
+        val repo = FakeRepo(
+            pollResult = { LiveStreamPollResult.Success(runningStream()) },
+            playData = { Either.Right(playDataWithUrl("https://live.test/p.m3u8")) },
+        )
+        val vm = newVm(repo)
+        try {
+            vm.start(libraryId = 1L, streamId = "s")
+            scheduler.runCurrent()
+            vm.onForeground()
+            scheduler.runCurrent()
+
+            vm.onPlaybackFailure("first")
+            scheduler.runCurrent()
+            vm.onPlaybackFailure("second — inside the throttle window")
+            scheduler.runCurrent()
+            vm.onPlaybackFailure("third — also inside; must not double-schedule")
+            scheduler.runCurrent()
+
+            assertEquals("no immediate rebuild inside the window", 1, vm.playerRebuildToken.value)
+
+            // The throttle window closes — exactly one deferred recovery fires.
+            scheduler.advanceTimeBy(5_000L)
+            scheduler.runCurrent()
+            assertEquals("deferred retry must rebuild once", 2, vm.playerRebuildToken.value)
+        } finally {
+            vm.onBackground()
+        }
+    }
+
+    @Test
+    fun `playback failure does not rebuild when the stream is no longer live`() {
+        // The failure re-poll discovers the stream ended (no recording) — the state flips to
+        // Offline and no rebuild must be requested.
+        val status = java.util.concurrent.atomic.AtomicReference(LiveStreamStatus.RUNNING)
+        val repo = FakeRepo(
+            pollResult = { LiveStreamPollResult.Success(runningStream().copy(status = status.get())) },
+            playData = {
+                Either.Right(
+                    playDataWithUrl("https://live.test/p.m3u8")
+                        .let { it.copy(liveStream = it.liveStream?.copy(status = status.get())) },
+                )
+            },
+        )
+        val vm = newVm(repo)
+        try {
+            vm.start(libraryId = 1L, streamId = "s")
+            scheduler.runCurrent()
+            vm.onForeground()
+            scheduler.runCurrent()
+            assertTrue(vm.state.value is LiveStreamPlayerState.LivePlay)
+
+            status.set(LiveStreamStatus.ENDED)
+            vm.onPlaybackFailure("stream died")
+            scheduler.runCurrent()
+
+            assertEquals("no rebuild for a stream that ended", 0, vm.playerRebuildToken.value)
+            assertTrue(vm.state.value is LiveStreamPlayerState.Offline)
+        } finally {
+            vm.onBackground()
+        }
+    }
+
+    @Test
+    fun `polling stops permanently once the ended stream's recording is playing`() {
+        // ENDED + recordVod + URL resolves to VodPlay; an ended stream can't restart, so the
+        // 5s loop must stop for good (matching iOS) — including across a background/foreground
+        // round-trip.
+        val pollCount = AtomicInteger(0)
+        val endedRecorded = runningStream().copy(
+            status = LiveStreamStatus.ENDED,
+            recordVod = true,
+            endedAt = "2023-11-14T23:00:00Z",
+        )
+        val repo = FakeRepo(
+            pollResult = {
+                pollCount.incrementAndGet()
+                LiveStreamPollResult.Success(endedRecorded)
+            },
+            playData = {
+                Either.Right(
+                    playDataWithUrl("https://vod.test/recording.m3u8")
+                        .let { it.copy(liveStream = endedRecorded) },
+                )
+            },
+        )
+        val vm = newVm(repo)
+        try {
+            vm.start(libraryId = 1L, streamId = "s")
+            scheduler.runCurrent() // play-data lands → VodPlay → polling stops
+            assertTrue(
+                "expected VodPlay, got ${vm.state.value}",
+                vm.state.value is LiveStreamPlayerState.VodPlay,
+            )
+            assertNull("stopping the poll loop is not an error", vm.terminalError.value)
+
+            vm.onForeground()
+            scheduler.runCurrent()
+            scheduler.advanceTimeBy(60_000L)
+            scheduler.runCurrent()
+            assertEquals("no polls once the recording is playing", 0, pollCount.get())
+        } finally {
+            vm.onBackground()
+        }
+    }
+
     // region — Fixtures
 
     private fun newVm(repo: LiveStreamRepository): BunnyLiveStreamPlayerViewModel =

@@ -15,6 +15,7 @@ import android.os.HandlerThread
 import android.os.Looper
 import android.util.AttributeSet
 import android.util.Log
+import android.util.Rational
 import android.view.Gravity
 import android.view.Menu
 import android.view.PixelCopy
@@ -90,6 +91,10 @@ class BunnyPlayerView @JvmOverloads constructor(
 
         /** How often the live-edge badge re-evaluates the player position. */
         private const val LIVE_EDGE_UPDATE_INTERVAL_MS = 1_000L
+
+        /** System-permitted picture-in-picture aspect-ratio bounds (see PictureInPictureParams). */
+        private const val MAX_PIP_ASPECT = 2.39f
+        private const val MIN_PIP_ASPECT = 1f / 2.39f
 
         /**
          * Live offset (ms behind the live edge) below which playback counts as "at the edge".
@@ -176,12 +181,17 @@ class BunnyPlayerView @JvmOverloads constructor(
 
         override fun onPlayerError(message: String) {
             showError(message)
+            onPlaybackError?.invoke(message)
         }
 
         override fun onVideoSizeChanged(width: Int, height: Int) {
+            if (width > 0 && height > 0) lastVideoSize = width to height
             this@BunnyPlayerView.onVideoSizeChanged?.invoke(width, height)
         }
     }
+
+    /** Latest decoded video dimensions — used to size the picture-in-picture window. */
+    private var lastVideoSize: Pair<Int, Int>? = null
 
     var fullscreenListener: FullscreenListener? = null
 
@@ -191,6 +201,13 @@ class BunnyPlayerView @JvmOverloads constructor(
      * (vertical) content.
      */
     var onVideoSizeChanged: ((width: Int, height: Int) -> Unit)? = null
+
+    /**
+     * Invoked when the engine reports a playback error (after the built-in error overlay is
+     * shown). Lets hosts react — the live player uses it to re-poll the stream status and rebuild
+     * playback from the live edge.
+     */
+    var onPlaybackError: ((message: String) -> Unit)? = null
 
     var bunnyPlayer: BunnyPlayer? = null
         set(value) {
@@ -906,9 +923,29 @@ class BunnyPlayerView @JvmOverloads constructor(
             return
         }
         try {
-            activity.enterPictureInPictureMode(PictureInPictureParams.Builder().build())
+            val params = PictureInPictureParams.Builder()
+                .setAspectRatio(pipAspectRatio())
+                // Where the video currently is on screen — the system animates the shrink from
+                // this rect instead of the whole Activity.
+                .setSourceRectHint(Rect().also(::getGlobalVisibleRect))
+                .build()
+            activity.enterPictureInPictureMode(params)
         } catch (e: Exception) {
             Log.w(TAG, "Failed to enter PiP: ${e.message}")
+        }
+    }
+
+    /**
+     * Aspect ratio for the PiP window from the latest decoded video size, clamped to the
+     * system-permitted range (~2.39:1 down to 1:2.39); 16:9 until the first frame is known.
+     */
+    private fun pipAspectRatio(): Rational {
+        val (w, h) = lastVideoSize ?: return Rational(16, 9)
+        val ratio = w.toFloat() / h.toFloat()
+        return when {
+            ratio > MAX_PIP_ASPECT -> Rational(239, 100)
+            ratio < MIN_PIP_ASPECT -> Rational(100, 239)
+            else -> Rational(w, h)
         }
     }
 
@@ -931,6 +968,15 @@ class BunnyPlayerView @JvmOverloads constructor(
     fun showError(message: String) {
         errorWrapper.isVisible = true
         errorMessage.text = message
+    }
+
+    /**
+     * Hides the error overlay. Called when a new source load starts so a late-arriving error from
+     * the previous player instance (e.g. the stale live URL during a live→VOD hand-off) doesn't
+     * stay painted over working playback.
+     */
+    fun hideError() {
+        errorWrapper.isVisible = false
     }
 
     override fun onAttachedToWindow() {
