@@ -62,6 +62,7 @@ import androidx.media3.ui.PlayerView
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.model.GlideUrl
 import net.bunny.api.BunnyCdn
+import net.bunny.api.livestream.domain.model.LiveStreamPlayData
 import net.bunny.player.R
 import net.bunny.bunnystreamplayer.ui.BunnyStreamPlayer
 import kotlinx.coroutines.delay
@@ -73,6 +74,11 @@ import java.util.concurrent.TimeUnit
  * every non-running state (offline overlays, countdown, pre-stream trailer) and auto-connects to
  * the live source when polling reports the stream is running — the viewer never needs to
  * refresh.
+ *
+ * UI customization is **server-driven**, mirroring the iOS SDK: the accent colour, font family,
+ * UI language, control set and compact mode all come from the live `/play` endpoint (the Bunny
+ * dashboard's player settings). There is no client-side configuration object; SDK defaults apply
+ * until play-data arrives or for any field the endpoint doesn't provide.
  *
  * Source of truth for the behaviour spec is `project_live_stream_player_behavior` in memory; the
  * state resolver in [resolveLiveStreamPlayerState] codifies it. This composable is intentionally
@@ -93,13 +99,15 @@ public fun BunnyLiveStreamPlayer(
     streamId: String,
     token: String? = null,
     expires: Long? = null,
-    config: LivePlayerConfig = LivePlayerConfig(),
     modifier: Modifier = Modifier,
     onVideoSizeChanged: ((width: Int, height: Int) -> Unit)? = null,
     viewModel: BunnyLiveStreamPlayerViewModel = viewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val terminalError by viewModel.terminalError.collectAsStateWithLifecycle()
+    // Dashboard-configured player customization from the live /play endpoint (colour, font,
+    // language, controls, compact). Null until the first successful play-data fetch.
+    val playData by viewModel.playData.collectAsStateWithLifecycle()
 
     LaunchedEffect(libraryId, streamId) {
         Log.d(TAG_UI, "BunnyLiveStreamPlayer entered — libraryId=$libraryId streamId=$streamId")
@@ -142,7 +150,11 @@ public fun BunnyLiveStreamPlayer(
 
             is LiveStreamPlayerState.Offline -> {
                 Log.d(TAG_UI, "render: Offline(${s.reason})")
-                OfflineOverlay(reason = s.reason, posterUrl = s.posterUrl, config = config)
+                OfflineOverlay(
+                    reason = s.reason,
+                    posterUrl = s.posterUrl,
+                    uiLanguage = playData?.uiLanguage,
+                )
             }
 
             is LiveStreamPlayerState.Countdown -> {
@@ -152,7 +164,8 @@ public fun BunnyLiveStreamPlayer(
                     title = s.title,
                     posterUrl = s.posterUrl,
                     trailerUrl = s.trailerUrl,
-                    config = config,
+                    primaryColor = playData?.keyColor,
+                    uiLanguage = playData?.uiLanguage,
                     onTick = { viewModel.tickCountdown() },
                 )
             }
@@ -167,7 +180,7 @@ public fun BunnyLiveStreamPlayer(
                     streamId = "trailer-${streamId}",
                     title = "",
                     hlsUrl = s.hlsUrl,
-                    config = config,
+                    playData = playData,
                 )
             }
 
@@ -178,12 +191,12 @@ public fun BunnyLiveStreamPlayer(
                     streamId = streamId,
                     title = "",
                     hlsUrl = s.hlsUrl,
-                    config = config,
+                    playData = playData,
                     dvrEnabled = s.dvrEnabled,
                     onVideoSizeChanged = onVideoSizeChanged,
                 )
                 LiveBadge(
-                    primaryColor = config.primaryColor,
+                    primaryColor = playData?.keyColor,
                     modifier = Modifier
                         .align(Alignment.TopStart)
                         .padding(16.dp),
@@ -197,7 +210,7 @@ public fun BunnyLiveStreamPlayer(
                     streamId = "vod-${streamId}",
                     title = "",
                     hlsUrl = s.hlsUrl,
-                    config = config,
+                    playData = playData,
                     onVideoSizeChanged = onVideoSizeChanged,
                 )
             }
@@ -215,14 +228,14 @@ public fun BunnyLiveStreamPlayer(
 private fun OfflineOverlay(
     reason: LiveStreamPlayerState.OfflineReason,
     posterUrl: String? = null,
-    config: LivePlayerConfig = LivePlayerConfig(),
+    uiLanguage: String? = null,
 ) {
     val messageRes = when (reason) {
         LiveStreamPlayerState.OfflineReason.NotActive -> R.string.live_status_not_active
         LiveStreamPlayerState.OfflineReason.Ended -> R.string.live_status_ended
         LiveStreamPlayerState.OfflineReason.Error -> R.string.live_status_error
     }
-    val message = localizedString(messageRes, config.uiLanguage)
+    val message = localizedString(messageRes, uiLanguage)
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         // Stream thumbnail (when set) stays visible behind the status — e.g. before a live stream
         // starts — matching the web player's poster. A dark scrim keeps the message legible.
@@ -284,7 +297,8 @@ private fun CountdownOverlay(
     title: String,
     posterUrl: String?,
     trailerUrl: String?,
-    config: LivePlayerConfig = LivePlayerConfig(),
+    primaryColor: Int? = null,
+    uiLanguage: String? = null,
     onTick: () -> Unit,
 ) {
     // [mutableLongStateOf] returns a primitive-specialized state whose `by`-delegate operator
@@ -349,13 +363,13 @@ private fun CountdownOverlay(
             modifier = Modifier.padding(24.dp),
         ) {
             val headline = if (title.isNotBlank()) {
-                localizedString(R.string.live_label_will_start_in, config.uiLanguage, title)
+                localizedString(R.string.live_label_will_start_in, uiLanguage, title)
             } else {
-                localizedString(R.string.live_label_will_start_in_generic, config.uiLanguage)
+                localizedString(R.string.live_label_will_start_in_generic, uiLanguage)
             }
-            // Tint the timer with the configured primary colour (web-player parity); fall back to
-            // white when no colour is set.
-            val timerColor = config.primaryColor
+            // Tint the timer with the dashboard's primary colour (web-player parity); fall back to
+            // white when no colour is set (a fully-transparent key colour means "unset").
+            val timerColor = primaryColor
                 ?.let { Color(it) }
                 ?.takeIf { it.alpha > 0f }
                 ?: Color.White
@@ -369,7 +383,7 @@ private fun CountdownOverlay(
                 text = if (remainingMs > 0) {
                     formatCountdown(remainingMs)
                 } else {
-                    localizedString(R.string.live_label_starting_soon, config.uiLanguage)
+                    localizedString(R.string.live_label_starting_soon, uiLanguage)
                 },
                 color = timerColor,
                 fontWeight = FontWeight.Bold,
@@ -473,15 +487,16 @@ private fun BunnyPlayerSurface(
     streamId: String,
     title: String,
     hlsUrl: String,
-    config: LivePlayerConfig = LivePlayerConfig(),
+    playData: LiveStreamPlayData? = null,
     dvrEnabled: Boolean = false,
     onVideoSizeChanged: ((width: Int, height: Int) -> Unit)? = null,
 ) {
     // [AndroidView.update] runs on every recomposition, but `playLiveUrl` tears down the engine
     // and rebuilds — calling it on a no-op recompose would interrupt playback. Track the last
-    // URL + config we asked the view to load and only re-issue when they actually change.
+    // URL + play-data we asked the view to load and only re-issue when they actually change
+    // (LiveStreamPlayData is a data class, so an unchanged re-fetch compares equal).
     val lastUrlState = remember { mutableStateOf<String?>(null) }
-    val lastConfigState = remember { mutableStateOf<LivePlayerConfig?>(null) }
+    val lastPlayDataState = remember { mutableStateOf<LiveStreamPlayData?>(null) }
     AndroidView(
         modifier = Modifier.fillMaxSize(),
         factory = { ctx ->
@@ -499,30 +514,32 @@ private fun BunnyPlayerSurface(
                     streamId = streamId,
                     videoTitle = title,
                     hlsUrl = hlsUrl,
-                    config = config,
+                    playData = playData,
                     dvrEnabled = dvrEnabled,
                 )
                 lastUrlState.value = hlsUrl
-                lastConfigState.value = config
+                lastPlayDataState.value = playData
             }
         },
         update = { view ->
             view.onVideoSizeChanged = onVideoSizeChanged
-            if (lastUrlState.value == hlsUrl && lastConfigState.value == config) return@AndroidView
+            if (lastUrlState.value == hlsUrl && lastPlayDataState.value == playData) {
+                return@AndroidView
+            }
             // URL flipped (Trailer → Live, Live → VOD recording, or a URL refresh from play-data
-            // because the stream's status changed) or the config changed. Re-issue so the new
-            // source / customization takes effect.
+            // because the stream's status changed) or the server customization changed. Re-issue
+            // so the new source / customization takes effect.
             Log.d(TAG_PLAYER, "update: switching BunnyStreamPlayer to ${hlsUrl.take(60)}")
             view.playLiveUrl(
                 libraryId = libraryId,
                 streamId = streamId,
                 videoTitle = title,
                 hlsUrl = hlsUrl,
-                config = config,
+                playData = playData,
                 dvrEnabled = dvrEnabled,
             )
             lastUrlState.value = hlsUrl
-            lastConfigState.value = config
+            lastPlayDataState.value = playData
         },
     )
 }
@@ -532,9 +549,10 @@ private fun BunnyPlayerSurface(
 // region — Localization helper
 
 /**
- * Resolves [resId] in the [lang] locale (ISO-639) so the overlay copy honours
- * [LivePlayerConfig.uiLanguage], mirroring the transport bar's `I18n`. When [lang] is null/blank we
- * use the device locale; an unsupported language gracefully falls back to the default resource.
+ * Resolves [resId] in the [lang] locale (ISO-639) so the overlay copy honours the dashboard's
+ * `uiLanguage` from the live `/play` customization, mirroring the transport bar's `I18n`. When
+ * [lang] is null/blank we use the device locale; an unsupported language gracefully falls back to
+ * the default resource.
  */
 @Composable
 private fun localizedString(resId: Int, lang: String?, vararg formatArgs: Any): String {

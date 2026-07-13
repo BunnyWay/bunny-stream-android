@@ -78,6 +78,15 @@ public open class BunnyLiveStreamPlayerViewModel internal constructor(
     public val liveStream: StateFlow<LiveStream?> = mutableLiveStream.asStateFlow()
 
     /**
+     * Latest live `/play` response. Carries the dashboard-configured player customization
+     * (accent colour, font family, UI language, control tokens, compact mode, heatmap) that the
+     * player surfaces consume — the live player is server-driven, mirroring the iOS SDK. `null`
+     * until the first successful play-data fetch; consumers fall back to SDK defaults.
+     */
+    private val mutablePlayData = MutableStateFlow<LiveStreamPlayData?>(null)
+    public val playData: StateFlow<LiveStreamPlayData?> = mutablePlayData.asStateFlow()
+
+    /**
      * Terminal failure message — populated when polling has hit `401/403/404/410` and we've given
      * up. UI uses this to flip to an error panel that doesn't suggest the stream is just offline.
      */
@@ -96,7 +105,9 @@ public open class BunnyLiveStreamPlayerViewModel internal constructor(
     private var currentStream: LiveStream?
         get() = mutableLiveStream.value
         set(value) { mutableLiveStream.value = value }
-    private var currentPlayData: LiveStreamPlayData? = null
+    private var currentPlayData: LiveStreamPlayData?
+        get() = mutablePlayData.value
+        set(value) { mutablePlayData.value = value }
     private var currentTrailerUrl: String? = null
 
     private var pollJob: Job? = null

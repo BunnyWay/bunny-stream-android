@@ -25,7 +25,6 @@ import net.bunny.android.demo.player.navigateToPlayer
 import net.bunny.android.demo.player.playerScreen
 import net.bunny.android.demo.recording.RecordingActivity
 import net.bunny.android.demo.resume.ResumePositionManagementRoute
-import net.bunny.android.demo.settings.CustomizePlayerRoute
 import net.bunny.android.demo.settings.ResumePositionSettingsRoute
 import net.bunny.android.demo.settings.navigateToSettings
 import net.bunny.android.demo.settings.settingsScreen
@@ -57,7 +56,6 @@ fun AppNavHost(
             navigateToResumeSettings = navController::navigateToResumeSettings,
             navigateToResumeManagement = navController::navigateToResumeManagement,
             navigateToLiveStreams = navController::navigateToLiveStreams,
-            navigateToCustomizePlayer = navController::navigateToCustomizePlayer,
             modifier = modifier
         )
         libraryScreen(
@@ -77,7 +75,6 @@ fun AppNavHost(
             appState = appState,
             onPlayVideo = navController::navigateToPlayer
         )
-        customizePlayerScreen(appState = appState)
     }
 }
 
@@ -119,17 +116,7 @@ fun NavController.navigateToResumeManagement(navOptions: NavOptions? = null) {
     this.navigate("resume_management", navOptions)
 }
 
-fun NavController.navigateToCustomizePlayer(navOptions: NavOptions? = null) {
-    this.navigate("customize_player", navOptions)
-}
-
 // Navigation destination functions
-fun NavGraphBuilder.customizePlayerScreen(appState: AppState) {
-    composable("customize_player") {
-        CustomizePlayerRoute(appState = appState)
-    }
-}
-
 fun NavGraphBuilder.resumePositionSettingsScreen(appState: AppState) {
     composable("resume_settings") {
         ResumePositionSettingsRoute(appState = appState)

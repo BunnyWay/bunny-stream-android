@@ -23,9 +23,8 @@ import net.bunny.api.playback.PlaybackPosition
 import net.bunny.api.playback.ResumeConfig
 import net.bunny.api.playback.ResumePositionListener
 import net.bunny.api.settings.domain.model.PlayerSettings
-import net.bunny.bunnystreamplayer.livestream.LivePlayerConfig
-import net.bunny.bunnystreamplayer.livestream.liveControlsFor
-import net.bunny.bunnystreamplayer.livestream.toControlsString
+import net.bunny.api.livestream.domain.model.LiveStreamPlayData
+import net.bunny.bunnystreamplayer.livestream.livePlayerSettings
 import net.bunny.bunnystreamplayer.DefaultBunnyPlayer
 import net.bunny.bunnystreamplayer.cmcd.CmcdStreamType
 import net.bunny.bunnystreamplayer.common.DeviceType
@@ -108,8 +107,9 @@ class BunnyStreamPlayer @JvmOverloads constructor(
         }
 
     /**
-     * Condensed control bar (hides secondary controls like settings/captions/duration). Used by the
-     * live player's [LivePlayerConfig.compactControls]. Forwards to [BunnyPlayerView.compactControls].
+     * Condensed control bar (hides secondary controls like settings/captions/duration). Driven for
+     * live playback by the dashboard's `enableCompactControls` from the live `/play` customization.
+     * Forwards to [BunnyPlayerView.compactControls].
      */
     var compactControls: Boolean
         get() = playerView.compactControls
@@ -349,7 +349,9 @@ class BunnyStreamPlayer @JvmOverloads constructor(
      * Unlike [playVideo], this method does not fetch video metadata or player settings from the
      * server: the caller already has both (resolved from the live stream's play-data endpoint),
      * and going through the videos play-data endpoint would 404 for a live-only stream id. We
-     * synthesise the minimal [VideoModel] and [PlayerSettings] the engine needs.
+     * synthesise the minimal [VideoModel] the engine needs; [PlayerSettings] is built from the
+     * live `/play` customization via [livePlayerSettings] — the live player is server-driven
+     * (dashboard player settings), mirroring the iOS SDK. No client-side configuration.
      *
      * @param libraryId the Bunny library id.
      * @param streamId  the live-stream GUID (used as the engine's `currentVideoId` so position
@@ -359,6 +361,9 @@ class BunnyStreamPlayer @JvmOverloads constructor(
      * @param hlsUrl    pre-resolved playable URL (videoPlaylistUrl > fallbackUrl > playbackUrlHls).
      * @param enableSubtitles forwarded to the synthetic PlayerSettings. Defaults to `false` for
      *                  live (Bunny doesn't currently surface live captions through this path).
+     * @param playData  the live `/play` response carrying the dashboard customization (accent
+     *                  colour, font, UI language, control tokens, compact mode, heatmap). `null`
+     *                  (not fetched yet) falls back to SDK defaults.
      */
     fun playLiveUrl(
         libraryId: Long,
@@ -366,10 +371,14 @@ class BunnyStreamPlayer @JvmOverloads constructor(
         videoTitle: String,
         hlsUrl: String,
         enableSubtitles: Boolean = false,
-        config: LivePlayerConfig = LivePlayerConfig(),
+        playData: LiveStreamPlayData? = null,
         dvrEnabled: Boolean = false,
     ) {
-        Log.d(TAG, "playLiveUrl streamId=$streamId hlsUrl=${hlsUrl.take(80)} config=$config")
+        Log.d(
+            TAG,
+            "playLiveUrl streamId=$streamId hlsUrl=${hlsUrl.take(80)} " +
+                "serverCustomization=${playData != null}",
+        )
         if (!BunnyStreamApi.isInitialized()) {
             Log.e(TAG, "Unable to play live, initialize BunnyStreamApi first")
             return
@@ -389,48 +398,17 @@ class BunnyStreamPlayer @JvmOverloads constructor(
             captions = emptyList(),
         )
 
-        // Compact mode is a view-level layout concern (not part of PlayerSettings), so forward it
-        // straight to the player view before building the settings.
-        compactControls = config.compactControls
+        // Compact mode is a view-level layout concern (not part of PlayerSettings), so forward the
+        // dashboard's flag straight to the player view before building the settings.
+        compactControls = playData?.enableCompactControls ?: false
 
-        // Controls string is derived from the caller's LivePlayerConfig. The default config already
-        // yields the full live control set, so we honour it verbatim (a caller can deliberately
-        // disable everything). Captions are appended only when the caller opts in via
-        // [enableSubtitles] — config doesn't model captions.
-        // A live stream WITHOUT DVR has no meaningful timeline — its position/duration are relative
-        // to the sliding HLS window (they jump and rewind), so strip the VOD-style scrub bar + time
-        // counter (progress/current-time/duration), leaving just the LIVE badge. A DVR live stream
-        // keeps them (seekable window + tap-LIVE-to-jump-to-edge). Mirrors iOS/web.
-        val controls = liveControlsFor(
-            buildString {
-                append(config.toControlsString())
-                if (enableSubtitles) {
-                    if (isNotEmpty()) append(",")
-                    append("captions")
-                }
-            },
+        // Theming + control flags come from the dashboard's live /play customization (server-
+        // driven, like iOS); DVR gating strips the timeline tokens for non-DVR streams.
+        val settings = livePlayerSettings(
+            playData = playData,
+            hlsUrl = hlsUrl,
             dvrEnabled = dvrEnabled,
-        )
-
-        // Synthetic PlayerSettings — videoUrl is what `DefaultBunnyPlayer.playVideo` builds the
-        // MediaItem from. Theming + control flags now come from [config]; the player engine reads
-        // the same fields it does for VOD.
-        val settings = PlayerSettings(
-            thumbnailUrl = "",
-            controls = controls,
-            keyColor = config.primaryColor ?: 0,
-            captionsFontSize = 0,
-            captionsFontColor = null,
-            captionsBackgroundColor = null,
-            uiLanguage = config.uiLanguage.orEmpty(),
-            showHeatmap = config.showWatchtimeHeatmap,
-            fontFamily = config.fontFamily.orEmpty(),
-            playbackSpeeds = listOf(1.0f),
-            drmEnabled = false,
-            vastTagUrl = null,
-            videoUrl = hlsUrl,
-            seekPath = "",
-            captionsPath = "",
+            enableSubtitles = enableSubtitles,
         )
 
         // CMCD (CTA-5004 v2) stream type: a DVR-enabled live stream reports st=e (event), a plain

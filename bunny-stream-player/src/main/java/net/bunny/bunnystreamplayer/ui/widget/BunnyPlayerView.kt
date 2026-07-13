@@ -118,7 +118,8 @@ class BunnyPlayerView @JvmOverloads constructor(
     /**
      * Condensed control bar. When `true`, secondary controls (settings, captions, duration readout)
      * are hidden to reduce clutter on small surfaces, leaving the essentials (play, progress, mute,
-     * PiP, fullscreen). Driven by the live player's [net.bunny.bunnystreamplayer.livestream.LivePlayerConfig].
+     * PiP, fullscreen). Driven for live playback by the dashboard's `enableCompactControls` from
+     * the live `/play` customization.
      */
     var compactControls: Boolean = false
         set(value) {
