@@ -29,12 +29,6 @@ val demoTokenAuthKey: String =
     localProps.getProperty("bunny.demo.tokenAuthKey")
         ?: System.getenv("BUNNY_DEMO_TOKEN_AUTH_KEY")
         ?: ""
-// Account-level API key (Account Settings → API). Needed for Core Platform calls like the library
-// watermark (api.bunny.net), which the per-library Stream key can't authorize. DEBUG ONLY.
-val demoAccountApiKey: String =
-    localProps.getProperty("bunny.demo.accountApiKey")
-        ?: System.getenv("BUNNY_DEMO_ACCOUNT_API_KEY")
-        ?: ""
 
 android {
     namespace = "net.bunny.android.demo"
@@ -66,21 +60,18 @@ android {
             buildConfigField("String", "DEMO_ACCESS_KEY", "\"\"")
             buildConfigField("long", "DEMO_LIBRARY_ID", "0L")
             buildConfigField("String", "DEMO_TOKEN_AUTH_KEY", "\"\"")
-            buildConfigField("String", "DEMO_ACCOUNT_API_KEY", "\"\"")
         }
 
         getByName("debug") {
             buildConfigField("String", "DEMO_ACCESS_KEY", "\"$demoAccessKey\"")
             buildConfigField("long", "DEMO_LIBRARY_ID", "${demoLibraryId}L")
             buildConfigField("String", "DEMO_TOKEN_AUTH_KEY", "\"$demoTokenAuthKey\"")
-            buildConfigField("String", "DEMO_ACCOUNT_API_KEY", "\"$demoAccountApiKey\"")
         }
 
         create("staging") {
             buildConfigField("String", "DEMO_ACCESS_KEY", "\"$demoAccessKey\"")
             buildConfigField("long", "DEMO_LIBRARY_ID", "${demoLibraryId}L")
             buildConfigField("String", "DEMO_TOKEN_AUTH_KEY", "\"$demoTokenAuthKey\"")
-            buildConfigField("String", "DEMO_ACCOUNT_API_KEY", "\"$demoAccountApiKey\"")
         }
     }
     compileOptions {

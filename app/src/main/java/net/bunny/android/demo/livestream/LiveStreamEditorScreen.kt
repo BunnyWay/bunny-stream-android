@@ -110,9 +110,6 @@ import java.time.format.DateTimeFormatter
  * dashboard's "Advanced settings": scheduling, DVR window, countdown, pre-stream trailer,
  * category and collection. A thumbnail can be attached too — either a locally-picked image
  * (uploaded as binary) or a remote URL — and is applied once the stream is created/updated.
- * A library-level watermark can also be uploaded here, mirroring the web dashboard's uploader on
- * this page — note it applies to every stream in the library (Bunny has no per-stream watermark)
- * and its position/size still live in the Settings screen.
  */
 @Composable
 fun LiveStreamEditorRoute(
@@ -198,10 +195,6 @@ fun LiveStreamEditorRoute(
             thumbnails = uiState.thumbnails,
             onDeleteThumbnail = { streamId?.let(viewModel::deleteThumbnail) },
             onPickThumbnailFromLibrary = { appState.navController.navigateToThumbnailPicker() },
-            watermark = uiState.watermark,
-            watermarkPreviewUri = uiState.watermarkPreviewUri,
-            onUploadWatermark = viewModel::uploadWatermark,
-            onRemoveWatermark = viewModel::removeWatermark,
             savedStateHandle = savedStateHandle,
             onBack = { appState.navController.popBackStack() },
             onSubmit = { request, thumbnail, dual -> viewModel.save(streamId, request, thumbnail, dual) },
@@ -431,10 +424,6 @@ private fun LiveStreamEditorScreen(
     thumbnails: LiveStreamEditorViewModel.ThumbnailListState,
     onDeleteThumbnail: () -> Unit,
     onPickThumbnailFromLibrary: () -> Unit,
-    watermark: LiveStreamEditorViewModel.WatermarkState,
-    watermarkPreviewUri: Uri?,
-    onUploadWatermark: (ByteArray, String) -> Unit,
-    onRemoveWatermark: () -> Unit,
     savedStateHandle: SavedStateHandle?,
     onBack: () -> Unit,
     onSubmit: (LiveStreamCreateRequest, LiveStreamEditorViewModel.ThumbnailSource?, Boolean) -> Unit,
@@ -527,22 +516,6 @@ private fun LiveStreamEditorScreen(
             if (uri != null) {
                 thumbnailUri = uri
                 thumbnailUrl = ""
-            }
-        },
-    )
-
-    // Watermark is library-wide (Bunny has no per-stream watermark): picking an image uploads it
-    // immediately to the whole library, mirroring the web dashboard's uploader on this page.
-    val pickWatermark = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.PickVisualMedia(),
-        onResult = { uri ->
-            if (uri != null) {
-                val resolver = context.contentResolver
-                val bytes = runCatching { resolver.openInputStream(uri)?.use { it.readBytes() } }
-                    .getOrNull()
-                if (bytes != null && bytes.isNotEmpty()) {
-                    onUploadWatermark(bytes, resolver.getType(uri) ?: "image/png")
-                }
             }
         },
     )
@@ -786,23 +759,6 @@ private fun LiveStreamEditorScreen(
                         onDelete = onDeleteThumbnail,
                     )
                 }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            SectionCard(title = "Watermark") {
-                WatermarkControl(
-                    state = watermark,
-                    previewUri = watermarkPreviewUri,
-                    onPick = {
-                        pickWatermark.launch(
-                            PickVisualMediaRequest(
-                                mediaType = ActivityResultContracts.PickVisualMedia.ImageOnly,
-                            ),
-                        )
-                    },
-                    onRemove = onRemoveWatermark,
-                )
             }
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -1059,91 +1015,6 @@ private fun TrailerControl(
                 }
             }
         }
-    }
-}
-
-/**
- * Library-level watermark control mirroring the web dashboard's uploader on the live-stream page:
- * upload a PNG logo, preview the last image uploaded from this app, and remove it. Driven by
- * [LiveStreamEditorViewModel.WatermarkState].
- *
- * The watermark is **library-wide** — Bunny has no per-stream watermark — so uploading here applies
- * it to every stream in the library. Placement (position/size) lives in the Settings screen.
- *
- * @param previewUri the last watermark image uploaded from this app (Bunny exposes no API to read
- *        back a watermark set elsewhere, e.g. via the dashboard), or null if none.
- */
-@Composable
-private fun WatermarkControl(
-    state: LiveStreamEditorViewModel.WatermarkState,
-    previewUri: Uri?,
-    onPick: () -> Unit,
-    onRemove: () -> Unit,
-) {
-    val working = state is LiveStreamEditorViewModel.WatermarkState.Working
-
-    Text(
-        text = "Upload a PNG logo to watermark this stream. Applies to every live stream in the " +
-            "library, and needs your account API key (set it in Settings).",
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
-
-    if (previewUri != null) {
-        Spacer(modifier = Modifier.height(12.dp))
-        AsyncImage(
-            model = previewUri,
-            contentDescription = "Watermark preview",
-            contentScale = ContentScale.Fit,
-            modifier = Modifier
-                .fillMaxWidth()
-                .aspectRatio(16f / 9f)
-                .clip(RoundedCornerShape(8.dp)),
-        )
-    }
-
-    Spacer(modifier = Modifier.height(12.dp))
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Button(onClick = onPick, enabled = !working, modifier = Modifier.weight(1f)) {
-            Text(if (previewUri == null) "Upload watermark" else "Replace watermark")
-        }
-        if (previewUri != null) {
-            TextButton(onClick = onRemove, enabled = !working) { Text("Remove") }
-        }
-    }
-
-    when (state) {
-        is LiveStreamEditorViewModel.WatermarkState.Working -> {
-            Spacer(modifier = Modifier.height(8.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                CircularProgressIndicator(modifier = Modifier.height(20.dp))
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "Working…",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-
-        is LiveStreamEditorViewModel.WatermarkState.Result -> {
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = state.message,
-                style = MaterialTheme.typography.bodySmall,
-                color = if (state.isError) {
-                    MaterialTheme.colorScheme.error
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                },
-            )
-        }
-
-        LiveStreamEditorViewModel.WatermarkState.Idle -> Unit
     }
 }
 

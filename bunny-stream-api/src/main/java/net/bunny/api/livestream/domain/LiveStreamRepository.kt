@@ -5,7 +5,6 @@ import net.bunny.api.livestream.domain.model.LiveStream
 import net.bunny.api.livestream.domain.model.LiveStreamCreateRequest
 import net.bunny.api.livestream.domain.model.LiveStreamList
 import net.bunny.api.livestream.domain.model.LiveStreamPlayData
-import net.bunny.api.livestream.domain.model.LibraryWatermarkSettings
 import net.bunny.api.livestream.domain.model.LiveStreamThumbnail
 
 /**
@@ -162,60 +161,5 @@ interface LiveStreamRepository {
         libraryId: Long,
         streamId: String,
         restoreLibraryDefault: Boolean = false,
-    ): Either<String, Unit>
-
-    /**
-     * Uploads a watermark image for the library. The watermark is **library-level**: once set it is
-     * burned into every live stream (and uploaded video) in the library, mirroring the dashboard's
-     * "Watermark" uploader on the live-stream page. Bunny recommends a PNG logo.
-     *
-     * Unlike the rest of this repository, the watermark lives on the Core Platform API
-     * (`api.bunny.net/videolibrary/{libraryId}/watermark`), not the Stream API. That endpoint
-     * authenticates with the **account** API key (from Account Settings → API), not the per-library
-     * Stream key — pass it as [apiKey]. If [apiKey] is null/blank the Stream key is used as a
-     * fallback, which the endpoint will reject with 401.
-     *
-     * @param imageBytes the encoded watermark image (PNG recommended) bytes.
-     * @param contentType the image MIME type, e.g. `image/png`.
-     * @param apiKey the account-level API key authorizing Core Platform requests.
-     */
-    suspend fun setLibraryWatermark(
-        libraryId: Long,
-        imageBytes: ByteArray,
-        contentType: String = "image/png",
-        apiKey: String? = null,
-    ): Either<String, Unit>
-
-    /**
-     * Removes the library watermark set via [setLibraryWatermark]. No-op-safe: removing an absent
-     * watermark still resolves successfully. [apiKey] is the **account** API key (see
-     * [setLibraryWatermark]).
-     */
-    suspend fun deleteLibraryWatermark(
-        libraryId: Long,
-        apiKey: String? = null,
-    ): Either<String, Unit>
-
-    /**
-     * Reads the library's watermark placement (position/size in %, plus whether one is set) from the
-     * Core Platform "Get Video Library" endpoint. [apiKey] is the **account** API key.
-     */
-    suspend fun getLibraryWatermarkSettings(
-        libraryId: Long,
-        apiKey: String? = null,
-    ): Either<String, LibraryWatermarkSettings>
-
-    /**
-     * Updates the library's watermark position/size (all in %) via the Core Platform "Update Video
-     * Library" endpoint (partial update — only these fields are sent). [apiKey] is the **account**
-     * API key. Does not change the watermark image itself (see [setLibraryWatermark]).
-     */
-    suspend fun updateLibraryWatermarkSettings(
-        libraryId: Long,
-        positionLeft: Int,
-        positionTop: Int,
-        width: Int,
-        height: Int,
-        apiKey: String? = null,
     ): Either<String, Unit>
 }

@@ -155,11 +155,15 @@ fun LiveStreamPlayerRoute(
             // Frame adapts to the stream's real aspect ratio so both 16:9 and 9:16 (vertical)
             // content fill correctly; defaults to 16:9 until the first frame's size is known.
             var videoAspectRatio by remember { mutableStateOf(16f / 9f) }
+            // Live player customization edited on the "Customize Player" screen. Read once on entry;
+            // reopening the stream picks up any newer edits.
+            val liveConfig = remember(streamId) { App.di.localPrefs.livePlayerConfig }
             BunnyLiveStreamPlayer(
                 libraryId = libraryId,
                 streamId = streamId,
                 token = playbackToken,
                 expires = tokenExpires,
+                config = liveConfig,
                 viewModel = viewModel,
                 onVideoSizeChanged = { width, height ->
                     if (width > 0 && height > 0) {

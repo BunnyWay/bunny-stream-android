@@ -9,7 +9,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import net.bunny.android.demo.App
 import net.bunny.api.BunnyStreamApi
 import net.bunny.api.livestream.domain.model.LiveStream
@@ -18,7 +17,6 @@ import net.bunny.api.livestream.domain.model.LiveStreamThumbnail
 import net.bunny.api.upload.model.UploadError
 import net.bunny.api.upload.service.PauseState
 import net.bunny.api.upload.service.UploadListener
-import java.io.File
 
 /**
  * Backs [LiveStreamEditorRoute]. Loads the stream being edited (edit mode) and submits
@@ -62,24 +60,6 @@ class LiveStreamEditorViewModel : ViewModel() {
         data class Failed(val message: String) : TrailerState
     }
 
-    /**
-     * State of the library-level watermark upload/remove action surfaced in the editor.
-     *
-     * The watermark is **library-wide** (Bunny has no per-stream watermark): uploading here applies
-     * it to every stream in the library, mirroring the web dashboard's placement of the uploader on
-     * the live-stream page. Position/size still live in the Settings screen.
-     */
-    sealed interface WatermarkState {
-        /** Nothing in flight. */
-        data object Idle : WatermarkState
-
-        /** An upload or removal is running. */
-        data object Working : WatermarkState
-
-        /** The last action finished: [message] describes the outcome; [isError] picks the styling. */
-        data class Result(val message: String, val isError: Boolean) : WatermarkState
-    }
-
     /** State of the stream's generated-thumbnails list (edit mode only). */
     sealed interface ThumbnailListState {
         /** Not requested yet (e.g. create mode). */
@@ -107,10 +87,6 @@ class LiveStreamEditorViewModel : ViewModel() {
         val trailer: TrailerState = TrailerState.None,
         /** Generated thumbnails for the loaded stream (list/preview/delete). */
         val thumbnails: ThumbnailListState = ThumbnailListState.Idle,
-        /** Library-level watermark upload/remove state. */
-        val watermark: WatermarkState = WatermarkState.Idle,
-        /** Preview of the last watermark image uploaded from this app (null = none cached). */
-        val watermarkPreviewUri: Uri? = null,
         val error: String? = null,
     )
 
@@ -122,21 +98,6 @@ class LiveStreamEditorViewModel : ViewModel() {
 
     private val repository
         get() = App.di.streamSdk.liveStreamRepository
-
-    private val prefs
-        get() = App.di.localPrefs
-
-    // Bunny exposes no API to read back the stored watermark image, so the last image uploaded from
-    // this app is cached and previewed across sessions (shared with the Settings screen's uploader).
-    private val watermarkCacheFile: File
-        get() = File(App.di.context.filesDir, "last_watermark.img")
-
-    init {
-        // Seed the watermark preview from the cached image, if any.
-        watermarkCacheFile.takeIf { it.exists() }?.let { file ->
-            mutableUiState.update { it.copy(watermarkPreviewUri = Uri.fromFile(file)) }
-        }
-    }
 
     fun load(streamId: String) {
         // Only fetch once per editor instance — recompositions/back-navigation shouldn't refetch.
@@ -376,101 +337,6 @@ class LiveStreamEditorViewModel : ViewModel() {
                 Log.e(TAG, "deleteTrailer error", e)
                 mutableUiState.update { it.copy(error = "Error deleting trailer: ${e.message}") }
             }
-        }
-    }
-
-    // endregion
-
-    // region — Watermark (library-level)
-
-    /**
-     * Uploads [imageBytes] as the library watermark. Applies to the **whole library** (every live
-     * stream), so it targets the currently active library — save a valid library ID and account API
-     * key in Settings first. Result surfaces via [UiState.watermark].
-     */
-    fun uploadWatermark(imageBytes: ByteArray, contentType: String) {
-        val library = BunnyStreamApi.libraryId
-        if (library <= 0L) {
-            mutableUiState.update {
-                it.copy(watermark = WatermarkState.Result("Set a valid library ID first", isError = true))
-            }
-            return
-        }
-        val accountKey = prefs.accountApiKey
-        if (accountKey.isBlank()) {
-            mutableUiState.update {
-                it.copy(
-                    watermark = WatermarkState.Result(
-                        "Watermark needs your account API key (Settings → Account API key)",
-                        isError = true,
-                    ),
-                )
-            }
-            return
-        }
-        mutableUiState.update { it.copy(watermark = WatermarkState.Working) }
-        viewModelScope.launch {
-            repository.setLibraryWatermark(library, imageBytes, contentType, apiKey = accountKey).fold(
-                ifLeft = { message ->
-                    Log.w(TAG, "watermark upload failed: $message")
-                    mutableUiState.update {
-                        it.copy(watermark = WatermarkState.Result(message, isError = true))
-                    }
-                },
-                ifRight = {
-                    // Cache the uploaded image so it can be previewed in future sessions.
-                    withContext(Dispatchers.IO) { runCatching { watermarkCacheFile.writeBytes(imageBytes) } }
-                    mutableUiState.update {
-                        it.copy(
-                            watermark = WatermarkState.Result("Watermark uploaded", isError = false),
-                            watermarkPreviewUri = Uri.fromFile(watermarkCacheFile),
-                        )
-                    }
-                },
-            )
-        }
-    }
-
-    /** Removes the library watermark and clears the cached preview. */
-    fun removeWatermark() {
-        val library = BunnyStreamApi.libraryId
-        if (library <= 0L) {
-            mutableUiState.update {
-                it.copy(watermark = WatermarkState.Result("Set a valid library ID first", isError = true))
-            }
-            return
-        }
-        val accountKey = prefs.accountApiKey
-        if (accountKey.isBlank()) {
-            mutableUiState.update {
-                it.copy(
-                    watermark = WatermarkState.Result(
-                        "Watermark needs your account API key (Settings → Account API key)",
-                        isError = true,
-                    ),
-                )
-            }
-            return
-        }
-        mutableUiState.update { it.copy(watermark = WatermarkState.Working) }
-        viewModelScope.launch {
-            repository.deleteLibraryWatermark(library, apiKey = accountKey).fold(
-                ifLeft = { message ->
-                    Log.w(TAG, "watermark removal failed: $message")
-                    mutableUiState.update {
-                        it.copy(watermark = WatermarkState.Result(message, isError = true))
-                    }
-                },
-                ifRight = {
-                    withContext(Dispatchers.IO) { runCatching { watermarkCacheFile.delete() } }
-                    mutableUiState.update {
-                        it.copy(
-                            watermark = WatermarkState.Result("Watermark removed", isError = false),
-                            watermarkPreviewUri = null,
-                        )
-                    }
-                },
-            )
         }
     }
 

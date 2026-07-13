@@ -6,16 +6,20 @@ import androidx.compose.runtime.Immutable
  * Programmatic UI customization for the live player ([BunnyLiveStreamPlayer]). Every field defaults
  * to the player's current behaviour, so passing `LivePlayerConfig()` (or nothing) is a no-op.
  *
- * Theming ([primaryColor], [fontFamily], [uiLanguage]) applies to both the transport bar and the
- * non-playing overlays (countdown / offline / live badge). Control visibility is driven by
- * [controls].
+ * Theming reaches different surfaces per property (the transport bar is a View, the countdown /
+ * offline / live overlays are Compose): [primaryColor] tints the transport bar plus the countdown
+ * text and LIVE dot; [uiLanguage] localises the settings menu plus the countdown / offline copy;
+ * [fontFamily] applies to the transport bar only. Control visibility is driven by [controls].
  *
- * @property primaryColor accent colour (ARGB int) for the scrub bar / live badge. `null` keeps the
- *   SDK default. Maps to `PlayerSettings.keyColor`.
- * @property fontFamily Google Fonts family name (e.g. "Rubik") applied to player + overlay text.
- *   `null`/blank uses the system default.
- * @property uiLanguage ISO-639 code (e.g. "en", "de") for player + overlay copy. `null` uses the
- *   device locale.
+ * @property primaryColor accent colour (ARGB int) for the scrub bar plus the countdown text / LIVE
+ *   dot. `null` keeps the SDK default (white scrub bar). Maps to `PlayerSettings.keyColor`.
+ * @property fontFamily Google Fonts family name (e.g. "Rubik"), fetched via the Play Services font
+ *   provider and applied to the transport bar text (current time / duration) and captions. It does
+ *   NOT restyle the Compose overlays (countdown / offline / live badge). `null`/blank uses the
+ *   system default.
+ * @property uiLanguage ISO-639 code (e.g. "en", "de") for the settings-menu labels and the
+ *   countdown / offline overlay copy. The transport bar itself has no words. `null` uses the device
+ *   locale.
  * @property showWatchtimeHeatmap show the retention heatmap on the scrub bar. A *running* live
  *   stream has no retention data yet, so this only has a visible effect once the stream is played
  *   back as a recording (the VOD branch).

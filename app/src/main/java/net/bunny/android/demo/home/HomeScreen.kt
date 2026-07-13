@@ -67,6 +67,11 @@ sealed class HomeOption(
         textColor = { MaterialTheme.colorScheme.primary }
     )
 
+    object CustomizePlayer : HomeOption(
+        "Customize Player",
+        textColor = { MaterialTheme.colorScheme.primary }
+    )
+
     object ResumePositionSettings : HomeOption(
         "Resume Position Settings",
         textColor = { MaterialTheme.colorScheme.primary }
@@ -91,6 +96,7 @@ fun HomeScreenRoute(
     navigateToResumeSettings: () -> Unit,
     navigateToResumeManagement: () -> Unit,
     navigateToLiveStreams: () -> Unit,
+    navigateToCustomizePlayer: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var showDialog by remember { mutableStateOf(false) }
@@ -121,6 +127,10 @@ fun HomeScreenRoute(
 
                 HomeOption.BunnyStreamConfiguration -> {
                     navigateToSettings()
+                }
+
+                HomeOption.CustomizePlayer -> {
+                    navigateToCustomizePlayer()
                 }
 
                 HomeOption.ResumePositionSettings -> {
@@ -203,7 +213,8 @@ fun OptionsList(
     )
 
     val configItems = listOf(
-        HomeOption.BunnyStreamConfiguration
+        HomeOption.BunnyStreamConfiguration,
+        HomeOption.CustomizePlayer
     )
 
     LazyColumn(
