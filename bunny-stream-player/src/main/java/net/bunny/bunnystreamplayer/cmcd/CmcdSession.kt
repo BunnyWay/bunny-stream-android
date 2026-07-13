@@ -33,11 +33,13 @@ internal data class CmcdPlayerSnapshot(
  * Builds the CMCD **v2** `CMCD=` query payload for a single playback session. The wire-string logic
  * is pure (the [Uri] entry point delegates to a `*ForSegment` helper that takes just the last path
  * segment), so it is fully unit-testable. The CMCD field set matches the iOS `CMCDHeaderBuilder`
- * (`sid`, `cid`, `sf=h`, `st`, `v=2`, `bl`, `su`, `bs`, `ot`; only `sid`/`cid` quoted); keys are
- * flattened and sorted alphabetically per CTA-5004 query encoding.
+ * (`sid`, `cid`, `sf` (`h`=HLS / `d`=DASH), `st`, `v=2`, `bl`, `su`, `bs`, `ot`; only `sid`/`cid`
+ * quoted); keys are flattened and sorted alphabetically per CTA-5004 query encoding.
  *
  * @param contentId the CMCD `cid` — the video/stream guid.
  * @param streamType the CMCD `st`. See [CmcdStreamType].
+ * @param streamingFormat the CMCD `sf` code — `h` for HLS (default), `d` for DASH. Fixed per
+ *   playback; derived from the manifest URL by the caller.
  * @param sessionId the CMCD `sid`. Defaults to a random UUID, stable for the session.
  * @param snapshotProvider supplies the live buffer state at request time. Must be thread-safe: it is
  *   invoked from ExoPlayer loader threads.
@@ -45,6 +47,7 @@ internal data class CmcdPlayerSnapshot(
 internal class CmcdSession(
     val contentId: String,
     val streamType: CmcdStreamType,
+    val streamingFormat: String = "h",
     val sessionId: String = UUID.randomUUID().toString(),
     private val snapshotProvider: () -> CmcdPlayerSnapshot = { CmcdPlayerSnapshot() },
 ) {
@@ -85,7 +88,7 @@ internal class CmcdSession(
             if (snapshot.bufferStarved) add("bs" to "bs")
             add("cid" to "cid=\"$contentId\"")
             add("ot" to "ot=${ot.code}")
-            add("sf" to "sf=h")
+            add("sf" to "sf=$streamingFormat")
             add("sid" to "sid=\"$sessionId\"")
             add("st" to "st=${streamType.code}")
             if (startup.get()) add("su" to "su")
@@ -97,8 +100,8 @@ internal class CmcdSession(
     internal fun objectTypeForSegment(lastSegment: String?): CmcdObjectType {
         val last = lastSegment?.lowercase() ?: return CmcdObjectType.OTHER
         return when (last.substringAfterLast('.', "")) {
-            "m3u8" -> CmcdObjectType.MANIFEST
-            "ts", "m4s" -> CmcdObjectType.VIDEO
+            "m3u8", "mpd" -> CmcdObjectType.MANIFEST
+            "ts", "m4s", "m4v" -> CmcdObjectType.VIDEO
             "aac", "m4a" -> CmcdObjectType.AUDIO
             "mp4" -> if (last.contains("init")) CmcdObjectType.INIT else CmcdObjectType.VIDEO
             else -> CmcdObjectType.OTHER

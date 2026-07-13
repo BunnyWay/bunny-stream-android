@@ -418,10 +418,12 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
     private fun buildCmcdDataSourceFactory(
         http: DataSource.Factory,
         contentId: String,
+        streamingFormat: String,
     ): DataSource.Factory {
         val session = CmcdSession(
             contentId = contentId,
             streamType = cmcdStreamType,
+            streamingFormat = streamingFormat,
             snapshotProvider = { CmcdPlayerSnapshot(cmcdBufferLengthMs, cmcdBufferStarved) },
         )
         return ResolvingDataSource.Factory(http, CmcdResolver(session))
@@ -550,8 +552,14 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
         // request so the CDN receives it. media3's built-in CmcdConfiguration is v1-only, so we inject
         // it ourselves: buildCmcdDataSourceFactory wraps the HTTP data source with a ResolvingDataSource
         // that appends a v2 `?CMCD=` query parameter per request.
+        // Manifest container resolved from the URL: HLS (.m3u8 / Bunny's extension-less URLs) or
+        // DASH (.mpd). ExoPlayer plays both from the same engine (the media3-exoplayer-dash module
+        // supplies the DashMediaSource); DefaultMediaSourceFactory picks HLS vs DASH from the
+        // MediaItem MIME below. Drives the CMCD `sf` too.
+        val manifestFormat = ManifestFormat.fromUrl(playerSettings.videoUrl)
         val cmcdContentId = video.guid?.takeIf { it.isNotBlank() }.orEmpty()
-        val cmcdDataSourceFactory = buildCmcdDataSourceFactory(httpFactory, cmcdContentId)
+        val cmcdDataSourceFactory =
+            buildCmcdDataSourceFactory(httpFactory, cmcdContentId, manifestFormat.cmcdSf)
         val mediaSourceFactory = DefaultMediaSourceFactory(context)
             .setDataSourceFactory(cmcdDataSourceFactory)
 
@@ -580,9 +588,15 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
             }
             .build()
 
+        // Explicit MIME so DefaultMediaSourceFactory builds the right source (HLS vs DASH) even when
+        // the URL has no clean extension — Bunny's live/fallback URLs default to HLS.
+        val manifestMimeType = when (manifestFormat) {
+            ManifestFormat.DASH -> MimeTypes.APPLICATION_MPD
+            ManifestFormat.HLS -> MimeTypes.APPLICATION_M3U8
+        }
         val mediaItemBuilder = MediaItem.Builder()
             .setUri(playerSettings.videoUrl)
-            .setMimeType(MimeTypes.APPLICATION_M3U8)
+            .setMimeType(manifestMimeType)
             .setMediaMetadata(mediaMetadata)
             .setSubtitleConfigurations(subtitleConfigs)
 

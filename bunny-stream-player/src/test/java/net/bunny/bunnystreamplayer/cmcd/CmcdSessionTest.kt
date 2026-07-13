@@ -19,8 +19,15 @@ class CmcdSessionTest {
 
     private fun session(
         streamType: CmcdStreamType = CmcdStreamType.LIVE,
+        streamingFormat: String = "h",
         snapshot: () -> CmcdPlayerSnapshot = { CmcdPlayerSnapshot() },
-    ) = CmcdSession(contentId = cid, streamType = streamType, sessionId = sid, snapshotProvider = snapshot)
+    ) = CmcdSession(
+        contentId = cid,
+        streamType = streamType,
+        streamingFormat = streamingFormat,
+        sessionId = sid,
+        snapshotProvider = snapshot,
+    )
 
     @Test
     fun `query value is alphabetically ordered with quoting and v2`() {
@@ -37,6 +44,17 @@ class CmcdSessionTest {
         assertTrue(session(CmcdStreamType.LIVE).queryValueForSegment("live.m3u8").contains(",st=l,"))
         assertTrue(session(CmcdStreamType.VOD).queryValueForSegment("live.m3u8").contains(",st=v,"))
         assertTrue(session(CmcdStreamType.EVENT).queryValueForSegment("live.m3u8").contains(",st=e,"))
+    }
+
+    @Test
+    fun `streaming format drives sf - default h for HLS, d for DASH`() {
+        assertTrue("HLS default", session().queryValueForSegment("live.m3u8").contains(",sf=h,"))
+        assertTrue(
+            "DASH reports sf=d",
+            session(streamingFormat = "d").queryValueForSegment("manifest.mpd").contains(",sf=d,"),
+        )
+        // A DASH init/media segment on a DASH session still carries sf=d.
+        assertTrue(session(streamingFormat = "d").queryValueForSegment("seg1.m4s").contains(",sf=d,"))
     }
 
     @Test
@@ -73,8 +91,10 @@ class CmcdSessionTest {
     fun `object type is derived from the last path segment`() {
         val s = session()
         assertEquals(CmcdObjectType.MANIFEST, s.objectTypeForSegment("live.m3u8"))
+        assertEquals(CmcdObjectType.MANIFEST, s.objectTypeForSegment("manifest.mpd"))
         assertEquals(CmcdObjectType.VIDEO, s.objectTypeForSegment("segment_00042.ts"))
         assertEquals(CmcdObjectType.VIDEO, s.objectTypeForSegment("chunk.m4s"))
+        assertEquals(CmcdObjectType.VIDEO, s.objectTypeForSegment("bbb_1920x1080_15.m4v"))
         assertEquals(CmcdObjectType.AUDIO, s.objectTypeForSegment("audio.aac"))
         assertEquals(CmcdObjectType.AUDIO, s.objectTypeForSegment("audio.m4a"))
         assertEquals(CmcdObjectType.INIT, s.objectTypeForSegment("init.mp4"))

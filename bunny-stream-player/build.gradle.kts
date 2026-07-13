@@ -97,6 +97,8 @@ dependencies {
     // https://developer.android.com/jetpack/androidx/releases/media3
     implementation("androidx.media3:media3-exoplayer-hls:1.6.0")
     // https://developer.android.com/jetpack/androidx/releases/media3
+    implementation("androidx.media3:media3-exoplayer-dash:1.6.0")
+    // https://developer.android.com/jetpack/androidx/releases/media3
     implementation("androidx.media3:media3-cast:1.6.0")
     // https://developer.android.com/jetpack/androidx/releases/media3
     implementation("androidx.media3:media3-exoplayer-ima:1.6.0")
