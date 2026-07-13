@@ -110,6 +110,23 @@ bunnyStreamPlayer.iconSet = newIconSet
 
 Full player usage example and permissions handling can be found in demo app.
 
+## Picture-in-Picture
+
+The player shows a PiP button whenever the player settings include the `pip` control and the
+device supports it. **Entering PiP requires opt-in from the host Activity** — without it the
+button is a silent no-op. Add to the Activity that hosts the player (and keep `configChanges` so
+the window resize doesn't recreate it):
+
+```xml
+<activity
+    android:name=".YourPlayerActivity"
+    android:supportsPictureInPicture="true"
+    android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation" />
+```
+
+The SDK handles the rest: playback keeps running inside the PiP window, the window uses the
+video's real aspect ratio, and dismissing the window pauses playback.
+
 For more information, see [class level documentation](docs/index.md).
 
 ## License

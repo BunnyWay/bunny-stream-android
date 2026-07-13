@@ -25,7 +25,7 @@ import okio.Buffer
 
 class BunnyStreamApi private constructor(
     context: Context,
-    accessKey: String?,
+    accessKey: String,
 ) : StreamApi {
 
     companion object {
@@ -35,25 +35,24 @@ class BunnyStreamApi private constructor(
 
         const val baseApi = BuildConfig.BASE_API
 
-        lateinit var cdnHostname: String
-            private set
-
         var libraryId: Long = -1
             private set
 
         @Volatile
         private var instance: StreamApi? = null
 
-        fun initialize(context: Context, accessKey: String?, libraryId: Long) {
+        /**
+         * Initialises the SDK singleton. [accessKey] is the library API key and is required —
+         * every SDK feature (REST, uploads, live streaming) authenticates with it.
+         */
+        fun initialize(context: Context, accessKey: String, libraryId: Long) {
             instance = BunnyStreamApi(
                 context.applicationContext,
                 accessKey,
             )
 
             this.libraryId = libraryId
-            accessKey?.let {
-                ApiClient.apiKey["AccessKey"] = it
-            }
+            ApiClient.apiKey["AccessKey"] = accessKey
         }
 
         fun getInstance(): StreamApi {
@@ -147,13 +146,7 @@ class BunnyStreamApi private constructor(
     private val tusVideoUploaderService = TusUploaderService(
         preferences = prefs,
         chunkSize = 1024,
-        accessKey = accessKey ?: run {
-            /**
-             * AccessKey is required for TusUploaderService, if not provided fallback to
-             * BasicUploaderService which will be used instead.
-             */
-            throw IllegalStateException("AccessKey must be provided for TusUploaderService")
-        },
+        accessKey = accessKey,
         dispatcher = Dispatchers.IO
     )
 

@@ -3,6 +3,7 @@ package net.bunny.api.livestream.domain
 import arrow.core.Either
 import net.bunny.api.livestream.domain.model.LiveStream
 import net.bunny.api.livestream.domain.model.LiveStreamCreateRequest
+import net.bunny.api.livestream.domain.model.LiveStreamIngestStatus
 import net.bunny.api.livestream.domain.model.LiveStreamList
 import net.bunny.api.livestream.domain.model.LiveStreamPlayData
 import net.bunny.api.livestream.domain.model.LiveStreamThumbnail
@@ -162,4 +163,19 @@ interface LiveStreamRepository {
         streamId: String,
         restoreLibraryDefault: Boolean = false,
     ): Either<String, Unit>
+
+    /**
+     * Fetches the stream's lightweight ingest status (`GET …/live/{streamId}/status`) — whether
+     * the primary/backup ingests are currently receiving data, whether the stream is ready to
+     * start, and how long ago the last ping was seen.
+     *
+     * This is the endpoint suited for frequent polling (the full [getLiveStream] model does not
+     * expose per-ingest liveness). The broadcaster uses it to drive the Primary/Backup badges
+     * from the server's truth and to proactively fail over when the ingest it publishes to goes
+     * silent — mirroring the iOS SDK.
+     */
+    suspend fun getLiveStreamStatus(
+        libraryId: Long,
+        streamId: String,
+    ): Either<String, LiveStreamIngestStatus>
 }

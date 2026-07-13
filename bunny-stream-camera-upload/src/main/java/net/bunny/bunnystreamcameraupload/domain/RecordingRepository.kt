@@ -1,6 +1,7 @@
 package net.bunny.bunnystreamcameraupload.domain
 
 import arrow.core.Either
+import net.bunny.api.livestream.domain.model.LiveStreamIngestStatus
 
 interface RecordingRepository {
     suspend fun prepareRecording(libraryId: Long): Either<String, String>
@@ -33,4 +34,15 @@ interface RecordingRepository {
      * Stops the live stream server-side (ends it for viewers; converts to VOD if enabled).
      */
     suspend fun stopLiveStream(libraryId: Long, streamId: String): Either<String, Unit>
+
+    /**
+     * Fetches the stream's lightweight ingest status (`GET …/live/{streamId}/status`) — whether
+     * the primary/backup ingests are receiving data. Polled by the broadcaster to drive the
+     * Primary/Backup badges from the server's truth and to proactively fail over when the
+     * currently-published ingest goes silent.
+     */
+    suspend fun getIngestStatus(
+        libraryId: Long,
+        streamId: String,
+    ): Either<String, LiveStreamIngestStatus>
 }

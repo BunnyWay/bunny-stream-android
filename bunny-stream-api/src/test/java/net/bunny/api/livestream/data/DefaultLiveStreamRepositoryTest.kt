@@ -24,6 +24,7 @@ import org.openapitools.client.models.IngestEndpointsRtmp
 import org.openapitools.client.models.LiveStreamModel
 import org.openapitools.client.models.LiveStreamPlayDataModel
 import org.openapitools.client.models.LiveStreamPlayDataModelLiveStream
+import org.openapitools.client.models.LiveStreamStatusModel
 import org.openapitools.client.models.PaginationListOfLiveStreamModel
 import org.openapitools.client.models.RtmpOutput as GeneratedRtmpOutput
 import org.openapitools.client.models.LiveStreamCreateRequest as GeneratedLiveStreamCreateRequest
@@ -504,6 +505,74 @@ class DefaultLiveStreamRepositoryTest {
         assertEquals(0L, list.currentPage)
         assertEquals(0, list.itemsPerPage)
         assertTrue("items should be empty when API returned null", list.items.isEmpty())
+    }
+
+    @Test fun `listLiveStreams maps 404 to an empty list`() = runTest(dispatcher) {
+        // Bunny returns 404 for a library with no live streams yet — that's an empty list, not
+        // an error (the iOS demo maps it the same way; the Android demo used to show a toast).
+        every {
+            api.liveStreamList(LIBRARY_ID, 1, 10, null, null, null)
+        } throws ClientException(message = "Not Found", statusCode = 404)
+
+        val result = repo.listLiveStreams(LIBRARY_ID, page = 1, itemsPerPage = 10)
+
+        assertTrue("404 must map to Right(empty list)", result is Either.Right)
+        val list = (result as Either.Right).value
+        assertEquals(0L, list.totalItems)
+        assertTrue(list.items.isEmpty())
+    }
+
+    @Test fun `listLiveStreams keeps non-404 client errors as Left`() = runTest(dispatcher) {
+        every {
+            api.liveStreamList(LIBRARY_ID, null, null, null, null, null)
+        } throws ClientException(message = "nope", statusCode = 401)
+
+        assertTrue(repo.listLiveStreams(LIBRARY_ID) is Either.Left)
+    }
+
+    // endregion
+
+    // region — getLiveStreamStatus (ingest /status)
+
+    @Test fun `getLiveStreamStatus maps the generated model to domain`() = runTest(dispatcher) {
+        every {
+            api.liveStreamGetStreamStatus(LIBRARY_ID, STREAM_ID)
+        } returns LiveStreamStatusModel(
+            readyToStart = true,
+            primaryLive = true,
+            backupLive = false,
+            lastPingAgo = 1234L,
+            duration = 60,
+        )
+
+        val status = (repo.getLiveStreamStatus(LIBRARY_ID, STREAM_ID) as Either.Right).value
+        assertEquals(true, status.readyToStart)
+        assertEquals(true, status.primaryLive)
+        assertEquals(false, status.backupLive)
+        assertEquals(1234L, status.lastPingAgoMs)
+        assertEquals(60, status.durationSeconds)
+    }
+
+    @Test fun `getLiveStreamStatus defaults null flags to false`() = runTest(dispatcher) {
+        every {
+            api.liveStreamGetStreamStatus(LIBRARY_ID, STREAM_ID)
+        } returns LiveStreamStatusModel()
+
+        val status = (repo.getLiveStreamStatus(LIBRARY_ID, STREAM_ID) as Either.Right).value
+        assertEquals(false, status.readyToStart)
+        assertEquals(false, status.primaryLive)
+        assertEquals(false, status.backupLive)
+        assertNull(status.lastPingAgoMs)
+        assertNull(status.durationSeconds)
+    }
+
+    @Test fun `getLiveStreamStatus maps errors through the shared vocabulary`() = runTest(dispatcher) {
+        every {
+            api.liveStreamGetStreamStatus(LIBRARY_ID, STREAM_ID)
+        } throws ClientException(message = "nope", statusCode = 401)
+
+        val result = repo.getLiveStreamStatus(LIBRARY_ID, STREAM_ID)
+        assertEquals(Either.Left("Authorization required Unauthorized"), result)
     }
 
     // endregion

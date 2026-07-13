@@ -6,6 +6,7 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import net.bunny.api.BuildConfig
 import net.bunny.api.BunnyStreamApi
+import net.bunny.api.livestream.domain.model.LiveStreamIngestStatus
 import net.bunny.api.model.LiveStreamStatus
 import net.bunny.bunnystreamcameraupload.domain.RecordingRepository
 import net.bunny.bunnystreamcameraupload.domain.ResolvedIngest
@@ -65,6 +66,13 @@ class DefaultRecordingRepository(
                 Log.d(TAG, "stopLiveStream ok — status=${stream.status}")
                 Unit
             }
+    }
+
+    override suspend fun getIngestStatus(
+        libraryId: Long,
+        streamId: String,
+    ): Either<String, LiveStreamIngestStatus> = withContext(coroutineDispatcher) {
+        BunnyStreamApi.getInstance().liveStreamRepository.getLiveStreamStatus(libraryId, streamId)
     }
 
     override suspend fun prepareLiveBroadcast(

@@ -33,12 +33,16 @@ import net.bunny.recording.R
  * Drives the camera broadcast over one **or two** RTMP ingest outputs via RootEncoder's
  * [MultiStream] (one encode → N outputs).
  *
- * * **Single-publish (default):** one output to the primary ingest, with one-way active/standby
- *   failover to the backup (retry the same host a couple of times, then switch to the backup once,
- *   never back — matches the iOS SDK + Bunny's guidance).
+ * * **Single-publish (default):** one output, reconnecting with the iOS SDK's policy
+ *   ([ReconnectPolicy]): up to 5 attempts since the last successful connect, exponential backoff
+ *   capped at 8 s, **alternating primary <-> backup** on every attempt when a backup ingest is
+ *   configured. On top of the reactive path, a 5 s `GET /live/{id}/status` poll drives the
+ *   Primary/Backup badges from the server's truth and **proactively fails over** when the ingest
+ *   we publish to goes silent (RTMP up, Bunny not receiving) for two consecutive polls.
  * * **Dual-publish (opt-in, [dualPublish]):** two outputs to primary + backup **simultaneously**,
- *   each reconnecting independently; the stream stays live as long as either is up. Doubles the
- *   upload bandwidth, hence opt-in. Falls back to single when the stream has no backup ingest.
+ *   each reconnecting independently on a fixed delay (unchanged by the single-mode policy); the
+ *   stream stays live as long as either is up. Doubles the upload bandwidth, hence opt-in. Falls
+ *   back to single when the stream has no backup ingest.
  */
 class DefaultStreamHandler(
     private val streamRepository: RecordingRepository,
@@ -47,16 +51,20 @@ class DefaultStreamHandler(
     companion object {
         private const val TAG = "StreamHandler"
 
-        /**
-         * Quick retries on the SAME host before failing over to the backup (single mode). Kept in
-         * sync with the iOS SDK's `maxRetryCount` so both platforms behave identically.
-         */
-        private const val RETRIES_BEFORE_SWITCH = 2
-
+        /** Dual-mode per-output retry delay (each output sticks to its own host). */
         private const val RETRY_DELAY_MS = 5000L
 
         /** RTMP output capacity: index 0 = primary slot, index 1 = backup slot. */
         private const val RTMP_OUTPUTS = 2
+
+        /** How often the broadcaster polls `GET /live/{id}/status` while publishing. */
+        private const val INGEST_STATUS_POLL_MS = 5_000L
+
+        /**
+         * Consecutive not-live `/status` polls (≈5 s each) on the currently-published ingest that
+         * trigger a proactive failover (single mode). Matches the iOS SDK.
+         */
+        private const val PROACTIVE_FAILOVER_MISS_THRESHOLD = 2
     }
 
     override var recordingStateListener: RecordingStateListener? = null
@@ -84,14 +92,33 @@ class DefaultStreamHandler(
     /** Whether this session is publishing to two outputs at once. */
     private var dualActive = false
 
+    // region — single-mode reconnect + proactive-failover state (see [ReconnectPolicy])
+
+    /** Single-mode ingest URLs resolved at start. Backup `null` when the stream has none. */
+    private var singlePrimaryUrl: String? = null
+    private var singleBackupUrl: String? = null
+
+    /** Whether the single-mode output currently targets the backup ingest. */
+    private var usingBackup = false
+
+    /**
+     * Proactive failover (single mode): whether `/status` has confirmed the currently-published
+     * ingest live at least once — guards against acting during the startup window.
+     */
+    private var currentIngestConfirmedLive = false
+
+    /** Consecutive `/status` polls reporting the current ingest not-live after confirmation. */
+    private var consecutiveIngestMisses = 0
+
+    /** 5 s `/status` poll while publishing to a live stream (badges + proactive failover). */
+    private var ingestStatusJob: Job? = null
+
+    // endregion
+
     /** Per-output state. [index] maps to the RTMP output slot. */
     private class Output(val index: Int) {
         var endpoint: IngestEndpoint = if (index == 0) IngestEndpoint.PRIMARY else IngestEndpoint.BACKUP
         var url: String? = null
-
-        /** Single-mode failover target (backup host). `null` in dual mode / when no backup. */
-        var failoverUrl: String? = null
-        var switched = false
 
         /** Consecutive failures since the last successful connect on this output. */
         var failures = 0
@@ -155,6 +182,10 @@ class DefaultStreamHandler(
         timerJob?.cancel()
         startTimer()
         startServerLiveOnce()
+        // The new connection isn't server-confirmed yet — /status will confirm it.
+        currentIngestConfirmedLive = false
+        consecutiveIngestMisses = 0
+        startIngestStatusPolling()
     }
 
     /**
@@ -180,6 +211,7 @@ class DefaultStreamHandler(
         val out = outputs[index]
         if (!out.active) return
         out.failures++
+        out.connected = false
         Log.w(
             TAG,
             "onConnectionFailed[$index] ${out.endpoint} attempt=${out.failures} " +
@@ -191,20 +223,34 @@ class DefaultStreamHandler(
             // Dual mode: each output just keeps reconnecting to its own host (no switching).
             dualActive -> c.reTry(RETRY_DELAY_MS, reason, null)
 
-            // Single mode — transient blip: a couple of quick retries on the SAME host first.
-            out.failures < RETRIES_BEFORE_SWITCH -> c.reTry(RETRY_DELAY_MS, reason, null)
-
-            // Single mode — primary won't come up → fail over to the backup, once. Never back.
-            out.failoverUrl != null && !out.switched -> {
-                out.switched = true
-                out.url = out.failoverUrl
-                out.endpoint = IngestEndpoint.BACKUP
-                out.failures = 0
-                notify(IngestEndpoint.PRIMARY, IngestEndpointState.OFFLINE)
-                notify(IngestEndpoint.BACKUP, IngestEndpointState.CONNECTING)
-                toastMsg = openGlView.context.getString(R.string.ingest_switched_to_backup)
-                Log.w(TAG, "failover[$index] → BACKUP (${out.failoverUrl?.redactKey()})")
-                c.reTry(RETRY_DELAY_MS, reason, out.failoverUrl)
+            // Single mode: iOS-style policy — up to MAX_SINGLE_RETRIES attempts since the last
+            // successful connect, exponential backoff (1,2,4,8,8 s), alternating primary <->
+            // backup on every attempt when a backup ingest exists.
+            out.failures <= ReconnectPolicy.MAX_SINGLE_RETRIES -> {
+                val previousEndpoint = out.endpoint
+                usingBackup = ReconnectPolicy.nextUsesBackup(
+                    currentlyUsingBackup = usingBackup,
+                    hasBackup = singleBackupUrl != null,
+                )
+                val target = (if (usingBackup) singleBackupUrl else singlePrimaryUrl)
+                    ?: singlePrimaryUrl.orEmpty()
+                out.url = target
+                out.endpoint = if (usingBackup) IngestEndpoint.BACKUP else IngestEndpoint.PRIMARY
+                // Changing/re-establishing the connection: the target isn't server-confirmed yet.
+                currentIngestConfirmedLive = false
+                consecutiveIngestMisses = 0
+                if (out.endpoint != previousEndpoint) {
+                    notify(previousEndpoint, IngestEndpointState.OFFLINE)
+                    toastMsg = openGlView.context.getString(
+                        if (usingBackup) {
+                            R.string.ingest_switched_to_backup
+                        } else {
+                            R.string.ingest_switched_to_primary
+                        },
+                    )
+                    Log.w(TAG, "failover[$index] → ${out.endpoint} (${target.redactKey()})")
+                }
+                c.reTry(ReconnectPolicy.reconnectDelayMs(out.failures), reason, target)
             }
 
             else -> false
@@ -228,6 +274,7 @@ class DefaultStreamHandler(
         if (outputs.none { it.active }) {
             timerJob?.cancel()
             recordingStartTime = null
+            stopIngestStatusPolling()
             recordingStateListener?.onStreamConnectionFailed(reason)
         }
     }
@@ -251,6 +298,83 @@ class DefaultStreamHandler(
         timerJob?.cancel()
         recordingStartTime = null
         recordingStateListener?.onStreamAuthError()
+    }
+
+    // endregion
+
+    // region — ingest /status polling (server-truth badges + proactive failover)
+
+    /**
+     * Polls `GET /live/{id}/status` every [INGEST_STATUS_POLL_MS] while publishing to a live
+     * stream. Drives the Primary/Backup badges from the server's truth (whether Bunny is actually
+     * receiving data — the RTMP callbacks only know whether *we* are sending) and feeds the
+     * proactive failover. No-op for VOD recordings (no live stream to poll).
+     */
+    private fun startIngestStatusPolling() {
+        val live = activeLiveStream ?: return
+        if (ingestStatusJob?.isActive == true) return
+        ingestStatusJob = scope.launch {
+            while (isActive) {
+                streamRepository.getIngestStatus(live.first, live.second).fold(
+                    ifLeft = { message -> Log.w(TAG, "ingest status poll failed: $message") },
+                    ifRight = { status -> onIngestStatus(status.primaryLive, status.backupLive) },
+                )
+                delay(INGEST_STATUS_POLL_MS)
+            }
+        }
+    }
+
+    private fun stopIngestStatusPolling() {
+        ingestStatusJob?.cancel()
+        ingestStatusJob = null
+        currentIngestConfirmedLive = false
+        consecutiveIngestMisses = 0
+    }
+
+    private fun onIngestStatus(primaryLive: Boolean, backupLive: Boolean) {
+        // Badges from the server's truth. LIVE means Bunny is receiving on that ingest; a
+        // not-live ingest we're not actively reconnecting to reads as OFFLINE. The RTMP
+        // callbacks still provide the immediate CONNECTING transitions in between polls.
+        notify(IngestEndpoint.PRIMARY, if (primaryLive) IngestEndpointState.LIVE else IngestEndpointState.OFFLINE)
+        if (singleBackupUrl != null || dualActive) {
+            notify(IngestEndpoint.BACKUP, if (backupLive) IngestEndpointState.LIVE else IngestEndpointState.OFFLINE)
+        }
+        proactiveFailoverIfNeeded(primaryLive, backupLive)
+    }
+
+    /**
+     * Proactively fails over (single mode only) when `/status` reports the ingest we're
+     * publishing to as not-live for [PROACTIVE_FAILOVER_MISS_THRESHOLD] consecutive polls —
+     * catching "silent" degradations where the RTMP/TCP connection stays up but Bunny stops
+     * receiving, so the reactive reconnect never fires. Mirrors the iOS SDK. Dual-publish is
+     * exempt: both ingests are already published simultaneously.
+     */
+    private fun proactiveFailoverIfNeeded(primaryLive: Boolean, backupLive: Boolean) {
+        if (dualActive) return
+        if (singleBackupUrl == null) return
+        val out = outputs[0]
+        // Only while we believe we're publishing; a reactive reconnect is already in charge
+        // otherwise (failures > 0 means a retry is scheduled/running).
+        if (!out.active || !out.connected || out.failures > 0) return
+
+        val liveOnCurrent = if (usingBackup) backupLive else primaryLive
+        if (liveOnCurrent) {
+            currentIngestConfirmedLive = true
+            consecutiveIngestMisses = 0
+            return
+        }
+        // Ignore the startup window: act only once the current ingest was confirmed live.
+        if (!currentIngestConfirmedLive) return
+        consecutiveIngestMisses++
+        if (consecutiveIngestMisses < PROACTIVE_FAILOVER_MISS_THRESHOLD) return
+        consecutiveIngestMisses = 0
+        currentIngestConfirmedLive = false
+        Log.w(TAG, "proactive failover — ${out.endpoint} silent on /status for 2 polls")
+        // Route through the same path as a reactive failure so the alternating policy,
+        // backoff, badges and toasts all apply.
+        MainScope().launch {
+            handleFailed(0, "proactive failover: ingest silent (/status)")
+        }
     }
 
     // endregion
@@ -285,7 +409,10 @@ class DefaultStreamHandler(
             client(i).apply {
                 setSocketType(SocketType.KTOR)
                 setLogs(true)
-                // Headroom for quick same-host retries + the primary→backup failover.
+                // Dual-mode per-output retry budget. Single mode overrides this at start:
+                // RootEncoder's internal counter never resets on success, while our policy counts
+                // failures since the last successful connect — so the internal counter must not
+                // be the limiting factor there (see startWithEndpoint).
                 setReTries(12)
                 setCheckServerAlive(true)
             }
@@ -347,6 +474,11 @@ class DefaultStreamHandler(
                     val backup = ingest.backupUrl
                     if (dualPublish && backup != null) {
                         dualActive = true
+                        singlePrimaryUrl = null
+                        singleBackupUrl = null
+                        // Restore the dual-mode retry budget in case a previous single-mode
+                        // session raised it (the handler instance is reused across sessions).
+                        for (i in 0 until RTMP_OUTPUTS) client(i).setReTries(12)
                         outputs[0].apply { url = primary; endpoint = IngestEndpoint.PRIMARY; active = true }
                         outputs[1].apply { url = backup; endpoint = IngestEndpoint.BACKUP; active = true }
                         Log.d(TAG, "startStream DUAL primary=${primary.redactKey()} + backup=${backup.redactKey()}")
@@ -354,9 +486,15 @@ class DefaultStreamHandler(
                         stream.startStream(MultiType.RTMP, 1, backup)
                     } else {
                         dualActive = false
+                        singlePrimaryUrl = primary
+                        singleBackupUrl = backup
+                        usingBackup = false
+                        // Our policy (failures since the last successful connect) is the limiting
+                        // factor in single mode — RootEncoder's non-resetting internal counter
+                        // must never give up first across a long session with occasional blips.
+                        client(0).setReTries(Int.MAX_VALUE)
                         outputs[0].apply {
                             url = primary
-                            failoverUrl = backup
                             endpoint = IngestEndpoint.PRIMARY
                             active = true
                         }
@@ -372,12 +510,13 @@ class DefaultStreamHandler(
         outputs.forEach {
             it.endpoint = if (it.index == 0) IngestEndpoint.PRIMARY else IngestEndpoint.BACKUP
             it.url = null
-            it.failoverUrl = null
-            it.switched = false
             it.failures = 0
             it.active = false
             it.connected = false
         }
+        usingBackup = false
+        currentIngestConfirmedLive = false
+        consecutiveIngestMisses = 0
     }
 
     private fun stopAllOutputs() {
@@ -391,6 +530,7 @@ class DefaultStreamHandler(
 
     override fun stopStreaming() {
         stopAllOutputs()
+        stopIngestStatusPolling()
         recordingStateListener?.onStreamStopped()
 
         // End the Bunny live stream server-side (mirrors the dashboard's "End stream" button);

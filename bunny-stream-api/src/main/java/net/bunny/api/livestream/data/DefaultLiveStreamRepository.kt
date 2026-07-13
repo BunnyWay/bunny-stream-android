@@ -9,6 +9,7 @@ import net.bunny.api.livestream.domain.LiveStreamPollResult
 import net.bunny.api.livestream.domain.LiveStreamRepository
 import net.bunny.api.livestream.domain.model.LiveStream
 import net.bunny.api.livestream.domain.model.LiveStreamCreateRequest
+import net.bunny.api.livestream.domain.model.LiveStreamIngestStatus
 import net.bunny.api.livestream.domain.model.LiveStreamList
 import net.bunny.api.livestream.domain.model.LiveStreamPlayData
 import net.bunny.api.livestream.domain.model.LiveStreamThumbnail
@@ -65,14 +66,30 @@ class DefaultLiveStreamRepository(
         collectionId: String?,
     ): Either<String, LiveStreamList> = withContext(coroutineDispatcher) {
         runApi {
-            liveStreamsApi.liveStreamList(
-                libraryId = libraryId,
-                page = page,
-                itemsPerPage = itemsPerPage,
-                search = search,
-                orderBy = orderBy,
-                collectionId = collectionId,
-            ).toDomain()
+            try {
+                liveStreamsApi.liveStreamList(
+                    libraryId = libraryId,
+                    page = page,
+                    itemsPerPage = itemsPerPage,
+                    search = search,
+                    orderBy = orderBy,
+                    collectionId = collectionId,
+                ).toDomain()
+            } catch (e: ClientException) {
+                // Bunny returns 404 for a library that has no live streams yet. That's an empty
+                // list, not an error — surfacing it as "Not Found" made apps show an error state
+                // on a fresh library (the iOS demo maps this the same way).
+                if (e.statusCode == HTTP_NOT_FOUND) {
+                    LiveStreamList(
+                        totalItems = 0L,
+                        currentPage = page?.toLong() ?: 1L,
+                        itemsPerPage = itemsPerPage ?: 0,
+                        items = emptyList(),
+                    )
+                } else {
+                    throw e
+                }
+            }
         }
     }
 
@@ -380,6 +397,22 @@ class DefaultLiveStreamRepository(
             ?.let { runCatching { java.net.URI(it) }.getOrNull() },
         streamKey = streamKey?.takeIf { it.isNotBlank() },
     )
+
+    override suspend fun getLiveStreamStatus(
+        libraryId: Long,
+        streamId: String,
+    ): Either<String, LiveStreamIngestStatus> = withContext(coroutineDispatcher) {
+        runApi {
+            val model = liveStreamsApi.liveStreamGetStreamStatus(libraryId, streamId)
+            LiveStreamIngestStatus(
+                readyToStart = model.readyToStart ?: false,
+                primaryLive = model.primaryLive ?: false,
+                backupLive = model.backupLive ?: false,
+                lastPingAgoMs = model.lastPingAgo,
+                durationSeconds = model.duration,
+            )
+        }
+    }
 
     /**
      * Centralised mapper for the OpenAPI generator's exceptions. Matches the status-code-to-message

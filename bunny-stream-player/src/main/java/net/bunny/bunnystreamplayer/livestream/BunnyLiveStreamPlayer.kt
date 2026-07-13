@@ -22,6 +22,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -38,6 +40,7 @@ import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 // Use the lifecycle-package LocalLifecycleOwner — the one in compose.ui.platform was deprecated
 // and removed in newer Compose UI versions in favor of this.
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -175,15 +178,12 @@ public fun BunnyLiveStreamPlayer(
 
             is LiveStreamPlayerState.Trailer -> {
                 Log.d(TAG_UI, "render: Trailer")
-                // Trailer uses the same Bunny player chrome so the look is identical to a live
-                // / VOD playback. We can't loop through this entry point yet (the engine doesn't
-                // expose repeat mode); revisit if publishers ask for it.
-                BunnyPlayerSurface(
-                    libraryId = libraryId,
-                    streamId = "trailer-${streamId}",
-                    title = "",
+                // Pre-stream trailer plays as a muted, chrome-less loop with a floating
+                // mute toggle and a status pill — matching the web player and the iOS SDK
+                // (the previous full-chrome, sound-on, non-looping player surprised viewers).
+                TrailerLoop(
                     hlsUrl = s.hlsUrl,
-                    playData = playData,
+                    uiLanguage = playData?.uiLanguage,
                 )
             }
 
@@ -423,8 +423,8 @@ private fun formatCountdown(ms: Long): String {
  * Loops the pre-stream trailer [hlsUrl] as a silent, controlless background behind the countdown,
  * matching the web player. Uses a dedicated lightweight [ExoPlayer] (not the full
  * [BunnyStreamPlayer] chrome) so there are no playback controls competing with the timer; it's
- * muted, set to repeat, and centre-cropped to fill. The player is created/released with the
- * composition and re-created when [hlsUrl] changes.
+ * muted (unless [muted] is flipped by the caller), set to repeat, and centre-cropped to fill. The
+ * player is created/released with the composition and re-created when [hlsUrl] changes.
  *
  * The [PlayerView] is inflated from [R.layout.view_trailer_background] so it uses a **TextureView**
  * surface. RESIZE_MODE_ZOOM enlarges the surface to crop-fill the portrait trailer into the
@@ -434,7 +434,7 @@ private fun formatCountdown(ms: Long): String {
  */
 @OptIn(UnstableApi::class)
 @Composable
-private fun TrailerBackground(hlsUrl: String) {
+private fun TrailerBackground(hlsUrl: String, muted: Boolean = true) {
     val context = LocalContext.current
     val exoPlayer = remember(hlsUrl) {
         // Send the CDN Referer so the trailer keeps loading when the library has "Block direct url
@@ -452,6 +452,9 @@ private fun TrailerBackground(hlsUrl: String) {
                 playWhenReady = true
                 prepare()
             }
+    }
+    LaunchedEffect(exoPlayer, muted) {
+        exoPlayer.volume = if (muted) 0f else 1f
     }
     DisposableEffect(hlsUrl) {
         onDispose { exoPlayer.release() }
@@ -471,6 +474,47 @@ private fun TrailerBackground(hlsUrl: String) {
             }
         },
     )
+}
+
+/**
+ * The pre-stream trailer experience for the [LiveStreamPlayerState.Trailer] state: a muted,
+ * chrome-less loop with a floating mute toggle (bottom-right) and a status pill explaining the
+ * stream hasn't started (bottom-center) — mirroring the web player and the iOS SDK's
+ * `LoopingTrailerView`. The countdown state renders its own trailer background instead.
+ */
+@Composable
+private fun TrailerLoop(hlsUrl: String, uiLanguage: String?) {
+    val mutedState = remember { mutableStateOf(true) }
+    Box(modifier = Modifier.fillMaxSize()) {
+        TrailerBackground(hlsUrl = hlsUrl, muted = mutedState.value)
+
+        Text(
+            text = localizedString(R.string.live_status_not_active, uiLanguage),
+            color = Color.White,
+            fontSize = 14.sp,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 40.dp)
+                .background(Color.Black.copy(alpha = 0.55f), RoundedCornerShape(50))
+                .padding(horizontal = 14.dp, vertical = 8.dp),
+        )
+
+        IconButton(
+            onClick = { mutedState.value = !mutedState.value },
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(16.dp)
+                .background(Color.Black.copy(alpha = 0.45f), CircleShape),
+        ) {
+            Icon(
+                painter = painterResource(
+                    if (mutedState.value) R.drawable.ic_volume_off_24dp else R.drawable.ic_volume_on_24dp,
+                ),
+                contentDescription = if (mutedState.value) "Unmute trailer" else "Mute trailer",
+                tint = Color.White,
+            )
+        }
+    }
 }
 
 // endregion

@@ -527,6 +527,11 @@ class BunnyLiveStreamPlayerViewModelTest {
         override suspend fun deleteLiveStreamThumbnail(
             libraryId: Long, streamId: String, restoreLibraryDefault: Boolean,
         ): Either<String, Unit> = error("not implemented for test")
+
+        override suspend fun getLiveStreamStatus(
+            libraryId: Long, streamId: String,
+        ): Either<String, net.bunny.api.livestream.domain.model.LiveStreamIngestStatus> =
+            error("not implemented for test")
     }
 
     // endregion
