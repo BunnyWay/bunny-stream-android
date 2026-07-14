@@ -41,6 +41,7 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 // Use the lifecycle-package LocalLifecycleOwner — the one in compose.ui.platform was deprecated
 // and removed in newer Compose UI versions in favor of this.
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -389,7 +390,10 @@ private fun CountdownOverlay(
             )
             Text(
                 text = if (remainingMs > 0) {
-                    formatCountdown(remainingMs)
+                    formatCountdown(
+                        remainingMs,
+                        localizedString(R.string.live_countdown_with_days, uiLanguage),
+                    )
                 } else {
                     localizedString(R.string.live_label_starting_soon, uiLanguage)
                 },
@@ -406,14 +410,14 @@ private fun CountdownOverlay(
  * Formats remaining time the way the web player does: `D days HH:MM:SS` once there's a day or more
  * left (the word "days" stays plural to match the web copy verbatim), otherwise `HH:MM:SS`.
  */
-private fun formatCountdown(ms: Long): String {
+private fun formatCountdown(ms: Long, withDaysPattern: String): String {
     val totalSeconds = TimeUnit.MILLISECONDS.toSeconds(ms)
     val days = totalSeconds / (24 * 3600)
     val hours = (totalSeconds % (24 * 3600)) / 3600
     val minutes = (totalSeconds % 3600) / 60
     val seconds = totalSeconds % 60
     return if (days > 0) {
-        "%d days %02d:%02d:%02d".format(days, hours, minutes, seconds)
+        withDaysPattern.format(days, hours, minutes, seconds)
     } else {
         "%02d:%02d:%02d".format(hours, minutes, seconds)
     }
@@ -510,7 +514,10 @@ private fun TrailerLoop(hlsUrl: String, uiLanguage: String?) {
                 painter = painterResource(
                     if (mutedState.value) R.drawable.ic_volume_off_24dp else R.drawable.ic_volume_on_24dp,
                 ),
-                contentDescription = if (mutedState.value) "Unmute trailer" else "Mute trailer",
+                contentDescription = stringResource(
+                    if (mutedState.value) R.string.live_cd_trailer_unmute
+                    else R.string.live_cd_trailer_mute,
+                ),
                 tint = Color.White,
             )
         }
@@ -660,11 +667,12 @@ private fun LiveBadge(
         ?.takeIf { it.alpha > 0f }
         ?: Color(0xFFE53935)
 
+    val liveBadgeDescription = stringResource(R.string.live_cd_badge)
     Row(
         modifier = modifier
             .background(Color.Black.copy(alpha = 0.55f), RoundedCornerShape(4.dp))
             .padding(horizontal = 8.dp, vertical = 4.dp)
-            .semantics { contentDescription = "Live broadcast" },
+            .semantics { contentDescription = liveBadgeDescription },
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
@@ -674,7 +682,7 @@ private fun LiveBadge(
                 .background(dotColor.copy(alpha = dotAlpha), CircleShape),
         )
         Text(
-            text = "LIVE",
+            text = stringResource(R.string.label_live_badge),
             color = Color.White,
             fontWeight = FontWeight.SemiBold,
             style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 1.sp),
@@ -693,7 +701,10 @@ private fun TerminalErrorPanel(message: String) {
             modifier = Modifier.padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text("Couldn't load live stream", style = MaterialTheme.typography.titleMedium)
+            Text(
+                stringResource(R.string.live_error_load_failed),
+                style = MaterialTheme.typography.titleMedium,
+            )
             Text(message, style = MaterialTheme.typography.bodyMedium)
         }
     }

@@ -15,4 +15,9 @@
     <string name="live_status_not_active">Live stream not active</string>
     <string name="live_status_ended">Live stream ended</string>
     <string name="live_status_error">Live stream error</string>
+    <string name="live_error_load_failed">Couldn\'t load live stream</string>
+    <string name="live_cd_trailer_unmute">Unmute trailer</string>
+    <string name="live_cd_trailer_mute">Mute trailer</string>
+    <string name="live_cd_badge">Live broadcast</string>
+    <string name="live_countdown_with_days">%1$d days %2$02d:%3$02d:%4$02d</string>
 </resources>
