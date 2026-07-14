@@ -33,11 +33,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.annotation.StringRes
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
+import net.bunny.android.demo.R
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavGraphBuilder
@@ -48,8 +51,8 @@ import net.bunny.android.demo.ui.AppState
 import net.bunny.android.demo.ui.theme.BunnyStreamTheme
 
 data class TVMenuItem(
-    val title: String,
-    val description: String,
+    @StringRes val titleRes: Int,
+    @StringRes val descriptionRes: Int,
     val icon: ImageVector,
     val onClick: () -> Unit
 )
@@ -102,38 +105,38 @@ fun TVHomeScreenRoute(
     val menuItems = remember {
         listOf(
             TVMenuItem(
-                title = "Video Library",
-                description = "Browse and play your videos",
+                titleRes = R.string.tv_option_video_library,
+                descriptionRes = R.string.tv_option_video_library_desc,
                 icon = Icons.Default.Menu // Corresponds to user's "VideoLibrary"
             ) { navigateToVideoList() },
             TVMenuItem(
-                title = "Upload Video",
-                description = "Upload new videos to your library",
+                titleRes = R.string.tv_option_upload,
+                descriptionRes = R.string.tv_option_upload_desc,
                 icon = Icons.Default.KeyboardArrowUp // Corresponds to user's "CloudUpload"
             ) { navigateToUpload() },
             TVMenuItem(
-                title = "Live Recording",
-                description = "Record and stream live content",
+                titleRes = R.string.tv_option_live_recording,
+                descriptionRes = R.string.tv_option_live_recording_desc,
                 icon = Icons.Default.Info // Corresponds to user's "Videocam"
             ) { navigateToStreaming() },
             TVMenuItem(
-                title = "Direct Play",
-                description = "Play a video by entering its ID",
+                titleRes = R.string.tv_option_direct_play,
+                descriptionRes = R.string.tv_option_direct_play_desc,
                 icon = Icons.Default.PlayArrow
             ) { showDirectPlayDialog = true },
             TVMenuItem(
-                title = "Resume Settings",
-                description = "Configure video resume options",
+                titleRes = R.string.tv_option_resume_settings,
+                descriptionRes = R.string.tv_option_resume_settings_desc,
                 icon = Icons.Default.Settings
             ) { navigateToResumeSettings() },
             TVMenuItem(
-                title = "Manage Positions",
-                description = "View and manage saved positions",
+                titleRes = R.string.tv_option_manage_positions,
+                descriptionRes = R.string.tv_option_manage_positions_desc,
                 icon = Icons.Default.Edit // Corresponds to user's "Bookmarks"
             ) { navigateToResumeManagement() },
             TVMenuItem(
-                title = "Configuration",
-                description = "Configure Bunny Stream settings",
+                titleRes = R.string.tv_option_configuration,
+                descriptionRes = R.string.tv_option_configuration_desc,
                 icon = Icons.Default.Build
             ) { navigateToSettings() }
         )
@@ -392,7 +395,7 @@ private fun TVMenuItemCard(item: TVMenuItem) {
 
             // Enhanced title with font weight animation
             Text(
-                text = item.title,
+                text = stringResource(item.titleRes),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = if (isPressed) FontWeight.ExtraBold else FontWeight.Bold,
                 color = titleColor,
@@ -403,7 +406,7 @@ private fun TVMenuItemCard(item: TVMenuItem) {
 
             // Enhanced description
             Text(
-                text = item.description,
+                text = stringResource(item.descriptionRes),
                 style = MaterialTheme.typography.bodySmall,
                 color = descriptionColor,
                 textAlign = TextAlign.Center,
@@ -425,7 +428,7 @@ private fun TVDirectPlayDialog(
         onDismissRequest = onDismiss,
         title = {
             Text(
-                text = "Direct Play",
+                text = stringResource(R.string.tv_direct_play_title),
                 style = MaterialTheme.typography.titleLarge,
                 color = MaterialTheme.colorScheme.onSurface
             )
@@ -433,7 +436,7 @@ private fun TVDirectPlayDialog(
         text = {
             Column {
                 Text(
-                    text = "Enter video details to play directly",
+                    text = stringResource(R.string.tv_direct_play_message),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(bottom = 16.dp)
@@ -442,7 +445,7 @@ private fun TVDirectPlayDialog(
                 OutlinedTextField(
                     value = videoId,
                     onValueChange = { videoId = it },
-                    label = { Text("Video ID") },
+                    label = { Text(stringResource(R.string.placeholder_video_id)) },
                     modifier = Modifier.fillMaxWidth()
                 )
 
@@ -451,7 +454,7 @@ private fun TVDirectPlayDialog(
                 OutlinedTextField(
                     value = libraryId,
                     onValueChange = { libraryId = it },
-                    label = { Text("Library ID") },
+                    label = { Text(stringResource(R.string.label_library_id)) },
                     modifier = Modifier.fillMaxWidth()
                 )
             }
@@ -461,12 +464,12 @@ private fun TVDirectPlayDialog(
                 onClick = { onPlay(videoId, libraryId) },
                 enabled = videoId.isNotEmpty() && libraryId.isNotEmpty()
             ) {
-                Text("Play")
+                Text(stringResource(R.string.button_play))
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancel")
+                Text(stringResource(R.string.button_cancel))
             }
         }
     )
@@ -480,9 +483,21 @@ fun TVHomeScreenPreview() {
             modifier = Modifier.fillMaxSize(),
             showDirectPlayDialog = false,
             menuItems = listOf(
-                TVMenuItem("Video Library", "Browse videos", Icons.Default.PlayArrow) {},
-                TVMenuItem("Upload", "Upload new videos", Icons.Default.KeyboardArrowUp) {},
-                TVMenuItem("Settings", "Configure app", Icons.Default.Settings) {}
+                TVMenuItem(
+                    R.string.tv_option_video_library,
+                    R.string.tv_option_video_library_desc,
+                    Icons.Default.PlayArrow
+                ) {},
+                TVMenuItem(
+                    R.string.tv_option_upload,
+                    R.string.tv_option_upload_desc,
+                    Icons.Default.KeyboardArrowUp
+                ) {},
+                TVMenuItem(
+                    R.string.tv_option_configuration,
+                    R.string.tv_option_configuration_desc,
+                    Icons.Default.Settings
+                ) {}
             ),
             onDirectPlayDismiss = {},
             onDirectPlay = { _, _ -> }

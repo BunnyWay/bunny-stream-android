@@ -36,6 +36,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
@@ -49,6 +50,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import net.bunny.android.demo.App
+import net.bunny.android.demo.R
 import net.bunny.android.demo.ui.AppState
 import net.bunny.api.BunnyStreamApi
 
@@ -91,13 +93,13 @@ private fun TrailerPickerScreen(
                         containerColor = MaterialTheme.colorScheme.primary,
                         titleContentColor = MaterialTheme.colorScheme.onPrimary,
                     ),
-                    title = { Text("Choose trailer") },
+                    title = { Text(stringResource(R.string.live_screen_choose_trailer)) },
                     navigationIcon = {
                         IconButton(onClick = onBack) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                                 tint = MaterialTheme.colorScheme.onPrimary,
-                                contentDescription = "Back",
+                                contentDescription = stringResource(R.string.cd_back),
                             )
                         }
                     },
@@ -124,19 +126,19 @@ private fun TrailerPickerScreen(
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
                         Text(
-                            text = "Couldn't load videos: ${state.message}",
+                            text = stringResource(R.string.live_error_load_videos, state.message),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.error,
                         )
                         Spacer(modifier = Modifier.height(12.dp))
-                        Button(onClick = onRetry) { Text("Retry") }
+                        Button(onClick = onRetry) { Text(stringResource(R.string.button_retry)) }
                     }
                 }
 
                 is TrailerPickerViewModel.State.Loaded -> {
                     if (state.videos.isEmpty()) {
                         Text(
-                            text = "No videos in this library yet",
+                            text = stringResource(R.string.live_label_no_library_videos),
                             modifier = Modifier
                                 .align(Alignment.Center)
                                 .padding(24.dp),

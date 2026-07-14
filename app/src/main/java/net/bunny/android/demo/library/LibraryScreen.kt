@@ -67,8 +67,11 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import kotlinx.coroutines.delay
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import coil3.request.crossfade
@@ -168,7 +171,7 @@ fun LibraryRoute(
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         androidx.compose.material3.CircularProgressIndicator()
                         Text(
-                            text = "Loading videos...",
+                            text = stringResource(R.string.label_loading_videos),
                             style = MaterialTheme.typography.titleMedium,
                             modifier = Modifier.padding(top = 16.dp)
                         )
@@ -211,6 +214,19 @@ fun LibraryRoute(
     }
 
     LaunchedEffect(key1 = "loadLibrary", block = { viewModel.loadLibrary() })
+
+    // Status poll tick, gated on the screen actually being visible: pauses when the
+    // screen is covered/backgrounded, and the ViewModel skips the refresh entirely
+    // once no video is in a transitional state.
+    val lifecycleOwner = LocalLifecycleOwner.current
+    LaunchedEffect(lifecycleOwner) {
+        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            while (true) {
+                delay(LibraryViewModel.STATUS_POLL_INTERVAL_MS)
+                viewModel.onStatusPollTick()
+            }
+        }
+    }
 }
 
 // Keep the original LibraryScreen for mobile use
@@ -244,7 +260,10 @@ private fun LibraryScreen(
                         titleContentColor = MaterialTheme.colorScheme.onPrimary,
                     ),
                     title = {
-                        Text(if (showUpload) "Video upload" else "Video library")
+                        Text(
+                            if (showUpload) stringResource(R.string.screen_video_upload)
+                            else stringResource(R.string.screen_video_library)
+                        )
                     },
                     navigationIcon = {
                         IconButton(
@@ -470,7 +489,7 @@ private fun VideoItem(
                         .align(Alignment.TopStart)
                         .padding(horizontal = 8.dp, vertical = 12.dp)
                 ) {
-                    Pill("${video.viewCount} views")
+                    Pill(stringResource(R.string.label_views_pill, video.viewCount))
                     Pill(video.status.name)
                 }
 
@@ -481,7 +500,7 @@ private fun VideoItem(
                     IconButton(
                         onClick = { menuExpanded = true }
                     ) {
-                        Icon(Icons.Default.MoreVert, contentDescription = "More")
+                        Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.cd_more))
                     }
                     DropdownMenu(
                         expanded = menuExpanded,
@@ -490,7 +509,7 @@ private fun VideoItem(
                             .wrapContentSize()
                     ) {
                         DropdownMenuItem(
-                            text = { Text("Delete") },
+                            text = { Text(stringResource(R.string.menu_delete)) },
                             onClick = {
                                 menuExpanded = false
                                 onDeleteVideoClicked()
@@ -524,7 +543,10 @@ private fun VideoItem(
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            text = String.format(Locale.US, "%.2f MB", video.size),
+                            text = stringResource(
+                                R.string.value_size_mb,
+                                String.format(Locale.US, "%.2f", video.size)
+                            ),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurface
                         )
@@ -632,7 +654,7 @@ private fun VideoUploadControls(
                         modifier = modifier
                             .weight(1F)
                             .align(CenterVertically),
-                        text = "Error: ${uploadingUiState.message}",
+                        text = stringResource(R.string.label_upload_error, uploadingUiState.message),
                         color = MaterialTheme.colorScheme.error
                     )
                     IconButton(onClick = onDismissUploadErrorClicked) {
@@ -653,7 +675,7 @@ private fun VideoUploadControls(
                     ) {
                         Text(
                             modifier = modifier,
-                            text = "Progress: ${uploadingUiState.progress}%",
+                            text = stringResource(R.string.label_upload_progress, uploadingUiState.progress),
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         LinearProgressIndicator(
@@ -675,7 +697,7 @@ private fun VideoUploadControls(
                             Icon(
                                 painter = painterResource(id = icon),
                                 tint = MaterialTheme.colorScheme.onSurface,
-                                contentDescription = "Pause upload"
+                                contentDescription = stringResource(R.string.cd_pause_upload)
                             )
                         }
                     }
@@ -687,7 +709,7 @@ private fun VideoUploadControls(
                         Icon(
                             painter = painterResource(id = R.drawable.stop_circle_icon),
                             tint = MaterialTheme.colorScheme.onSurface,
-                            contentDescription = "Cancel upload",
+                            contentDescription = stringResource(R.string.cd_cancel_upload),
                         )
                     }
                 }
@@ -696,7 +718,7 @@ private fun VideoUploadControls(
             VideoUploadUiState.Preparing -> {
                 Text(
                     modifier = modifier,
-                    text = "Preparing upload...",
+                    text = stringResource(R.string.label_preparing_upload),
                     color = MaterialTheme.colorScheme.onSurface
                 )
             }

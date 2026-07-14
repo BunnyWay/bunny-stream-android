@@ -33,8 +33,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import net.bunny.android.demo.R
 import net.bunny.android.demo.ui.AppState
 import net.bunny.android.demo.ui.theme.BunnyStreamTheme
 
@@ -91,7 +93,7 @@ private fun ResumePositionSettingsScreen(
                         titleContentColor = MaterialTheme.colorScheme.onPrimary,
                     ),
                     title = {
-                        Text("Resume Position Settings")
+                        Text(stringResource(R.string.resume_position_settings))
                     },
                     navigationIcon = {
                         IconButton(onClick = onBackClicked) {
@@ -167,8 +169,8 @@ private fun ResumePositionSettingsScreen(
                             modifier = Modifier.fillMaxWidth(),
                             value = retentionDays,
                             onValueChange = onRetentionDaysChanged,
-                            label = { Text("Retention Days") },
-                            supportingText = { Text("How many days to keep resume positions") },
+                            label = { Text(stringResource(R.string.retention_days)) },
+                            supportingText = { Text(stringResource(R.string.retention_days_description)) },
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         )
@@ -179,8 +181,8 @@ private fun ResumePositionSettingsScreen(
                             modifier = Modifier.fillMaxWidth(),
                             value = minimumWatchTime,
                             onValueChange = onMinimumWatchTimeChanged,
-                            label = { Text("Minimum Watch Time (seconds)") },
-                            supportingText = { Text("Minimum time to watch before saving position") },
+                            label = { Text(stringResource(R.string.minimum_watch_time)) },
+                            supportingText = { Text(stringResource(R.string.minimum_watch_time_description)) },
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         )
@@ -191,8 +193,8 @@ private fun ResumePositionSettingsScreen(
                             modifier = Modifier.fillMaxWidth(),
                             value = resumeThreshold,
                             onValueChange = onResumeThresholdChanged,
-                            label = { Text("Resume Threshold (%)") },
-                            supportingText = { Text("Don't resume if less than this percentage watched") },
+                            label = { Text(stringResource(R.string.resume_threshold)) },
+                            supportingText = { Text(stringResource(R.string.resume_threshold_description)) },
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         )
@@ -203,8 +205,8 @@ private fun ResumePositionSettingsScreen(
                             modifier = Modifier.fillMaxWidth(),
                             value = nearEndThreshold,
                             onValueChange = onNearEndThresholdChanged,
-                            label = { Text("Near End Threshold (%)") },
-                            supportingText = { Text("Don't resume if more than this percentage watched") },
+                            label = { Text(stringResource(R.string.near_end_threshold)) },
+                            supportingText = { Text(stringResource(R.string.near_end_threshold_description)) },
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         )

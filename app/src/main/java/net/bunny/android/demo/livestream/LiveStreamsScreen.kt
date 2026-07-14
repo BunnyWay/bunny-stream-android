@@ -46,6 +46,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -53,6 +54,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.google.accompanist.swiperefresh.SwipeRefresh
 import com.google.accompanist.swiperefresh.rememberSwipeRefreshState
 import net.bunny.api.model.LiveStreamStatus
+import net.bunny.android.demo.R
 import net.bunny.android.demo.library.model.Error
 import net.bunny.android.demo.recording.GoLiveActivity
 import net.bunny.android.demo.livestream.model.LiveStreamListUiState
@@ -136,7 +138,7 @@ private fun LiveStreamsScreen(
                         containerColor = MaterialTheme.colorScheme.primary,
                         titleContentColor = MaterialTheme.colorScheme.onPrimary,
                     ),
-                    title = { Text("Live streams") },
+                    title = { Text(stringResource(R.string.live_screen_title)) },
                     navigationIcon = {
                         IconButton(onClick = onBack) {
                             Icon(
@@ -151,7 +153,7 @@ private fun LiveStreamsScreen(
         },
         floatingActionButton = {
             FloatingActionButton(onClick = onCreateClicked) {
-                Icon(Icons.Filled.Add, contentDescription = "Create live stream")
+                Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.live_button_create_stream))
             }
         },
     ) { innerPadding ->
@@ -170,7 +172,7 @@ private fun LiveStreamsScreen(
                 when (uiState) {
                     LiveStreamListUiState.Empty -> {
                         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            Text("No live streams")
+                            Text(stringResource(R.string.live_label_no_streams))
                         }
                     }
 
@@ -245,14 +247,14 @@ private fun LiveStreamItem(
                 Spacer(modifier = Modifier.height(4.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Pill(stream.status)
-                    if (stream.isPublic) Pill("Public")
-                    if (stream.dvrEnabled) Pill("DVR")
-                    if (stream.recordVod) Pill("VOD")
+                    if (stream.isPublic) Pill(stringResource(R.string.live_label_public))
+                    if (stream.dvrEnabled) Pill(stringResource(R.string.live_label_dvr))
+                    if (stream.recordVod) Pill(stringResource(R.string.live_pill_vod))
                 }
                 stream.scheduledStartTime?.takeIf { it.isNotBlank() }?.let {
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "Scheduled: $it",
+                        text = stringResource(R.string.live_label_scheduled, it),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -265,7 +267,7 @@ private fun LiveStreamItem(
             ) {
                 Icon(
                     imageVector = Icons.Default.PlayArrow,
-                    contentDescription = "Watch",
+                    contentDescription = stringResource(R.string.live_menu_watch),
                     tint = if (canWatch) MaterialTheme.colorScheme.primary
                     else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
                 )
@@ -273,14 +275,14 @@ private fun LiveStreamItem(
 
             Box {
                 IconButton(onClick = { menuExpanded = true }) {
-                    Icon(Icons.Default.MoreVert, contentDescription = "More")
+                    Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.cd_more))
                 }
                 DropdownMenu(
                     expanded = menuExpanded,
                     onDismissRequest = { menuExpanded = false },
                 ) {
                     DropdownMenuItem(
-                        text = { Text("Watch") },
+                        text = { Text(stringResource(R.string.live_menu_watch)) },
                         enabled = canWatch,
                         onClick = {
                             menuExpanded = false
@@ -288,7 +290,7 @@ private fun LiveStreamItem(
                         },
                     )
                     DropdownMenuItem(
-                        text = { Text("Go live") },
+                        text = { Text(stringResource(R.string.live_menu_go_live)) },
                         enabled = canGoLive,
                         onClick = {
                             menuExpanded = false
@@ -296,14 +298,14 @@ private fun LiveStreamItem(
                         },
                     )
                     DropdownMenuItem(
-                        text = { Text("Edit") },
+                        text = { Text(stringResource(R.string.menu_edit)) },
                         onClick = {
                             menuExpanded = false
                             onEdit()
                         },
                     )
                     DropdownMenuItem(
-                        text = { Text("Delete") },
+                        text = { Text(stringResource(R.string.menu_delete)) },
                         onClick = {
                             menuExpanded = false
                             onDelete()
@@ -338,14 +340,14 @@ private fun DeleteStreamDialog(
 ) {
     AlertDialog(
         icon = { Icon(Icons.Filled.Warning, contentDescription = null) },
-        title = { Text("Delete live stream?") },
+        title = { Text(stringResource(R.string.live_dialog_delete_title)) },
         text = { Text(stream.title) },
         onDismissRequest = onDismiss,
         confirmButton = {
-            TextButton(onClick = onConfirm) { Text("Delete") }
+            TextButton(onClick = onConfirm) { Text(stringResource(R.string.dialog_button_delete)) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.button_cancel)) }
         },
     )
 }
@@ -354,11 +356,11 @@ private fun DeleteStreamDialog(
 private fun ErrorDialog(error: Error, onDismiss: () -> Unit) {
     AlertDialog(
         icon = { Icon(Icons.Filled.Warning, contentDescription = null) },
-        title = { Text("Error") },
+        title = { Text(stringResource(R.string.dialog_title_error)) },
         text = { Text(error.message) },
         onDismissRequest = onDismiss,
         confirmButton = {
-            TextButton(onClick = onDismiss) { Text("OK") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_button_ok)) }
         },
     )
 }

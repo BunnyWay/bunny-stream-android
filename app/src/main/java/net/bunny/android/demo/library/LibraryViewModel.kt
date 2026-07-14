@@ -9,11 +9,14 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import net.bunny.android.demo.App
 import net.bunny.android.demo.library.model.Error
 import net.bunny.android.demo.library.model.Video
@@ -33,6 +36,11 @@ class LibraryViewModel : ViewModel() {
 
     companion object {
         private const val TAG = "LibraryViewModel"
+
+        // Poll interval for refreshing the list while any video is still being
+        // ingested/encoded, so status pills update without leaving the screen.
+        // The tick itself is driven by the screen (lifecycle-gated) — see LibraryRoute.
+        const val STATUS_POLL_INTERVAL_MS = 5_000L
     }
 
     private val scope = CoroutineScope(Dispatchers.IO)
@@ -51,6 +59,8 @@ class LibraryViewModel : ViewModel() {
     val errorState = mutableErrorState.asSharedFlow()
 
     private var uploadInProgressId: String? = null
+
+    private var enrichJob: Job? = null
 
     private val uploadListener = object : UploadListener {
         override fun onUploadError(error: UploadError, videoId: String?) {
@@ -102,7 +112,37 @@ class LibraryViewModel : ViewModel() {
         }
 
         mutableUiState.value = VideoListUiState.VideoListUiLoading
+        fetchLibrary(silent = false)
+    }
 
+    /**
+     * Called by the screen every [STATUS_POLL_INTERVAL_MS] while it is at least STARTED.
+     * Refreshes silently only when some video is still being ingested/encoded, so the
+     * poll stops costing anything the moment everything settles.
+     */
+    fun onStatusPollTick() {
+        val videos = (mutableUiState.value as? VideoListUiState.VideoListUiLoaded)?.videos
+            ?: return
+        if (videos.any { it.status in VideoStatus.TRANSITIONAL }) {
+            refreshLibrarySilently()
+        }
+    }
+
+    /**
+     * Re-fetches the list without flipping the UI into the loading state, so the visible
+     * list doesn't blink while we poll for processing/transcoding progress.
+     */
+    private fun refreshLibrarySilently() {
+        Log.d(TAG, "refreshLibrarySilently")
+
+        if (libraryId == -1L || !BunnyStreamApi.isInitialized()) {
+            return
+        }
+
+        fetchLibrary(silent = true)
+    }
+
+    private fun fetchLibrary(silent: Boolean) {
         scope.launch {
             try {
                 val response = App.di.streamSdk.videosApi.videoList(
@@ -114,34 +154,77 @@ class LibraryViewModel : ViewModel() {
                     orderBy = null
                 )
                 val loadedVideos = response.items?.map { it.toVideo() } ?: listOf()
-                notifyVideosUpdated(loadedVideos)
-                enrichVideo(loadedVideos)
+                if (silent && mutableUiState.value == VideoListUiState.VideoListUiLoading) {
+                    // A full (user-triggered) reload is in flight — let its result win
+                    // instead of clobbering the loading state with a possibly older list.
+                    return@launch
+                }
+                // Keep thumbnails already resolved — a refresh only needs fresh
+                // status/views/size, not another settings sweep.
+                val previousThumbnails =
+                    (mutableUiState.value as? VideoListUiState.VideoListUiLoaded)
+                        ?.videos?.associate { it.id to it.thumbnailUrl }
+                        ?: emptyMap()
+                val merged = loadedVideos.map { video ->
+                    val known = previousThumbnails[video.id]
+                    if (known != null) video.copy(thumbnailUrl = known) else video
+                }
+                notifyVideosUpdated(merged)
+                enrichMissingThumbnails(merged)
             } catch (e: Exception) {
-                Log.w(TAG, "Failed to fetch videos")
-                e.printStackTrace()
-                mutableErrorState.emit(Error(e.message ?: e.toString()))
+                if (silent) {
+                    // Transient poll failure — keep the current list; the screen's
+                    // lifecycle-gated tick will try again while the screen is visible.
+                    Log.w(TAG, "Silent refresh failed: $e")
+                } else {
+                    Log.w(TAG, "Failed to fetch videos")
+                    e.printStackTrace()
+                    mutableErrorState.emit(Error(e.message ?: e.toString()))
+                }
             }
         }
     }
 
-    private fun enrichVideo(videos: List<Video>) {
-        Log.d(TAG, "enrichVideo videos=$videos")
+    /**
+     * Resolves thumbnails only for videos that don't have one yet, then merges the
+     * results into the *current* list by id. Merging (instead of replacing the whole
+     * list with the snapshot this sweep started from) keeps a slow sweep from rolling
+     * back statuses that a newer refresh already advanced.
+     */
+    private fun enrichMissingThumbnails(videos: List<Video>) {
+        val missing = videos.filter { it.thumbnailUrl == null }
+        if (missing.isEmpty()) {
+            return
+        }
+        Log.d(TAG, "enrichMissingThumbnails count=${missing.size}")
 
-        scope.launch {
-            val enrichedList = videos.map { video ->
-                BunnyStreamApi.getInstance()
-                    .fetchPlayerSettings(libraryId, video.id)
-                    .fold(
-                        ifLeft = {
-                            Log.w(TAG, "Failed to fetch details for ${video.id}")
-                            video
-                        },
-                        ifRight = {
-                            video.copy(thumbnailUrl = it.thumbnailUrl)
-                        }
-                    )
+        enrichJob?.cancel()
+        enrichJob = viewModelScope.launch {
+            val resolved = withContext(Dispatchers.IO) {
+                missing.mapNotNull { video ->
+                    BunnyStreamApi.getInstance()
+                        .fetchPlayerSettings(libraryId, video.id)
+                        .fold(
+                            ifLeft = {
+                                Log.w(TAG, "Failed to fetch details for ${video.id}")
+                                null
+                            },
+                            ifRight = { video.id to it.thumbnailUrl }
+                        )
+                }.toMap()
             }
-            notifyVideosUpdated(enrichedList)
+            if (resolved.isEmpty()) return@launch
+
+            val current = (mutableUiState.value as? VideoListUiState.VideoListUiLoaded)
+                ?.videos ?: return@launch
+            val merged = current.map { video ->
+                if (video.thumbnailUrl == null) {
+                    resolved[video.id]?.let { video.copy(thumbnailUrl = it) } ?: video
+                } else {
+                    video
+                }
+            }
+            mutableUiState.value = VideoListUiState.VideoListUiLoaded(merged)
         }
     }
 
@@ -227,6 +310,12 @@ class LibraryViewModel : ViewModel() {
         } else {
             mutableUiState.value = VideoListUiState.VideoListUiLoaded(loadedVideos)
         }
+    }
+
+    override fun onCleared() {
+        Log.d(TAG, "onCleared $this")
+        scope.cancel()
+        super.onCleared()
     }
 
     private fun VideoModel.toVideo(): Video {

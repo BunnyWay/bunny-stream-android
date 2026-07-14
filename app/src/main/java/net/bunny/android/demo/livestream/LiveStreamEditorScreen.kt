@@ -3,6 +3,7 @@ package net.bunny.android.demo.livestream
 import android.net.Uri
 import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.annotation.StringRes
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -76,6 +77,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -88,6 +90,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import net.bunny.android.demo.player.BunnyPlayerComposable
 import net.bunny.android.demo.App
+import net.bunny.android.demo.R
 import net.bunny.android.demo.recording.GoLiveActivity
 import net.bunny.android.demo.ui.AppState
 import net.bunny.api.BunnyStreamApi
@@ -226,13 +229,13 @@ private fun LiveStreamSummaryScreen(
                         containerColor = MaterialTheme.colorScheme.primary,
                         titleContentColor = MaterialTheme.colorScheme.onPrimary,
                     ),
-                    title = { Text("Live stream created") },
+                    title = { Text(stringResource(R.string.live_screen_created_title)) },
                     navigationIcon = {
                         IconButton(onClick = onDone) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                                 tint = MaterialTheme.colorScheme.onPrimary,
-                                contentDescription = "Done",
+                                contentDescription = stringResource(R.string.button_done),
                             )
                         }
                     },
@@ -259,12 +262,12 @@ private fun LiveStreamSummaryScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            SectionCard(title = "Live stream links") {
-                CopyableRow("RTMP publish URL (ingest + key)", publishUrl)
-                CopyableRow("Live HLS Playlist URL", stream.playbackUrlHls)
-                CopyableRow("Video ID", stream.id)
-                CopyableRow("Pre-stream trailer video ID", stream.preStreamTrailerVideoId)
-                CopyableRow("Thumbnail file", stream.thumbnailFileName)
+            SectionCard(title = stringResource(R.string.live_section_links)) {
+                CopyableRow(stringResource(R.string.live_label_rtmp_publish_url), publishUrl)
+                CopyableRow(stringResource(R.string.live_label_hls_playlist_url), stream.playbackUrlHls)
+                CopyableRow(stringResource(R.string.live_label_video_id), stream.id)
+                CopyableRow(stringResource(R.string.live_label_trailer_video_id), stream.preStreamTrailerVideoId)
+                CopyableRow(stringResource(R.string.live_label_thumbnail_file), stream.thumbnailFileName)
             }
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -275,16 +278,16 @@ private fun LiveStreamSummaryScreen(
             // again is no longer possible, so hide the button instead of letting it fail.
             if (canGoLive(stream.status)) {
                 Button(onClick = onGoLive, modifier = Modifier.fillMaxWidth()) {
-                    Text("Go live now")
+                    Text(stringResource(R.string.live_button_go_live_now))
                 }
                 Spacer(modifier = Modifier.height(8.dp))
             }
             OutlinedButton(onClick = onWatch, modifier = Modifier.fillMaxWidth()) {
-                Text("Watch live stream")
+                Text(stringResource(R.string.live_button_watch_stream))
             }
             Spacer(modifier = Modifier.height(8.dp))
             TextButton(onClick = onDone, modifier = Modifier.fillMaxWidth()) {
-                Text("Done")
+                Text(stringResource(R.string.button_done))
             }
             Spacer(modifier = Modifier.height(24.dp))
         }
@@ -299,18 +302,26 @@ private fun LiveStreamSummaryScreen(
 private fun RtmpStreamDetailsCard(stream: LiveStream) {
     val fallback = net.bunny.api.BuildConfig.LIVE_RTMP_ENDPOINT
 
-    SectionCard(title = "RTMP stream details") {
-        CopyableRow("Stream key", stream.streamKey)
-        CopyableRow("Ingest URL", stream.primaryIngestUrl ?: fallback, badge = "Primary")
-        CopyableRow("Ingest URL", stream.backupIngestUrl ?: fallback, badge = "Backup")
+    SectionCard(title = stringResource(R.string.live_section_rtmp_details)) {
+        CopyableRow(stringResource(R.string.live_label_stream_key), stream.streamKey)
+        CopyableRow(
+            stringResource(R.string.live_label_ingest_url),
+            stream.primaryIngestUrl ?: fallback,
+            badge = stringResource(R.string.live_badge_primary),
+        )
+        CopyableRow(
+            stringResource(R.string.live_label_ingest_url),
+            stream.backupIngestUrl ?: fallback,
+            badge = stringResource(R.string.live_badge_backup),
+        )
         Spacer(modifier = Modifier.height(8.dp))
         Text(
-            text = "Status",
+            text = stringResource(R.string.label_status),
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Text(
-            text = statusLabel(stream.status),
+            text = stringResource(statusLabelRes(stream.status)),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurface,
         )
@@ -335,14 +346,15 @@ private fun canGoLive(status: LiveStreamStatus): Boolean = when (status) {
     LiveStreamStatus.UNKNOWN -> false
 }
 
-private fun statusLabel(status: LiveStreamStatus): String = when (status) {
-    LiveStreamStatus.CREATED, LiveStreamStatus.SCHEDULED -> "Ready for live stream"
-    LiveStreamStatus.PREVIEW -> "Preview"
-    LiveStreamStatus.RUNNING -> "Live"
-    LiveStreamStatus.ENDED -> "Ended"
-    LiveStreamStatus.VOD_PROCESSING -> "Processing VOD"
-    LiveStreamStatus.ERROR -> "Error"
-    LiveStreamStatus.UNKNOWN -> "Unknown"
+@StringRes
+private fun statusLabelRes(status: LiveStreamStatus): Int = when (status) {
+    LiveStreamStatus.CREATED, LiveStreamStatus.SCHEDULED -> R.string.live_status_ready
+    LiveStreamStatus.PREVIEW -> R.string.live_status_preview
+    LiveStreamStatus.RUNNING -> R.string.live_status_live
+    LiveStreamStatus.ENDED -> R.string.live_status_ended
+    LiveStreamStatus.VOD_PROCESSING -> R.string.live_status_vod_processing
+    LiveStreamStatus.ERROR -> R.string.live_status_error
+    LiveStreamStatus.UNKNOWN -> R.string.live_status_unknown
 }
 
 /**
@@ -384,7 +396,7 @@ private fun CopyableRow(label: String, value: String?, badge: String? = null) {
         IconButton(onClick = { clipboard.setText(AnnotatedString(value)) }) {
             Icon(
                 imageVector = Icons.Filled.ContentCopy,
-                contentDescription = "Copy $label",
+                contentDescription = stringResource(R.string.cd_copy, label),
                 tint = MaterialTheme.colorScheme.primary,
             )
         }
@@ -532,13 +544,19 @@ private fun LiveStreamEditorScreen(
                         containerColor = MaterialTheme.colorScheme.primary,
                         titleContentColor = MaterialTheme.colorScheme.onPrimary,
                     ),
-                    title = { Text(if (isEdit) "Edit live stream" else "New live stream") },
+                    title = {
+                        Text(
+                            stringResource(
+                                if (isEdit) R.string.live_screen_edit_title else R.string.live_screen_new_title,
+                            ),
+                        )
+                    },
                     navigationIcon = {
                         IconButton(onClick = onBack) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                                 tint = MaterialTheme.colorScheme.onPrimary,
-                                contentDescription = "Back",
+                                contentDescription = stringResource(R.string.cd_back),
                             )
                         }
                     },
@@ -569,11 +587,11 @@ private fun LiveStreamEditorScreen(
                 Spacer(modifier = Modifier.height(16.dp))
             }
 
-            SectionCard(title = "Details") {
+            SectionCard(title = stringResource(R.string.live_section_details)) {
                 OutlinedTextField(
                     value = title,
                     onValueChange = { title = it },
-                    label = { Text("Title *") },
+                    label = { Text(stringResource(R.string.live_label_title_required)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -581,25 +599,25 @@ private fun LiveStreamEditorScreen(
                 OutlinedTextField(
                     value = description,
                     onValueChange = { description = it },
-                    label = { Text("Description") },
+                    label = { Text(stringResource(R.string.live_label_description)) },
                     minLines = 2,
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Spacer(modifier = Modifier.height(8.dp))
-                SwitchRow("Public", isPublic) { isPublic = it }
+                SwitchRow(stringResource(R.string.live_label_public), isPublic) { isPublic = it }
                 SwitchRow(
-                    label = "Video on demand",
-                    subtitle = "Store the stream in your library as VOD when it ends",
+                    label = stringResource(R.string.live_label_video_on_demand),
+                    subtitle = stringResource(R.string.live_subtitle_video_on_demand),
                     checked = recordVod,
                 ) { recordVod = it }
             }
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            SectionCard(title = "Schedule") {
+            SectionCard(title = stringResource(R.string.live_section_schedule)) {
                 SwitchRow(
-                    label = "Schedule start date and time",
-                    subtitle = "Select when you want to go live",
+                    label = stringResource(R.string.live_label_schedule_start),
+                    subtitle = stringResource(R.string.live_subtitle_schedule_start),
                     checked = scheduleEnabled,
                 ) { scheduleEnabled = it }
                 if (scheduleEnabled) {
@@ -610,14 +628,14 @@ private fun LiveStreamEditorScreen(
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     DateTimePickerField(
-                        label = "Scheduled start",
+                        label = stringResource(R.string.live_label_scheduled_start),
                         isoValue = scheduledStart,
                         onIsoChange = { scheduledStart = it },
                         zone = scheduleZone,
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     DateTimePickerField(
-                        label = "Scheduled end (optional)",
+                        label = stringResource(R.string.live_label_scheduled_end),
                         isoValue = scheduledEnd,
                         onIsoChange = { scheduledEnd = it },
                         zone = scheduleZone,
@@ -625,8 +643,8 @@ private fun LiveStreamEditorScreen(
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     SwitchRow(
-                        label = "Enable countdown",
-                        subtitle = "Show a countdown in the player before the stream starts",
+                        label = stringResource(R.string.live_label_enable_countdown),
+                        subtitle = stringResource(R.string.live_subtitle_enable_countdown),
                         checked = enableCountdown,
                     ) { enableCountdown = it }
                 }
@@ -634,10 +652,10 @@ private fun LiveStreamEditorScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            SectionCard(title = "DVR") {
+            SectionCard(title = stringResource(R.string.live_label_dvr)) {
                 SwitchRow(
-                    label = "DVR",
-                    subtitle = "Let viewers rewind behind the live point (30s – 12hrs)",
+                    label = stringResource(R.string.live_label_dvr),
+                    subtitle = stringResource(R.string.live_subtitle_dvr),
                     checked = dvrEnabled,
                 ) { dvrEnabled = it }
                 if (dvrEnabled) {
@@ -645,12 +663,12 @@ private fun LiveStreamEditorScreen(
                     OutlinedTextField(
                         value = dvrWindow,
                         onValueChange = { dvrWindow = it },
-                        label = { Text("DVR timeframe (HH:MM:SS)") },
-                        placeholder = { Text("12:00:00") },
+                        label = { Text(stringResource(R.string.live_label_dvr_timeframe)) },
+                        placeholder = { Text(stringResource(R.string.live_placeholder_dvr_timeframe)) },
                         singleLine = true,
                         isError = dvrWindowError,
                         supportingText = {
-                            if (dvrWindowError) Text("Use HH:MM:SS between 00:00:30 and 12:00:00")
+                            if (dvrWindowError) Text(stringResource(R.string.live_error_dvr_timeframe))
                         },
                         modifier = Modifier.fillMaxWidth(),
                     )
@@ -659,10 +677,10 @@ private fun LiveStreamEditorScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            SectionCard(title = "Pre-stream trailer") {
+            SectionCard(title = stringResource(R.string.live_section_trailer)) {
                 SwitchRow(
-                    label = "Pre-stream trailer",
-                    subtitle = "Play a short video in the player before the stream starts",
+                    label = stringResource(R.string.live_section_trailer),
+                    subtitle = stringResource(R.string.live_subtitle_trailer),
                     checked = trailerEnabled,
                 ) { trailerEnabled = it }
 
@@ -686,10 +704,10 @@ private fun LiveStreamEditorScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            SectionCard(title = "Thumbnail") {
+            SectionCard(title = stringResource(R.string.live_section_thumbnail)) {
                 SwitchRow(
-                    label = "Thumbnail",
-                    subtitle = "Set a custom thumbnail image for the stream",
+                    label = stringResource(R.string.live_section_thumbnail),
+                    subtitle = stringResource(R.string.live_subtitle_thumbnail),
                     checked = thumbnailEnabled,
                 ) { thumbnailEnabled = it }
 
@@ -698,7 +716,7 @@ private fun LiveStreamEditorScreen(
                     if (thumbnailUri != null) {
                         AsyncImage(
                             model = thumbnailUri,
-                            contentDescription = "Selected thumbnail",
+                            contentDescription = stringResource(R.string.live_cd_selected_thumbnail),
                             contentScale = ContentScale.Crop,
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -722,10 +740,20 @@ private fun LiveStreamEditorScreen(
                             },
                             modifier = Modifier.weight(1f),
                         ) {
-                            Text(if (thumbnailUri == null) "Choose image" else "Change image")
+                            Text(
+                                stringResource(
+                                    if (thumbnailUri == null) {
+                                        R.string.live_button_choose_image
+                                    } else {
+                                        R.string.live_button_change_image
+                                    },
+                                ),
+                            )
                         }
                         if (thumbnailUri != null) {
-                            TextButton(onClick = { thumbnailUri = null }) { Text("Remove") }
+                            TextButton(onClick = { thumbnailUri = null }) {
+                                Text(stringResource(R.string.button_remove))
+                            }
                         }
                     }
                     Spacer(modifier = Modifier.height(8.dp))
@@ -733,7 +761,7 @@ private fun LiveStreamEditorScreen(
                         onClick = onPickThumbnailFromLibrary,
                         modifier = Modifier.fillMaxWidth(),
                     ) {
-                        Text("Choose from library")
+                        Text(stringResource(R.string.live_button_choose_from_library))
                     }
                     Spacer(modifier = Modifier.height(8.dp))
                     OutlinedTextField(
@@ -742,8 +770,8 @@ private fun LiveStreamEditorScreen(
                             thumbnailUrl = it
                             if (it.isNotBlank()) thumbnailUri = null
                         },
-                        label = { Text("…or image URL") },
-                        placeholder = { Text("https://example.com/thumb.jpg") },
+                        label = { Text(stringResource(R.string.live_label_image_url)) },
+                        placeholder = { Text(stringResource(R.string.live_placeholder_thumbnail_url)) },
                         singleLine = true,
                         enabled = thumbnailUri == null,
                         modifier = Modifier.fillMaxWidth(),
@@ -763,9 +791,9 @@ private fun LiveStreamEditorScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            SectionCard(title = "RTMP outputs") {
+            SectionCard(title = stringResource(R.string.live_section_rtmp_outputs)) {
                 Text(
-                    text = "Forward the incoming stream to up to 4 external RTMP destinations.",
+                    text = stringResource(R.string.live_note_rtmp_outputs),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -775,8 +803,8 @@ private fun LiveStreamEditorScreen(
                     OutlinedTextField(
                         value = output.url,
                         onValueChange = { rtmpOutputs[index] = output.copy(url = it) },
-                        label = { Text("Stream URL") },
-                        placeholder = { Text("rtmp://live.example.com/app") },
+                        label = { Text(stringResource(R.string.live_label_stream_url)) },
+                        placeholder = { Text(stringResource(R.string.live_placeholder_rtmp_url)) },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                     )
@@ -784,7 +812,7 @@ private fun LiveStreamEditorScreen(
                     OutlinedTextField(
                         value = output.key,
                         onValueChange = { rtmpOutputs[index] = output.copy(key = it) },
-                        label = { Text("Stream Key") },
+                        label = { Text(stringResource(R.string.live_label_rtmp_stream_key)) },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                     )
@@ -792,7 +820,9 @@ private fun LiveStreamEditorScreen(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.End,
                     ) {
-                        TextButton(onClick = { rtmpOutputs.removeAt(index) }) { Text("Remove") }
+                        TextButton(onClick = { rtmpOutputs.removeAt(index) }) {
+                            Text(stringResource(R.string.button_remove))
+                        }
                     }
                 }
 
@@ -802,11 +832,11 @@ private fun LiveStreamEditorScreen(
                         onClick = { rtmpOutputs.add(RtmpOutputDraft("", "")) },
                         modifier = Modifier.fillMaxWidth(),
                     ) {
-                        Text("Add RTMP output")
+                        Text(stringResource(R.string.live_button_add_rtmp_output))
                     }
                 } else {
                     Text(
-                        text = "Maximum of $MAX_RTMP_OUTPUTS RTMP outputs.",
+                        text = stringResource(R.string.live_note_max_rtmp_outputs, MAX_RTMP_OUTPUTS),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -815,12 +845,11 @@ private fun LiveStreamEditorScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            SectionCard(title = "Dual publish") {
+            SectionCard(title = stringResource(R.string.live_section_dual_publish)) {
                 SwitchRow(
-                    label = "Publish to primary + backup at once",
+                    label = stringResource(R.string.live_label_dual_publish),
                     checked = dualPublish,
-                    subtitle = "Streams to both ingests simultaneously for instant failover. " +
-                        "Doubles the upload bandwidth, so use it only on a strong connection.",
+                    subtitle = stringResource(R.string.live_subtitle_dual_publish),
                 ) { dualPublish = it }
             }
 
@@ -870,11 +899,13 @@ private fun LiveStreamEditorScreen(
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Text(
-                    when {
-                        saving -> "Saving…"
-                        isEdit -> "Save changes"
-                        else -> "Create live stream"
-                    }
+                    stringResource(
+                        when {
+                            saving -> R.string.live_button_saving
+                            isEdit -> R.string.live_button_save_changes
+                            else -> R.string.live_button_create_stream
+                        },
+                    ),
                 )
             }
             Spacer(modifier = Modifier.height(24.dp))
@@ -961,24 +992,24 @@ private fun TrailerControl(
         is LiveStreamEditorViewModel.TrailerState.Failed -> {
             if (trailer is LiveStreamEditorViewModel.TrailerState.Failed) {
                 Text(
-                    text = "Upload failed: ${trailer.message}",
+                    text = stringResource(R.string.live_error_trailer_upload, trailer.message),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error,
                 )
                 Spacer(modifier = Modifier.height(8.dp))
             }
             Button(onClick = onPickUpload, modifier = Modifier.fillMaxWidth()) {
-                Text("Upload trailer video")
+                Text(stringResource(R.string.live_button_upload_trailer))
             }
             Spacer(modifier = Modifier.height(8.dp))
             OutlinedButton(onClick = onPickFromLibrary, modifier = Modifier.fillMaxWidth()) {
-                Text("Choose from library")
+                Text(stringResource(R.string.live_button_choose_from_library))
             }
         }
 
         is LiveStreamEditorViewModel.TrailerState.Uploading -> {
             Text(
-                text = "Uploading… ${trailer.percentage}%",
+                text = stringResource(R.string.live_label_uploading, trailer.percentage),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurface,
             )
@@ -1006,12 +1037,12 @@ private fun TrailerControl(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 OutlinedButton(onClick = onPickFromLibrary, modifier = Modifier.weight(1f)) {
-                    Text("Replace")
+                    Text(stringResource(R.string.live_button_replace))
                 }
                 if (trailer.deletable) {
-                    TextButton(onClick = onDelete) { Text("Delete") }
+                    TextButton(onClick = onDelete) { Text(stringResource(R.string.dialog_button_delete)) }
                 } else {
-                    TextButton(onClick = onClear) { Text("Remove") }
+                    TextButton(onClick = onClear) { Text(stringResource(R.string.button_remove)) }
                 }
             }
         }
@@ -1059,11 +1090,11 @@ private fun DateTimePickerField(
         onValueChange = {},
         readOnly = true,
         label = { Text(label) },
-        placeholder = { Text("Tap to select date & time") },
+        placeholder = { Text(stringResource(R.string.live_placeholder_pick_datetime)) },
         trailingIcon = {
             if (clearable && isoValue.isNotBlank()) {
                 IconButton(onClick = { onIsoChange("") }) {
-                    Icon(Icons.Filled.Clear, contentDescription = "Clear $label")
+                    Icon(Icons.Filled.Clear, contentDescription = stringResource(R.string.cd_clear, label))
                 }
             } else {
                 Icon(Icons.Filled.CalendarMonth, contentDescription = null)
@@ -1093,10 +1124,10 @@ private fun DateTimePickerField(
                         showTimePicker = true
                     },
                     enabled = dateState.selectedDateMillis != null,
-                ) { Text("Next") }
+                ) { Text(stringResource(R.string.button_next)) }
             },
             dismissButton = {
-                TextButton(onClick = { showDatePicker = false }) { Text("Cancel") }
+                TextButton(onClick = { showDatePicker = false }) { Text(stringResource(R.string.button_cancel)) }
             },
         ) {
             DatePicker(state = dateState)
@@ -1117,12 +1148,12 @@ private fun DateTimePickerField(
                         onIsoChange(pickedToIso(dateMillis, timeState.hour, timeState.minute, zone))
                     }
                     showTimePicker = false
-                }) { Text("OK") }
+                }) { Text(stringResource(R.string.dialog_button_ok)) }
             },
             dismissButton = {
-                TextButton(onClick = { showTimePicker = false }) { Text("Cancel") }
+                TextButton(onClick = { showTimePicker = false }) { Text(stringResource(R.string.button_cancel)) }
             },
-            title = { Text("Select time") },
+            title = { Text(stringResource(R.string.dialog_title_select_time)) },
             text = { TimePicker(state = timeState) },
         )
     }
@@ -1189,7 +1220,7 @@ private fun TimeZonePickerField(
         value = zoneLabel(zone),
         onValueChange = {},
         readOnly = true,
-        label = { Text("Time zone") },
+        label = { Text(stringResource(R.string.live_label_time_zone)) },
         trailingIcon = { Icon(Icons.Filled.ArrowDropDown, contentDescription = null) },
         interactionSource = interactionSource,
         singleLine = true,
@@ -1226,15 +1257,15 @@ private fun TimeZonePickerDialog(
         onDismissRequest = onDismiss,
         confirmButton = {},
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.button_cancel)) }
         },
-        title = { Text("Select time zone") },
+        title = { Text(stringResource(R.string.dialog_title_select_time_zone)) },
         text = {
             Column {
                 OutlinedTextField(
                     value = query,
                     onValueChange = { query = it },
-                    label = { Text("Search") },
+                    label = { Text(stringResource(R.string.label_search)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -1259,7 +1290,7 @@ private fun TimeZonePickerDialog(
                     if (filtered.isEmpty()) {
                         item {
                             Text(
-                                text = "No matching time zones",
+                                text = stringResource(R.string.live_label_no_matching_zones),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.padding(vertical = 12.dp),
@@ -1296,11 +1327,11 @@ private val rtmpOutputsSaver = listSaver<SnapshotStateList<RtmpOutputDraft>, Str
 private fun ErrorDialog(message: String, onDismiss: () -> Unit) {
     AlertDialog(
         icon = { Icon(Icons.Filled.Warning, contentDescription = null) },
-        title = { Text("Error") },
+        title = { Text(stringResource(R.string.dialog_title_error)) },
         text = { Text(message) },
         onDismissRequest = onDismiss,
         confirmButton = {
-            TextButton(onClick = onDismiss) { Text("OK") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_button_ok)) }
         },
     )
 }
@@ -1317,7 +1348,7 @@ private fun ThumbnailGallery(
     onDelete: () -> Unit,
 ) {
     Text(
-        text = "Generated thumbnails",
+        text = stringResource(R.string.live_label_generated_thumbnails),
         style = MaterialTheme.typography.titleSmall,
         color = MaterialTheme.colorScheme.onSurface,
     )
@@ -1336,7 +1367,7 @@ private fun ThumbnailGallery(
 
         is LiveStreamEditorViewModel.ThumbnailListState.Failed -> {
             Text(
-                text = "Couldn't load thumbnails: ${state.message}",
+                text = stringResource(R.string.live_error_load_thumbnails, state.message),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.error,
             )
@@ -1346,7 +1377,7 @@ private fun ThumbnailGallery(
             val thumbs = state.items
             if (thumbs.isEmpty()) {
                 Text(
-                    text = "No thumbnails yet",
+                    text = stringResource(R.string.live_label_no_thumbnails),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -1355,7 +1386,8 @@ private fun ThumbnailGallery(
                     items(thumbs) { thumb ->
                         AsyncImage(
                             model = thumb.url,
-                            contentDescription = thumb.timestamp ?: "Thumbnail",
+                            contentDescription = thumb.timestamp
+                                ?: stringResource(R.string.live_section_thumbnail),
                             contentScale = ContentScale.Crop,
                             modifier = Modifier
                                 .width(160.dp)
@@ -1367,7 +1399,7 @@ private fun ThumbnailGallery(
                 }
                 Spacer(modifier = Modifier.height(8.dp))
                 OutlinedButton(onClick = onDelete, modifier = Modifier.fillMaxWidth()) {
-                    Text("Delete thumbnail")
+                    Text(stringResource(R.string.live_button_delete_thumbnail))
                 }
             }
         }
@@ -1380,12 +1412,12 @@ private fun ThumbnailPreviewDialog(url: String, onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
-            TextButton(onClick = onDismiss) { Text("Close") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.button_close)) }
         },
         text = {
             AsyncImage(
                 model = url,
-                contentDescription = "Thumbnail preview",
+                contentDescription = stringResource(R.string.live_cd_thumbnail_preview),
                 contentScale = ContentScale.Fit,
                 modifier = Modifier
                     .fillMaxWidth()

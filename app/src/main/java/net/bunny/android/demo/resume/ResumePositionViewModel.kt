@@ -2,7 +2,9 @@ package net.bunny.android.demo.resume
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import net.bunny.android.demo.App
@@ -21,6 +23,9 @@ class ResumePositionViewModel : ViewModel() {
 
     private val _exportData = MutableStateFlow("")
     val exportData = _exportData.asStateFlow()
+
+    private val _importResult = MutableSharedFlow<Boolean>()
+    val importResult = _importResult.asSharedFlow()
 
     private val context = App.di.context
     private val bunnyPlayer = DefaultBunnyPlayer.getInstance(context)
@@ -87,6 +92,9 @@ class ResumePositionViewModel : ViewModel() {
     }
 
     fun exportPositions() {
+        // Clear the previous export so a reopened dialog can't show (and copy) stale
+        // data from before the list changed.
+        _exportData.value = ""
         viewModelScope.launch {
             try {
                 // Try bunnyPlayer first, fallback to direct manager
@@ -110,18 +118,20 @@ class ResumePositionViewModel : ViewModel() {
                 // Try bunnyPlayer first, fallback to direct manager
                 if (bunnyPlayer.positionManager != null) {
                     bunnyPlayer.importPositions(jsonData) { success ->
+                        viewModelScope.launch { _importResult.emit(success) }
                         if (success) {
                             loadPositions() // Refresh the list
                         }
                     }
                 } else {
                     val success = positionManager.importPositions(jsonData)
+                    _importResult.emit(success)
                     if (success) {
                         loadPositions() // Refresh the list
                     }
                 }
             } catch (e: Exception) {
-                // Handle error
+                _importResult.emit(false)
             }
         }
     }

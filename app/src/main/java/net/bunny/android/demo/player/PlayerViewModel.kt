@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
@@ -24,6 +25,10 @@ class PlayerViewModel : ViewModel() {
 
     companion object {
         private const val TAG = "v"
+
+        // Tick interval for re-fetching metadata while the video is still being
+        // processed; driven lifecycle-gated by PlayerRoute.
+        const val STATUS_POLL_INTERVAL_MS = 5_000L
     }
 
     private val scope = CoroutineScope(Dispatchers.IO)
@@ -38,12 +43,18 @@ class PlayerViewModel : ViewModel() {
     private val libraryId: Long
         get() = BunnyStreamApi.libraryId
 
+    private var lastVideoId: String? = null
+    private var lastLibraryId: Long? = null
+
     init {
         Log.d(TAG, "<init> $this")
     }
 
     fun loadVideo(videoId: String, libraryId: Long?) {
         Log.d(TAG, "loadVideo videoId=$videoId")
+
+        lastVideoId = videoId
+        lastLibraryId = libraryId
 
         val providedLibraryId = libraryId ?: BunnyStreamApi.libraryId
 
@@ -52,7 +63,25 @@ class PlayerViewModel : ViewModel() {
         }
 
         mutableUiState.value = VideoUiState.VideoUiLoading
+        fetchVideo(videoId, providedLibraryId, silent = false)
+    }
 
+    /**
+     * Called by the screen every [STATUS_POLL_INTERVAL_MS] while visible. Re-fetches
+     * metadata only when the loaded video is still in a transitional state, so a video
+     * that finishes encoding while the user waits starts playing without re-entering
+     * the screen.
+     */
+    fun onStatusPollTick() {
+        val videoId = lastVideoId ?: return
+        val status = (mutableUiState.value as? VideoUiState.VideoUiLoaded)?.video?.status
+            ?: return
+        if (status in VideoStatus.TRANSITIONAL) {
+            fetchVideo(videoId, lastLibraryId ?: BunnyStreamApi.libraryId, silent = true)
+        }
+    }
+
+    private fun fetchVideo(videoId: String, providedLibraryId: Long, silent: Boolean) {
         scope.launch {
             try {
                 val response =
@@ -64,13 +93,23 @@ class PlayerViewModel : ViewModel() {
                 val video = response.toVideo()
                 mutableUiState.value = VideoUiState.VideoUiLoaded(video)
             } catch (e: Exception) {
-                 Log.e(TAG, "Error loading video: ${e.message}")
-                e.printStackTrace()
-                mutableErrorState.emit(Error("Error loading video: ${e.message}"))
-                mutableUiState.value = VideoUiState.VideoUiEmpty
+                if (silent) {
+                    // Transient poll failure — keep showing the last known state.
+                    Log.w(TAG, "Silent metadata refresh failed: $e")
+                } else {
+                    Log.e(TAG, "Error loading video: ${e.message}")
+                    e.printStackTrace()
+                    mutableErrorState.emit(Error("Error loading video: ${e.message}"))
+                    mutableUiState.value = VideoUiState.VideoUiLoadFailed(e.message)
+                }
             }
         }
+    }
 
+    override fun onCleared() {
+        Log.d(TAG, "onCleared $this")
+        scope.cancel()
+        super.onCleared()
     }
 
     fun onErrorDismissed() = viewModelScope.launch {

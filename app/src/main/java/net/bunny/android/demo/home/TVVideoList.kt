@@ -33,10 +33,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import net.bunny.android.demo.R
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import coil3.request.crossfade
@@ -63,7 +65,7 @@ fun TVVideoList(
                         titleContentColor = MaterialTheme.colorScheme.onPrimary,
                     ),
                     title = {
-                        Text("Videos", fontSize = 24.sp)
+                        Text(stringResource(R.string.tv_videos_header), fontSize = 24.sp)
                     },
                     navigationIcon = {
                         IconButton(
@@ -73,7 +75,7 @@ fun TVVideoList(
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                                 tint = MaterialTheme.colorScheme.onPrimary,
-                                contentDescription = "Back"
+                                contentDescription = stringResource(R.string.cd_back)
                             )
                         }
                     },

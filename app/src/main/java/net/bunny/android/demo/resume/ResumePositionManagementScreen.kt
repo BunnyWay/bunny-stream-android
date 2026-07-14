@@ -1,6 +1,7 @@
 
 package net.bunny.android.demo.resume
 
+import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -13,11 +14,16 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import net.bunny.android.demo.R
 import net.bunny.android.demo.ui.AppState
 import net.bunny.android.demo.ui.theme.BunnyStreamTheme
 import net.bunny.api.playback.PlaybackPosition
@@ -34,9 +40,22 @@ fun ResumePositionManagementRoute(
 ) {
     val positions by viewModel.positions.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
+    val exportData by viewModel.exportData.collectAsState()
+    val context = LocalContext.current
 
     LaunchedEffect(Unit) {
         viewModel.loadPositions()
+    }
+
+    LaunchedEffect(Unit) {
+        viewModel.importResult.collect { success ->
+            Toast.makeText(
+                context,
+                if (success) context.getString(R.string.toast_positions_imported)
+                else context.getString(R.string.toast_import_failed),
+                Toast.LENGTH_SHORT
+            ).show()
+        }
     }
 
     ResumePositionManagementScreen(
@@ -44,6 +63,7 @@ fun ResumePositionManagementRoute(
         onBackClicked = { appState.navController.popBackStack() },
         positions = positions,
         isLoading = isLoading,
+        exportData = exportData,
         onPlayVideo = onPlayVideo,
         onDeletePosition = viewModel::deletePosition,
         onDeleteAllPositions = viewModel::deleteAllPositions,
@@ -59,6 +79,7 @@ private fun ResumePositionManagementScreen(
     onBackClicked: () -> Unit,
     positions: List<PlaybackPosition>,
     isLoading: Boolean,
+    exportData: String,
     onPlayVideo: (String, Long?) -> Unit,
     onDeletePosition: (String) -> Unit,
     onDeleteAllPositions: () -> Unit,
@@ -67,7 +88,7 @@ private fun ResumePositionManagementScreen(
 ) {
     var showDeleteAllDialog by remember { mutableStateOf(false) }
     var showExportDialog by remember { mutableStateOf(false) }
-    var exportData by remember { mutableStateOf("") }
+    var showImportDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -78,7 +99,7 @@ private fun ResumePositionManagementScreen(
                         titleContentColor = MaterialTheme.colorScheme.onPrimary,
                     ),
                     title = {
-                        Text("Resume Positions")
+                        Text(stringResource(R.string.screen_resume_positions))
                     },
                     navigationIcon = {
                         IconButton(onClick = onBackClicked) {
@@ -94,7 +115,7 @@ private fun ResumePositionManagementScreen(
                             Icon(
                                 imageVector = Icons.Default.Delete,
                                 tint = MaterialTheme.colorScheme.onPrimary,
-                                contentDescription = "Delete All"
+                                contentDescription = stringResource(R.string.cd_delete_all)
                             )
                         }
                     }
@@ -114,26 +135,9 @@ private fun ResumePositionManagementScreen(
                 ) {
                     CircularProgressIndicator()
                 }
-            } else if (positions.isEmpty()) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(
-                            text = "No saved positions",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Text(
-                            text = "Watch some videos to see resume positions here",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
             } else {
-                // Action buttons
+                // Action buttons — Import stays available even when the list is empty,
+                // so a backed-up set of positions can be restored on a fresh install.
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -142,30 +146,51 @@ private fun ResumePositionManagementScreen(
                 ) {
                     OutlinedButton(
                         onClick = { showExportDialog = true },
+                        enabled = positions.isNotEmpty(),
                         modifier = Modifier.weight(1f)
                     ) {
-                        Text("Export")
+                        Text(stringResource(R.string.button_export))
                     }
                     OutlinedButton(
-                        onClick = { /* TODO: Import dialog */ },
+                        onClick = { showImportDialog = true },
                         modifier = Modifier.weight(1f)
                     ) {
-                        Text("Import")
+                        Text(stringResource(R.string.button_import))
                     }
                 }
 
-                // Positions list
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    items(positions, key = { it.videoId }) { position ->
-                        ResumePositionItem(
-                            position = position,
-                            onPlayVideo = { onPlayVideo(position.videoId, position.libraryId) },
-                            onDeletePosition = { onDeletePosition(position.videoId) }
-                        )
+                if (positions.isEmpty()) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                text = stringResource(R.string.label_no_saved_positions),
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                text = stringResource(R.string.label_watch_videos_hint),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                } else {
+                    // Positions list
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(positions, key = { it.videoId }) { position ->
+                            ResumePositionItem(
+                                position = position,
+                                onPlayVideo = { onPlayVideo(position.videoId, position.libraryId) },
+                                onDeletePosition = { onDeletePosition(position.videoId) }
+                            )
+                        }
                     }
                 }
             }
@@ -176,8 +201,8 @@ private fun ResumePositionManagementScreen(
     if (showDeleteAllDialog) {
         AlertDialog(
             onDismissRequest = { showDeleteAllDialog = false },
-            title = { Text("Delete All Positions") },
-            text = { Text("Are you sure you want to delete all saved resume positions? This cannot be undone.") },
+            title = { Text(stringResource(R.string.dialog_delete_all_title)) },
+            text = { Text(stringResource(R.string.dialog_delete_all_message)) },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -185,12 +210,12 @@ private fun ResumePositionManagementScreen(
                         showDeleteAllDialog = false
                     }
                 ) {
-                    Text("Delete All")
+                    Text(stringResource(R.string.button_delete_all))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteAllDialog = false }) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.button_cancel))
                 }
             }
         )
@@ -198,12 +223,15 @@ private fun ResumePositionManagementScreen(
 
     // Export Dialog
     if (showExportDialog) {
+        val clipboardManager = LocalClipboardManager.current
+        val context = LocalContext.current
+
         AlertDialog(
             onDismissRequest = { showExportDialog = false },
-            title = { Text("Export Positions") },
+            title = { Text(stringResource(R.string.dialog_export_title)) },
             text = {
                 Column {
-                    Text("Copy this data to backup your resume positions:")
+                    Text(stringResource(R.string.dialog_export_message))
                     Spacer(modifier = Modifier.height(8.dp))
                     OutlinedTextField(
                         value = exportData,
@@ -215,19 +243,66 @@ private fun ResumePositionManagementScreen(
                 }
             },
             confirmButton = {
+                TextButton(
+                    enabled = exportData.isNotEmpty(),
+                    onClick = {
+                        clipboardManager.setText(AnnotatedString(exportData))
+                        Toast.makeText(context, context.getString(R.string.toast_copied_to_clipboard), Toast.LENGTH_SHORT).show()
+                        showExportDialog = false
+                    }
+                ) {
+                    Text(stringResource(R.string.button_copy))
+                }
+            },
+            dismissButton = {
                 TextButton(onClick = { showExportDialog = false }) {
-                    Text("Close")
+                    Text(stringResource(R.string.button_close))
                 }
             }
         )
 
-        LaunchedEffect(showExportDialog) {
-            if (showExportDialog) {
-                onExportPositions()
-                // In a real implementation, get the export data from the ViewModel
-                exportData = "Exported data would appear here"
-            }
+        LaunchedEffect(Unit) {
+            onExportPositions()
         }
+    }
+
+    // Import Dialog
+    if (showImportDialog) {
+        var importData by remember { mutableStateOf("") }
+
+        AlertDialog(
+            onDismissRequest = { showImportDialog = false },
+            title = { Text(stringResource(R.string.dialog_import_title)) },
+            text = {
+                Column {
+                    Text(stringResource(R.string.dialog_import_message))
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = importData,
+                        onValueChange = { importData = it },
+                        placeholder = { Text(stringResource(R.string.placeholder_exported_json)) },
+                        maxLines = 10,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = importData.isNotBlank(),
+                    onClick = {
+                        onImportPositions(importData)
+                        showImportDialog = false
+                    }
+                ) {
+                    Text(stringResource(R.string.button_import))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showImportDialog = false }) {
+                    Text(stringResource(R.string.button_cancel))
+                }
+            }
+        )
     }
 }
 
@@ -264,7 +339,11 @@ private fun ResumePositionItem(
                     Spacer(modifier = Modifier.height(4.dp))
                     
                     Text(
-                        text = "Resume at ${formatTime(position.position)} • ${(position.watchPercentage * 100).toInt()}% watched",
+                        text = stringResource(
+                            R.string.label_resume_at,
+                            formatTime(position.position),
+                            (position.watchPercentage * 100).toInt()
+                        ),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -280,13 +359,13 @@ private fun ResumePositionItem(
                     IconButton(onClick = onPlayVideo) {
                         Icon(
                             imageVector = Icons.Default.PlayArrow,
-                            contentDescription = "Play"
+                            contentDescription = stringResource(R.string.cd_play)
                         )
                     }
                     IconButton(onClick = onDeletePosition) {
                         Icon(
                             imageVector = Icons.Default.Delete,
-                            contentDescription = "Delete"
+                            contentDescription = stringResource(R.string.cd_delete)
                         )
                     }
                 }
@@ -340,6 +419,7 @@ private fun ResumePositionManagementScreenPreview() {
             onBackClicked = {},
             positions = samplePositions,
             isLoading = false,
+            exportData = "",
             onPlayVideo = { _, _ -> },
             onDeletePosition = {},
             onDeleteAllPositions = {},
