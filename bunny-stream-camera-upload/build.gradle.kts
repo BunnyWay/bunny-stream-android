@@ -61,6 +61,24 @@ tasks.dokkaGfm {
     }
 }
 
+// API-reference content settings shared by every Dokka output (GFM and HTML).
+tasks.withType<org.jetbrains.dokka.gradle.AbstractDokkaLeafTask> {
+    moduleName.set("BunnyStreamCameraUpload")
+    // Android variant source sets (debug/release/staging) have no sources of their own but,
+    // left unsuppressed, they break Dokka's source-link merging - only "main" should document.
+    dokkaSourceSets.configureEach {
+        if (name != "main") suppress.set(true)
+        includes.from("Module.md")
+        sourceLink {
+            localDirectory.set(file("src/main/java"))
+            remoteUrl.set(
+                uri("https://github.com/BunnyWay/bunny-stream-android/tree/main/bunny-stream-camera-upload/src/main/java").toURL()
+            )
+            remoteLineSuffix.set("#L")
+        }
+    }
+}
+
 dependencies {
     // Project module dependency
     implementation(project(":api"))
