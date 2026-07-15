@@ -11,7 +11,7 @@ interface VideoUploader {
     /**
      * Uploads video represented by Uri
      * @param libraryId Video library ID
-     * @param videoUri Uri of vide to be uploaded
+     * @param videoUri Uri of the video to be uploaded
      * @param listener listener to keep get info about upload
      * @see UploadListener
      */

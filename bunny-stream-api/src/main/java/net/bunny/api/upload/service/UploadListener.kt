@@ -7,7 +7,7 @@ import net.bunny.api.upload.model.UploadError
  */
 interface UploadListener {
     /**
-     * Called when video uplaod fails
+     * Called when the video upload fails
      * @param error
      * @see UploadError
      * @param videoId ID of video failed uploading

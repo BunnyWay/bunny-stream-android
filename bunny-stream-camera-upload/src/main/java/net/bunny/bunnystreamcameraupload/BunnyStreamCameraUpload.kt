@@ -22,6 +22,27 @@ import net.bunny.bunnystreamcameraupload.domain.StreamHandler
 import net.bunny.recording.R
 import net.bunny.recording.databinding.RecordingViewBinding
 
+/**
+ * Camera capture view of the Bunny Stream SDK. Add it to a layout:
+ *
+ * ```xml
+ * <net.bunny.bunnystreamcameraupload.BunnyStreamCameraUpload
+ *     android:id="@+id/cameraUpload"
+ *     android:layout_width="match_parent"
+ *     android:layout_height="match_parent" />
+ * ```
+ *
+ * then request the `CAMERA` and `RECORD_AUDIO` runtime permissions and call [startPreview].
+ * By default the view records the camera to a new video in your library. Set [liveStreamId]
+ * before starting to broadcast to an existing live stream instead - the SDK resolves the ingest,
+ * starts the stream on the server once connected, shows primary/backup badges and reconnects on
+ * network drops. See [StreamCameraUploadView] for the full contract.
+ *
+ * `BunnyStreamApi.initialize(...)` must have been called before this view is created.
+ *
+ * XML attributes: `brvDefaultCamera` ("back" or "front") picks the starting camera;
+ * `brvHideDefaultControls` hides the built-in controls, same as [hideDefaultControls].
+ */
 class BunnyStreamCameraUpload @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null,

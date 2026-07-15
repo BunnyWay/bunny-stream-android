@@ -1,6 +1,3 @@
-// Update bunny-stream-api/src/main/java/net/bunnystream/api/playback/PlaybackPositionManager.kt
-// Use this simplified version instead of the complex database version
-
 package net.bunny.api.playback
 
 import android.content.Context

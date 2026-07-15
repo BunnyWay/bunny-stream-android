@@ -9,7 +9,7 @@ import java.io.InputStream
 interface UploadService {
 
     /**
-     * Uploads content in for of [InputStream] to provided url
+     * Uploads content in the form of an [InputStream] to the provided url
      * @param libraryId target library ID
      * @param videoId target video ID
      * @param fileInfo details about the file to be uploaded, see [FileInfo]
