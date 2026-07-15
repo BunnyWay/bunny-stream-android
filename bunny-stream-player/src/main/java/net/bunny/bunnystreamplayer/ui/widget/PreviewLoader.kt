@@ -9,7 +9,7 @@ import net.bunny.api.BunnyCdn
 import net.bunny.bunnystreamplayer.common.GlideThumbnailTransformation
 import net.bunny.bunnystreamplayer.model.SeekThumbnail
 
-class PreviewLoader(
+internal class PreviewLoader(
     private val context: Context,
     private val seekThumbnail: SeekThumbnail,
 ) {

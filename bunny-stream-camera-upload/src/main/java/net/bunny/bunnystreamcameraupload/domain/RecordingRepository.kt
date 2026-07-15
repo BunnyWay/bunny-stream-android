@@ -3,7 +3,7 @@ package net.bunny.bunnystreamcameraupload.domain
 import arrow.core.Either
 import net.bunny.api.livestream.domain.model.LiveStreamIngestStatus
 
-interface RecordingRepository {
+internal interface RecordingRepository {
     suspend fun prepareRecording(libraryId: Long): Either<String, String>
 
     /**

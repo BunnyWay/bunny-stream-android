@@ -5,7 +5,7 @@ package net.bunny.bunnystreamcameraupload.domain
  * optional failover host (same stream key, different ingest server) used when the primary keeps
  * failing. VOD recording has no backup, so [backupUrl] is `null` there.
  */
-data class ResolvedIngest(
+internal data class ResolvedIngest(
     val primaryUrl: String,
     val backupUrl: String? = null,
 )

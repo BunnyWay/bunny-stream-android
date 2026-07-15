@@ -13,7 +13,7 @@ import net.bunny.bunnystreamcameraupload.domain.ResolvedIngest
 import org.openapitools.client.infrastructure.ApiClient
 import org.openapitools.client.models.VideoCreateVideoRequest
 
-class DefaultRecordingRepository(
+internal class DefaultRecordingRepository(
    private val coroutineDispatcher: CoroutineDispatcher
 ) : RecordingRepository {
 

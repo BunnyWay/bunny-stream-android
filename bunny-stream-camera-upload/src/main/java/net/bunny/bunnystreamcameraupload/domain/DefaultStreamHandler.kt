@@ -44,7 +44,7 @@ import net.bunny.recording.R
  *   stream stays live as long as either is up. Doubles the upload bandwidth, hence opt-in. Falls
  *   back to single when the stream has no backup ingest.
  */
-class DefaultStreamHandler(
+internal class DefaultStreamHandler(
     private val streamRepository: RecordingRepository,
     coroutineDispatcher: CoroutineDispatcher
 ) : StreamHandler {

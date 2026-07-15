@@ -6,7 +6,7 @@ import com.bumptech.glide.load.resource.bitmap.BitmapTransformation
 import java.nio.ByteBuffer
 import java.security.MessageDigest
 
-class GlideThumbnailTransformation(position: Long, thumbnailsEach: Int) : BitmapTransformation() {
+internal class GlideThumbnailTransformation(position: Long, thumbnailsEach: Int) : BitmapTransformation() {
 
     private val x: Int = ((position / thumbnailsEach).toInt() % MAX_COLUMNS)
     private val y: Int = ((position / thumbnailsEach).toInt() / MAX_LINES)
