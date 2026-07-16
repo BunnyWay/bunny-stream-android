@@ -75,7 +75,19 @@ interface BunnyPlayer {
     /* Returns the current playback position. */
     fun getCurrentPosition(): Long
 
-    fun playVideo(playerView: PlayerView, video: VideoModel, retentionData: Map<Int, Int>, playerSettings: PlayerSettings)
+    /**
+     * @param token optional URL-authentication token; also propagated to the
+     *   Widevine license URL sent to cast receivers (which fetch the
+     *   license without the Referer header the local player relies on).
+     */
+    fun playVideo(
+        playerView: PlayerView,
+        video: VideoModel,
+        retentionData: Map<Int, Int>,
+        playerSettings: PlayerSettings,
+        token: String? = null,
+        expires: Long? = null,
+    )
 
     fun skipForward()
 

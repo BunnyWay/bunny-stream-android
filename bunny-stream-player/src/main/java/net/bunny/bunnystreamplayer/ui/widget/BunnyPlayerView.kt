@@ -9,6 +9,7 @@ import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.Rect
 import android.graphics.Typeface
+import android.graphics.drawable.Drawable
 import android.os.Build
 import android.os.Handler
 import android.os.HandlerThread
@@ -45,6 +46,8 @@ import androidx.media3.ui.TimeBar
 import androidx.mediarouter.app.MediaRouteButton
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.model.GlideUrl
+import com.bumptech.glide.request.target.CustomTarget
+import com.bumptech.glide.request.transition.Transition
 import net.bunny.api.BunnyCdn
 import com.google.android.gms.cast.framework.CastButtonFactory
 import net.bunny.api.settings.capitalizeWords
@@ -721,6 +724,22 @@ class BunnyPlayerView @JvmOverloads constructor(
                     R.drawable.ic_cast_connected_400,
                     null
                 )
+                // Show the video poster behind the controls while casting
+                // (the generic cast icon above stays as the fallback).
+                playerSettings?.thumbnailUrl?.takeIf { it.isNotBlank() }?.let { url ->
+                    Glide.with(this)
+                        .load(url)
+                        .into(object : CustomTarget<Drawable>() {
+                            override fun onResourceReady(
+                                resource: Drawable,
+                                transition: Transition<in Drawable>?
+                            ) {
+                                defaultArtwork = resource
+                            }
+
+                            override fun onLoadCleared(placeholder: Drawable?) = Unit
+                        })
+                }
                 controllerHideOnTouch = false
                 muteButton.isVisible = false
             }

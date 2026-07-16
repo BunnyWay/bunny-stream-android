@@ -524,7 +524,10 @@ class BunnyStreamPlayer @JvmOverloads constructor(
                 settings.fold(
                     ifLeft = {
                         initializeVideo(
-                            video, PlayerSettings(
+                            video,
+                            token = token,
+                            expires = expires,
+                            playerSettings = PlayerSettings(
                                 thumbnailUrl = "",
                                 controls = "",
                                 keyColor = 0,
@@ -554,7 +557,7 @@ class BunnyStreamPlayer @JvmOverloads constructor(
                         )
                         playerView.showError(it)
                     },
-                    ifRight = { initializeVideo(video, it) }
+                    ifRight = { initializeVideo(video, it, token, expires) }
                 )
             }
         }
@@ -665,7 +668,12 @@ class BunnyStreamPlayer @JvmOverloads constructor(
         progressListenerJob = null
     }
 
-    private suspend fun initializeVideo(video: VideoModel, playerSettings: PlayerSettings) {
+    private suspend fun initializeVideo(
+        video: VideoModel,
+        playerSettings: PlayerSettings,
+        token: String? = null,
+        expires: Long? = null,
+    ) {
         // A fresh load invalidates any error from the previous source — without this, a
         // late-arriving error from the torn-down player (e.g. the stale live URL during the
         // live→VOD hand-off) stays painted over working playback.
@@ -688,7 +696,7 @@ class BunnyStreamPlayer @JvmOverloads constructor(
             }
         }
 
-        bunnyPlayer.playVideo(binding.playerView, video, retentionData, playerSettings)
+        bunnyPlayer.playVideo(binding.playerView, video, retentionData, playerSettings, token, expires)
         playerView.bunnyPlayer = bunnyPlayer
 
         // Start auto-save after video starts playing

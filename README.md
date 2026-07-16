@@ -242,6 +242,25 @@ bunnyVideoPlayer.playVideo(videoId)
 
 `bunnyVideoPlayer` comes from `findViewById()` or from View binding.
 
+**Chromecast:**
+
+The player casts to the Bunny Stream receiver application, which plays all
+Bunny assets (including fMP4 HLS and Widevine-protected videos) and mirrors
+the player appearance configured in the Bunny dashboard (key color, caption
+color/font/size) on the TV. The cast button appears automatically when the
+library's player controls include `chromecast` and a cast device is
+available; video title and thumbnail are shown on the TV, and audio track,
+caption and playback speed selections apply to the cast session.
+
+No setup is needed. To point the SDK at a different receiver application
+(e.g. a staging app), override it in your app's manifest:
+
+```xml
+<meta-data
+    android:name="net.bunny.cast.RECEIVER_APPLICATION_ID"
+    android:value="YOUR_APP_ID" />
+```
+
 **Customizing Player:**
 
 You can customize the BunnyVideoPlayer by passing custom icons. Other costumizations like primary color, font, handling control visibilty, captions, heatmap can be controlled from the Bunny dashboard.
