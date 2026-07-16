@@ -1,136 +1,59 @@
-# BunnyStreamApi
+# bunny-stream-api
 
-The core package that provides interface to Bunny's REST Stream API. It handles all API communication, request authentication, and response parsing, allowing you to easily manage your video content, retrieve analytics, and control CDN settings. Features include video management, collection organization, and thumbnail generation.
-
-## Minimum supported Android version
-
-- Android 8.0 (API level 26)
+Core module of the Bunny Stream Android SDK (`net.bunny:api`). REST API access for the videos,
+collections and live streams of your library, video uploads (including chunked TUS with
+mid-upload pause and resume), playback
+settings and resume-position storage. The player and camera modules build on it.
 
 ## Installation
 
-Declare desired dependencies in your project's `build.gradle.kts`:
-```
+```kotlin
 implementation("net.bunny:api:latest.release")
 ```
 
+Requires Android 8.0 (API 26) and the `INTERNET` permission in your manifest.
+
 ## Initialization
 
-After installation, you'll need to configure the package with your Bunny credentials.
+Call once, before anything else from the SDK - `Application.onCreate` is the usual place:
 
 ```kotlin
-// Initialize with your access key (optional) and library ID
-BunnyStreamApi.initialize(context, accessKey, libraryId)
+BunnyStreamApi.initialize(context, accessKey = "your-api-key", libraryId = 12345L)
 ```
 
-## 1. Getting Started with video management using BunnyStreamApi
+`accessKey` is your library's API key (Bunny dashboard > Stream > your library > API). Keep it
+out of source control.
 
-BunnyStreamApi.initialize(context, accessKey, libraryId)
+## What you can do with it
 
-### List videos from library
-
- ```
- try {
-    val response: PaginationListOfVideoModel = BunnyStreamApi.videosApi.videoList(
-        libraryId = libraryId
-    )
-    println("response=$response")
-} catch (e: Exception) {
-    // handle exception
-}
- ```
-
-### Create a video
-
- ```
- val createVideoRequest = VideoCreateVideoRequest(
-    title = title,
-    collectionId = collectionId,
-    thumbnailTime = thumbnailTime
-)
-try {
-    val result: VideoModel = BunnyStreamApi.videosApi.videoCreateVideo(
-        libraryId = libraryId,
-        videoCreateVideoRequest = createVideoRequest
-    )
-    println("result=$result")
-} catch (e: Exception) {
-    // handle exception
-}
- ```
-
-### Upload video
-
-#### Uploading Using session uploader
+Everything is reachable from `BunnyStreamApi.getInstance()`:
 
 ```kotlin
-BunnyStreamApi.getInstance().videoUploader.uploadVideo(libraryId, videoUri, object : UploadListener {
-    override fun onUploadError(error: UploadError, videoId: String?) {
-        Log.d(TAG, "onVideoUploadError: $error")
-    }
+// Videos and collections (blocking calls - run them off the main thread)
+val videos = BunnyStreamApi.getInstance().videosApi.videoList(libraryId = 12345L)
 
-    override fun onUploadDone(videoId: String) {
-        Log.d(TAG, "onVideoUploadDone")
-    }
+// Uploads (TUS, with pause and resume)
+BunnyStreamApi.getInstance().tusVideoUploader.uploadVideo(libraryId, videoUri, listener)
 
-    override fun onUploadStarted(uploadId: String, videoId: String) {
-        Log.d(TAG, "onVideoUploadStarted: uploadId=$uploadId")
-    }
-
-    override fun onProgressUpdated(percentage: Int, videoId: String) {
-        Log.d(TAG, "onUploadProgress: percentage=$percentage")
-    }
-
-    override fun onUploadCancelled(videoId: String) {
-        Log.d(TAG, "onUploadProgress: onVideoUploadCancelled")
-    }
-})
+// Live streams: create, schedule, start, stop, thumbnails, status
+val repo = BunnyStreamApi.getInstance().liveStreamRepository
+val created = repo.createLiveStream(libraryId, LiveStreamCreateRequest(title = "My stream"))
 ```
 
-#### Using TUS resumable uploader
+Step-by-step flows with prerequisites and gotchas:
 
-If TUS upload gets interrupted, calling `uploadVideo` with same parameters will resume upload.
+- [Upload videos](../docs/guides/upload-videos.md)
+- [Manage live streams](../docs/guides/manage-live-streams.md)
+- [Handle errors](../docs/guides/handle-errors.md)
+- [Secure playback](../docs/guides/secure-playback.md) (tokens, Referer)
 
-```kotlin
-BunnyStreamApi.getInstance().tusVideoUploader.uploadVideo(libraryId, videoUri, object : UploadListener {
-    override fun onUploadError(error: UploadError, videoId: String?) {
-        Log.d(TAG, "onVideoUploadError: $error")
-    }
+## Reference
 
-    override fun onUploadDone(videoId: String) {
-        Log.d(TAG, "onVideoUploadDone")
-    }
+- [API reference](https://bunnyway.github.io/bunny-stream-android/api/) (generated from the source)
+- Generated REST endpoint docs: [Videos](../docs/ManageVideosApi.md),
+  [Collections](../docs/ManageCollectionsApi.md),
+  [Live streams](../docs/ManageLiveStreamsApi.md)
 
-    override fun onUploadStarted(uploadId: String, videoId: String) {
-        Log.d(TAG, "onVideoUploadStarted: uploadId=$uploadId")
-    }
+## License
 
-    override fun onProgressUpdated(percentage: Int, videoId: String) {
-        Log.d(TAG, "onUploadProgress: percentage=$percentage")
-    }
-
-    override fun onUploadCancelled(videoId: String) {
-        Log.d(TAG, "onUploadProgress: onVideoUploadCancelled")
-    }
-})
-```
-
-#### Cancel video upload
-```
-BunnyStreamApi.getInstance().videoUploader.cancelUpload(uploadId)
-```
-or
-
-```
-BunnyStreamApi.getInstance().tusVideoUploader.cancelUpload(uploadId)
-```
-
-`uploadId` comes from `onUploadStarted(uploadId: String, videoId: String)` callback function.
-
-Full example can be found in demo app.
-
-### Full API reference
-
-- [Collections API](../docs/ManageCollectionsApi.md)
-- [Videos API](../docs/ManageVideosApi.md)
-
-Bunny Stream Android is licensed under the [MIT License](LICENSE). See the LICENSE file for more details.
+Bunny Stream Android is licensed under the [MIT License](../LICENSE).
