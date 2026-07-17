@@ -1,6 +1,7 @@
 name: Docs
 
-# Builds the Dokka HTML API reference and publishes it to GitHub Pages.
+# Builds the documentation site (integration guides via MkDocs) with the Dokka HTML
+# API reference under /api/, and publishes both to GitHub Pages.
 # Runs on every release tag; can also be started by hand from the Actions tab.
 on:
   push:
@@ -20,7 +21,7 @@ concurrency:
 
 jobs:
   build:
-    name: Build API reference
+    name: Build docs site
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -33,8 +34,18 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
+
+      - name: Build guides site (MkDocs)
+        run: |
+          pip install 'mkdocs-material~=9.6'
+          mkdocs build
 
       - name: Build API reference (Dokka)
         # Brand the reference with the release version when building from a tag;
@@ -43,10 +54,13 @@ jobs:
           VERSION: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
         run: ./gradlew dokkaHtmlMultiModule
 
+      - name: Combine site and reference
+        run: cp -r build/dokka/htmlMultiModule build/docs-site/api
+
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: build/dokka/htmlMultiModule
+          path: build/docs-site
 
   deploy:
     name: Deploy to GitHub Pages
