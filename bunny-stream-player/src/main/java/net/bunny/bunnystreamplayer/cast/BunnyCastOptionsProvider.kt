@@ -2,6 +2,7 @@ package net.bunny.bunnystreamplayer.cast
 
 import android.content.Context
 import android.content.pm.PackageManager
+import android.util.Log
 import com.google.android.gms.cast.framework.CastOptions
 import com.google.android.gms.cast.framework.OptionsProvider
 import com.google.android.gms.cast.framework.SessionProvider
@@ -19,6 +20,7 @@ import com.google.android.gms.cast.framework.SessionProvider
 class BunnyCastOptionsProvider : OptionsProvider {
 
     companion object {
+        private const val TAG = "BunnyCastOptions"
         /** The production Bunny Stream receiver application. */
         const val DEFAULT_RECEIVER_APPLICATION_ID = "0067F7FB"
 
@@ -41,8 +43,16 @@ class BunnyCastOptionsProvider : OptionsProvider {
                 context.packageManager
                     .getApplicationInfo(context.packageName, PackageManager.GET_META_DATA)
                     .metaData?.getString(RECEIVER_APPLICATION_ID_METADATA)?.trim()
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to read $RECEIVER_APPLICATION_ID_METADATA meta-data", e)
                 null
+            }
+            if (override != null && !APP_ID_FORMAT.matches(override)) {
+                Log.w(
+                    TAG,
+                    "Ignoring invalid $RECEIVER_APPLICATION_ID_METADATA value \"$override\" " +
+                        "(expected 8 hex chars); falling back to $DEFAULT_RECEIVER_APPLICATION_ID",
+                )
             }
             return if (override != null && APP_ID_FORMAT.matches(override)) {
                 override
@@ -56,6 +66,13 @@ class BunnyCastOptionsProvider : OptionsProvider {
         CastOptions.Builder()
             .setReceiverApplicationId(receiverApplicationId(context))
             .setStopReceiverApplicationWhenEndingSession(true)
+            // Parity with media3's DefaultCastOptionsProvider (the provider
+            // this replaces): the GMS defaults are true, which would
+            // silently enable saved-session auto-resume — picked up by
+            // CastPlayer before any playVideo ran, and crashing on session
+            // end (switchCurrentPlayer(localPlayer!!) with no local player).
+            .setResumeSavedSession(false)
+            .setEnableReconnectionService(false)
             .build()
 
     override fun getAdditionalSessionProviders(context: Context): List<SessionProvider>? = null

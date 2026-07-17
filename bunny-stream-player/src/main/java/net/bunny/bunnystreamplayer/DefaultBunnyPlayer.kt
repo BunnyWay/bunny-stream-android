@@ -265,6 +265,10 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
     // captions, DRM + theming customData); refreshed on every playVideo.
     private val castMediaItemConverter = BunnyMediaItemConverter()
 
+    // Mirrors the SessionAvailabilityListener callbacks: true while a cast
+    // session is connected, regardless of which player is current.
+    private var castSessionAvailable = false
+
     private fun isCasting(): Boolean =
         castPlayer != null && currentPlayer === castPlayer
 
@@ -288,7 +292,7 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
         val localSpeed = localPlayer?.playbackParameters?.speed ?: 1f
         val remoteSpeed = castPlayer?.playbackParameters?.speed ?: 1f
         if (localSpeed > 0f && localSpeed != remoteSpeed) {
-            CastTrackBridge.setPlaybackRate(localSpeed.toDouble())
+            castPlayer?.setPlaybackSpeed(localSpeed)
         }
     }
 
@@ -301,12 +305,14 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
                     it.setSessionAvailabilityListener(object : SessionAvailabilityListener {
                         override fun onCastSessionAvailable() {
                             Log.d(TAG, "onCastSessionAvailable")
+                            castSessionAvailable = true
                             switchCurrentPlayer(it)
                         }
 
                         override fun onCastSessionUnavailable() {
                             Log.d(TAG, "onCastSessionUnavailable")
-                            switchCurrentPlayer(localPlayer!!)
+                            castSessionAvailable = false
+                            localPlayer?.let { local -> switchCurrentPlayer(local) }
                         }
                     })
                 }
@@ -553,6 +559,10 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
         this.playerSettings = playerSettings
         currentVideo = video
         currentVideoId = video.guid
+        // Per-video state: the local preference dies with the fresh track
+        // selector below, so the cast-side preference must not outlive it
+        // (it would re-apply video A's language on whatever plays next).
+        preferredAudioTrack = null
 
         currentLibraryId = video.videoLibraryId
         resumePosition = playerSettings.resumePosition
@@ -626,8 +636,11 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
         val drmLicenseUri = buildString {
             append("${BunnyStreamApi.baseApi}/WidevineLicense/")
             append("${video.videoLibraryId}/${video.guid}?contentId=${video.guid}")
-            token?.let { append("&token=$it") }
-            expires?.let { append("&expires=$it") }
+            // Both or neither: expires is part of the token signature, so a
+            // URL with only one of them can never validate.
+            if (token != null && expires != null) {
+                append("&token=$token&expires=$expires")
+            }
         }
 
         // Title + artwork shown by the Chromecast receiver and the cast/notification UI (the
@@ -740,9 +753,25 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
                 })
             }
 
-        currentPlayer = localPlayer
+        // While a cast session is connected, new playback must go to the
+        // receiver: assigning the local player here would silently drop out
+        // of cast (the session stays up, so SessionAvailabilityListener
+        // never re-fires) — the phone would play the new video while the TV
+        // keeps the old one. The live surface re-issues playback on every
+        // URL flip (trailer -> live -> recording), which made this fatal
+        // for live casting. The fresh local player stays idle as the
+        // handback target for when the session ends.
+        currentPlayer = if (castSessionAvailable && castPlayer != null) {
+            castPlayer
+        } else {
+            localPlayer
+        }
         playerView.player = currentPlayer
         playerView.keepScreenOn = true
+        playerStateListener?.onPlayerTypeChanged(
+            currentPlayer!!,
+            if (currentPlayer === castPlayer) PlayerType.CAST_PLAYER else PlayerType.DEFAULT_PLAYER,
+        )
 
         // Prepare and play
         val mediaItem = mediaItemBuilder.build()
@@ -832,15 +861,13 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
 
     override fun setSpeed(speed: Float) {
         Log.d(TAG, "Setting speed to: $speed")
-        if (isCasting()) {
-            // CastPlayer does not forward playback speed; send the standard
-            // SET_PLAYBACK_RATE media command (the receiver clamps to its
-            // supported 0.5–2 range).
-            CastTrackBridge.setPlaybackRate(speed.toDouble())
-        }
-        // Keep the local player's rate in sync so playback resumes at the
-        // same speed when the cast session ends.
+        // One call covers local and cast: media3's CastPlayer supports
+        // COMMAND_SET_SPEED_AND_PITCH natively (it sends the standard
+        // SET_PLAYBACK_RATE, clamped to the receiver's 0.5–2 range, and
+        // mirrors the applied rate back into playbackParameters).
         currentPlayer?.setPlaybackSpeed(speed)
+        // Keep the idle local player in sync while casting so playback
+        // resumes at the same speed when the session ends.
         if (isCasting()) {
             localPlayer?.setPlaybackSpeed(speed)
         }

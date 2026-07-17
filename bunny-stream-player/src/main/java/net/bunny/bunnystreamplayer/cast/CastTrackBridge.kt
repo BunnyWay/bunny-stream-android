@@ -130,14 +130,4 @@ object CastTrackBridge {
         )
         return true
     }
-
-    /**
-     * Standard SET_PLAYBACK_RATE media command; handled natively by the CAF
-     * receiver (which clamps to its supported 0.5–2 range).
-     */
-    fun setPlaybackRate(rate: Double): Boolean {
-        val client = remoteMediaClient() ?: return false
-        client.setPlaybackRate(rate)
-        return true
-    }
 }
