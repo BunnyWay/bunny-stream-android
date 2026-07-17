@@ -49,6 +49,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import net.bunny.api.error.fold
 import net.bunny.android.demo.App
 import net.bunny.android.demo.R
 import net.bunny.android.demo.ui.AppState
@@ -250,7 +251,10 @@ class TrailerPickerViewModel : ViewModel() {
             val enriched = videos.map { video ->
                 BunnyStreamApi.getInstance()
                     .fetchPlayerSettings(libraryId, video.id)
-                    .fold({ video }, { video.copy(thumbnailUrl = it.thumbnailUrl) })
+                    .fold(
+                        onOk = { video.copy(thumbnailUrl = it.thumbnailUrl) },
+                        onErr = { video },
+                    )
             }
             if (mutableState.value is State.Loaded) {
                 mutableState.value = State.Loaded(enriched)

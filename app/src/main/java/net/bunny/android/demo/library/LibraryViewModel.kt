@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import net.bunny.api.error.fold
 import net.bunny.android.demo.App
 import net.bunny.android.demo.library.model.Error
 import net.bunny.android.demo.library.model.Video
@@ -205,11 +206,11 @@ class LibraryViewModel : ViewModel() {
                     BunnyStreamApi.getInstance()
                         .fetchPlayerSettings(libraryId, video.id)
                         .fold(
-                            ifLeft = {
+                            onErr = {
                                 Log.w(TAG, "Failed to fetch details for ${video.id}")
                                 null
                             },
-                            ifRight = { video.id to it.thumbnailUrl }
+                            onOk = { video.id to it.thumbnailUrl }
                         )
                 }.toMap()
             }

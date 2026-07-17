@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import net.bunny.api.error.fold
 import net.bunny.android.demo.App
 import net.bunny.api.BunnyStreamApi
 import net.bunny.api.livestream.domain.model.LiveStream
@@ -107,11 +108,11 @@ class LiveStreamEditorViewModel : ViewModel() {
         mutableUiState.update { it.copy(loading = true) }
         viewModelScope.launch {
             repository.getLiveStream(libraryId, streamId).fold(
-                ifLeft = { message ->
-                    Log.w(TAG, "getLiveStream failed: $message")
-                    mutableUiState.update { it.copy(loading = false, error = message) }
+                onErr = { error ->
+                    Log.w(TAG, "getLiveStream failed: ${error.message}")
+                    mutableUiState.update { it.copy(loading = false, error = error.message) }
                 },
-                ifRight = { stream ->
+                onOk = { stream ->
                     Log.d(TAG, "getLiveStream ok — title='${stream.title}'")
                     val trailer = stream.preStreamTrailerVideoId
                         ?.takeIf { it.isNotBlank() }
@@ -136,8 +137,8 @@ class LiveStreamEditorViewModel : ViewModel() {
         Log.d(TAG, "refreshCreatedStream id=$streamId")
         viewModelScope.launch {
             repository.getLiveStream(libraryId, streamId).fold(
-                ifLeft = { message -> Log.w(TAG, "refreshCreatedStream failed: $message") },
-                ifRight = { stream ->
+                onErr = { error -> Log.w(TAG, "refreshCreatedStream failed: ${error.message}") },
+                onOk = { stream ->
                     Log.d(TAG, "refreshCreatedStream ok — status=${stream.status}")
                     mutableUiState.update { it.copy(createdStream = stream) }
                 },
@@ -151,13 +152,13 @@ class LiveStreamEditorViewModel : ViewModel() {
         mutableUiState.update { it.copy(thumbnails = ThumbnailListState.Loading) }
         viewModelScope.launch {
             repository.listLiveStreamThumbnails(libraryId, streamId).fold(
-                ifLeft = { message ->
-                    Log.w(TAG, "listThumbnails failed: $message")
+                onErr = { error ->
+                    Log.w(TAG, "listThumbnails failed: ${error.message}")
                     mutableUiState.update {
-                        it.copy(thumbnails = ThumbnailListState.Failed(message))
+                        it.copy(thumbnails = ThumbnailListState.Failed(error.message))
                     }
                 },
-                ifRight = { items ->
+                onOk = { items ->
                     Log.d(TAG, "listThumbnails ok — ${items.size} item(s)")
                     mutableUiState.update {
                         it.copy(thumbnails = ThumbnailListState.Loaded(items))
@@ -173,12 +174,12 @@ class LiveStreamEditorViewModel : ViewModel() {
         mutableUiState.update { it.copy(thumbnails = ThumbnailListState.Loading) }
         viewModelScope.launch {
             repository.deleteLiveStreamThumbnail(libraryId, streamId).fold(
-                ifLeft = { message ->
-                    Log.w(TAG, "deleteThumbnail failed: $message")
-                    mutableUiState.update { it.copy(error = message) }
+                onErr = { error ->
+                    Log.w(TAG, "deleteThumbnail failed: ${error.message}")
+                    mutableUiState.update { it.copy(error = error.message) }
                     loadThumbnails(streamId)
                 },
-                ifRight = {
+                onOk = {
                     Log.d(TAG, "deleteThumbnail ok")
                     loadThumbnails(streamId)
                 },
@@ -198,11 +199,11 @@ class LiveStreamEditorViewModel : ViewModel() {
         viewModelScope.launch {
             if (streamId == null) {
                 repository.createLiveStream(libraryId, request).fold(
-                    ifLeft = { message ->
-                        Log.w(TAG, "create failed: $message")
-                        mutableUiState.update { it.copy(saving = false, error = message) }
+                    onErr = { error ->
+                        Log.w(TAG, "create failed: ${error.message}")
+                        mutableUiState.update { it.copy(saving = false, error = error.message) }
                     },
-                    ifRight = { created ->
+                    onOk = { created ->
                         Log.d(
                             TAG,
                             "create ok — id=${created.id} streamKey=${created.streamKey} " +
@@ -219,11 +220,11 @@ class LiveStreamEditorViewModel : ViewModel() {
                 )
             } else {
                 repository.updateLiveStream(libraryId, streamId, request).fold(
-                    ifLeft = { message ->
-                        Log.w(TAG, "update failed: $message")
-                        mutableUiState.update { it.copy(saving = false, error = message) }
+                    onErr = { error ->
+                        Log.w(TAG, "update failed: ${error.message}")
+                        mutableUiState.update { it.copy(saving = false, error = error.message) }
                     },
-                    ifRight = {
+                    onOk = {
                         Log.d(TAG, "update ok")
                         App.di.dualPublishPreferences.setDualPublish(streamId, dualPublish)
                         val thumbError = thumbnail?.let { applyThumbnail(streamId, it) }
@@ -253,11 +254,11 @@ class LiveStreamEditorViewModel : ViewModel() {
             )
         }
         return result.fold(
-            ifLeft = { message ->
-                Log.w(TAG, "thumbnail failed: $message")
-                "The stream was saved, but the thumbnail could not be set: $message"
+            onErr = { error ->
+                Log.w(TAG, "thumbnail failed: ${error.message}")
+                "The stream was saved, but the thumbnail could not be set: ${error.message}"
             },
-            ifRight = {
+            onOk = {
                 Log.d(TAG, "thumbnail set")
                 null
             },

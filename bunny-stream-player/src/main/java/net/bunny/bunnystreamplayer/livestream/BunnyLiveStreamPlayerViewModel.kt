@@ -15,9 +15,10 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import net.bunny.api.BunnyStreamApi
-import net.bunny.api.livestream.domain.LiveStreamPollResult
+import net.bunny.api.error.BunnyError
+import net.bunny.api.error.BunnyResult
+import net.bunny.api.error.fold
 import net.bunny.api.livestream.domain.LiveStreamRepository
-import net.bunny.api.livestream.domain.isTerminal
 import net.bunny.api.livestream.domain.model.LiveStream
 import net.bunny.api.livestream.domain.model.LiveStreamPlayData
 import net.bunny.api.model.LiveStreamStatus
@@ -206,25 +207,25 @@ public open class BunnyLiveStreamPlayerViewModel internal constructor(
                 repository.pollLiveStream(libraryId, streamId)
             }
             when (result) {
-                is LiveStreamPollResult.Success -> handleStreamUpdate(result.stream)
-                is LiveStreamPollResult.Failure -> handlePollFailure(result)
+                is BunnyResult.Ok -> handleStreamUpdate(result.value)
+                is BunnyResult.Err -> handlePollFailure(result.error)
             }
         } finally {
             pollInFlight = false
         }
     }
 
-    private fun handlePollFailure(failure: LiveStreamPollResult.Failure) {
-        if (failure.isTerminal()) {
-            Log.w(TAG, "poll failed with terminal status ${failure.statusCode} — stopping polling")
+    private fun handlePollFailure(error: BunnyError) {
+        if (error.isTerminal) {
+            Log.w(TAG, "poll failed with terminal status ${error.httpStatus} — stopping polling")
             terminated = true
             pollJob?.cancel()
             pollJob = null
-            mutableTerminalError.value = failure.message
+            mutableTerminalError.value = error.message
         } else {
             // 5xx/network/transient — keep polling, no UI change. Spec: "Treat them as transient;
             // back off if you want, but do not stop."
-            Log.w(TAG, "poll failed with transient status ${failure.statusCode}: ${failure.message}")
+            Log.w(TAG, "poll failed with transient status ${error.httpStatus}: ${error.message}")
         }
     }
 
@@ -283,16 +284,15 @@ public open class BunnyLiveStreamPlayerViewModel internal constructor(
                 repository.fetchLiveStreamPlayData(libraryId, streamId, token, expires)
             }
             result.fold(
-                ifLeft = { msg ->
-                    // Play-data errors don't carry an HTTP status code, so we can't decide
-                    // terminal vs transient from here. Treat all play-data errors as transient:
-                    // the polling loop is the authoritative terminal-status detector (it gets
-                    // back a typed status code) and will set [terminalError] if needed. Worst
-                    // case: we sit on the loading spinner until polling either succeeds or hits
-                    // a terminal status, which matches the spec's poll-driven transition model.
-                    Log.w(TAG, "fetchPlayData[$reason] failed (will rely on poll loop): $msg")
+                onErr = { error ->
+                    // Play-data errors now carry the HTTP status too, but the polling loop stays
+                    // the single authoritative terminal-status detector — one decision path, one
+                    // place that flips [terminalError]. Treat all play-data errors as transient
+                    // here. Worst case: we sit on the loading spinner until polling either
+                    // succeeds or hits a terminal status, matching the poll-driven model.
+                    Log.w(TAG, "fetchPlayData[$reason] failed (will rely on poll loop): ${error.message}")
                 },
-                ifRight = { playData ->
+                onOk = { playData ->
                     Log.d(
                         TAG,
                         "fetchPlayData[$reason] OK — " +

@@ -2,11 +2,11 @@ package net.bunny.api
 
 import android.content.Context
 import android.util.Log
-import arrow.core.Either
 import kotlinx.coroutines.Dispatchers
 import net.bunny.api.api.ManageCollectionsApi
 import net.bunny.api.api.ManageLiveStreamsApi
 import net.bunny.api.api.ManageVideosApi
+import net.bunny.api.error.BunnyResult
 import net.bunny.api.ktor.initHttpClient
 import net.bunny.api.livestream.data.DefaultLiveStreamRepository
 import net.bunny.api.settings.data.DefaultSettingsRepository
@@ -174,7 +174,12 @@ class BunnyStreamApi private constructor(
         coroutineDispatcher = Dispatchers.IO
     )
 
-    override suspend fun fetchPlayerSettings(libraryId: Long, videoId: String, token: String?, expires: Long?): Either<String, PlayerSettings> {
+    override suspend fun fetchPlayerSettings(
+        libraryId: Long,
+        videoId: String,
+        token: String?,
+        expires: Long?,
+    ): BunnyResult<PlayerSettings> {
         return settingsRepository.fetchSettings(libraryId, videoId, token, expires)
     }
 }

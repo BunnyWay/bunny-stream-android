@@ -6,6 +6,9 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import net.bunny.api.BuildConfig
 import net.bunny.api.BunnyStreamApi
+import net.bunny.api.error.BunnyResult
+import net.bunny.api.error.fold
+import net.bunny.api.error.map
 import net.bunny.api.livestream.domain.model.LiveStreamIngestStatus
 import net.bunny.api.model.LiveStreamStatus
 import net.bunny.bunnystreamcameraupload.domain.RecordingRepository
@@ -77,6 +80,7 @@ class DefaultRecordingRepository(
                 Log.d(TAG, "startLiveStream ok — status=${stream.status}")
                 Unit
             }
+            .toEither()
     }
 
     override suspend fun stopLiveStream(
@@ -89,14 +93,27 @@ class DefaultRecordingRepository(
                 Log.d(TAG, "stopLiveStream ok — status=${stream.status}")
                 Unit
             }
+            .toEither()
     }
 
     override suspend fun getIngestStatus(
         libraryId: Long,
         streamId: String,
     ): Either<String, LiveStreamIngestStatus> = withContext(coroutineDispatcher) {
-        BunnyStreamApi.getInstance().liveStreamRepository.getLiveStreamStatus(libraryId, streamId)
+        BunnyStreamApi.getInstance().liveStreamRepository
+            .getLiveStreamStatus(libraryId, streamId)
+            .toEither()
     }
+
+    /**
+     * Bridges the SDK's [BunnyResult] envelope back to this module's `Either<String, T>` surface.
+     * The recording module keeps its message-based contract for now; its own migration to
+     * [BunnyResult] is a separate change.
+     */
+    private fun <T> BunnyResult<T>.toEither(): Either<String, T> = fold(
+        onOk = { Either.Right(it) },
+        onErr = { Either.Left(it.message) },
+    )
 
     override suspend fun prepareLiveBroadcast(
         libraryId: Long,
@@ -104,8 +121,8 @@ class DefaultRecordingRepository(
         ingestEndpoint: String?,
     ): Either<String, ResolvedIngest> = withContext(coroutineDispatcher) {
         when (val result = BunnyStreamApi.getInstance().liveStreamRepository.getLiveStream(libraryId, streamId)) {
-            is Either.Left -> Either.Left(result.value)
-            is Either.Right -> {
+            is BunnyResult.Err -> Either.Left(result.message)
+            is BunnyResult.Ok -> {
                 val stream = result.value
                 val streamKey = stream.streamKey
                 when {

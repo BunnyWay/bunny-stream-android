@@ -1,9 +1,9 @@
 package net.bunny.api
 
-import arrow.core.Either
 import net.bunny.api.api.ManageCollectionsApi
 import net.bunny.api.api.ManageLiveStreamsApi
 import net.bunny.api.api.ManageVideosApi
+import net.bunny.api.error.BunnyResult
 import net.bunny.api.livestream.domain.LiveStreamRepository
 import net.bunny.api.settings.domain.SettingsRepository
 import net.bunny.api.settings.domain.model.PlayerSettings
@@ -43,11 +43,16 @@ interface StreamApi {
     val settingsRepository: SettingsRepository
 
     /**
-     * Repository wrapping [ManageLiveStreamsApi] with domain models and `Either`-based error
-     * handling. Prefer this over the raw [liveStreamsApi] for SDK consumers.
+     * Repository wrapping [ManageLiveStreamsApi] with domain models and the [BunnyResult]
+     * envelope for errors. Prefer this over the raw [liveStreamsApi] for SDK consumers.
      * @see LiveStreamRepository
      */
     val liveStreamRepository: LiveStreamRepository
 
-    suspend fun fetchPlayerSettings(libraryId: Long, videoId: String, token: String? = null, expires: Long? = null): Either<String, PlayerSettings>
+    suspend fun fetchPlayerSettings(
+        libraryId: Long,
+        videoId: String,
+        token: String? = null,
+        expires: Long? = null,
+    ): BunnyResult<PlayerSettings>
 }

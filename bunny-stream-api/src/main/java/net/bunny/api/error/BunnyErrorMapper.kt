@@ -1,6 +1,7 @@
 package net.bunny.api.error
 
 import com.google.gson.JsonParseException
+import io.ktor.serialization.ContentConvertException
 import java.io.IOException
 import net.bunny.api.error.BunnyError.Companion.HTTP_FORBIDDEN
 import net.bunny.api.error.BunnyError.Companion.HTTP_NOT_FOUND
@@ -16,8 +17,9 @@ import org.openapitools.client.infrastructure.ServerException
  *  * generated-client [ClientException]/[ServerException] — carry the HTTP status code; routed
  *    by [fromHttpStatus]. The repositories' manual OkHttp calls throw the same exception types
  *    on non-success responses, so they need no extra case here.
- *  * Gson [JsonParseException] (and its subclasses) — the response arrived but the body did not
- *    match the expected shape: [BunnyError.Decode].
+ *  * Gson [JsonParseException] (generated client) and Ktor [ContentConvertException] (settings
+ *    path) — the response arrived but the body did not match the expected shape:
+ *    [BunnyError.Decode].
  *  * [IOException] and subclasses — OkHttp's transport failures (DNS, connect, socket timeout,
  *    TLS, dropped connections): [BunnyError.Network].
  *  * anything else is treated as [BunnyError.Network] with `httpStatus = 0` too, which is what
@@ -34,6 +36,10 @@ public object BunnyErrorMapper {
         is ClientException -> fromHttpStatus(throwable.statusCode, throwable.message)
         is ServerException -> fromHttpStatus(throwable.statusCode, throwable.message)
         is JsonParseException -> BunnyError.Decode(
+            message = throwable.message ?: "Malformed response body",
+            cause = throwable,
+        )
+        is ContentConvertException -> BunnyError.Decode(
             message = throwable.message ?: "Malformed response body",
             cause = throwable,
         )
