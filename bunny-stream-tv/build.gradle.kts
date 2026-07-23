@@ -78,7 +78,6 @@ dependencies {
     implementation("androidx.media3:media3-exoplayer:1.2.1")
 
     // Arrow for functional programming (Either, etc.) - Add this if it's missing
-    implementation("io.arrow-kt:arrow-core:1.2.1")
 
     // Testing
     testImplementation("junit:junit:4.13.2")

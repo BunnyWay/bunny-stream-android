@@ -154,7 +154,6 @@ dependencies {
     implementation("com.google.accompanist:accompanist-swiperefresh:0.36.0")
 
     // Functional Programming (Arrow)
-    implementation("io.arrow-kt:arrow-core:2.0.1")
 
     // Work Manager for background tasks
     implementation("androidx.work:work-runtime-ktx:2.8.1")
