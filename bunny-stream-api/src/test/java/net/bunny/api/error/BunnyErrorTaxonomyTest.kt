@@ -9,7 +9,9 @@ import org.junit.Test
 /**
  * Tests for the [BunnyError] taxonomy and the [BunnyResult] envelope. The contract under test is
  * the one the cross-platform error model relies on: every variant exposes a numeric [httpStatus]
- * (`0` = no usable HTTP response), and terminality is derivable as exactly {401, 403, 404, 410}.
+ * (`0` = no usable HTTP response), and terminality is derivable — {401, 403, 404, 410} for
+ * anything that reached the server, plus [BunnyError.LocalFile], where the device is the problem
+ * and no retry can change the answer.
  */
 class BunnyErrorTaxonomyTest {
 
@@ -19,6 +21,11 @@ class BunnyErrorTaxonomyTest {
     fun `network and decode carry no http status`() {
         assertEquals(0, BunnyError.Network("timeout").httpStatus)
         assertEquals(0, BunnyError.Decode("bad json").httpStatus)
+    }
+
+    @Test
+    fun `local file failures carry no http status either`() {
+        assertEquals(0, BunnyError.LocalFile("cannot open uri").httpStatus)
     }
 
     @Test
@@ -49,6 +56,26 @@ class BunnyErrorTaxonomyTest {
         assertTrue(BunnyError.Auth(403, "").isTerminal)
         assertTrue(BunnyError.NotFound("").isTerminal)
         assertTrue(BunnyError.Http(410, "library deleted").isTerminal)
+    }
+
+    @Test
+    fun `a local file failure is terminal despite having no http status`() {
+        // Terminality is normally read off the status code, and 0 is not in the terminal set.
+        // LocalFile overrides it: the file cannot be read on this device, so retrying the same
+        // upload can only fail the same way.
+        assertTrue(BunnyError.LocalFile("cannot open uri").isTerminal)
+    }
+
+    @Test
+    fun `invalid state carries its own terminality because it cannot be derived`() {
+        // An ended live stream never becomes publishable again; a stream key that has not been
+        // issued yet usually appears moments later. Same variant, opposite retry advice — which is
+        // why this is the one case where the flag is explicit.
+        assertTrue(BunnyError.InvalidState("stream has ended").isTerminal)
+        assertFalse(
+            BunnyError.InvalidState("no stream key yet", isTerminal = false).isTerminal,
+        )
+        assertEquals(0, BunnyError.InvalidState("stream has ended").httpStatus)
     }
 
     @Test
