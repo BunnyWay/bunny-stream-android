@@ -7,229 +7,319 @@ import android.util.Log
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.transformWhile
 import kotlinx.coroutines.launch
 import net.bunny.api.api.ManageVideosApi
+import net.bunny.api.error.BunnyError
+import net.bunny.api.error.BunnyResult
+import net.bunny.api.error.bunnyCatching
 import net.bunny.api.upload.model.FileInfo
-import net.bunny.api.upload.model.HttpStatusCodes
-import net.bunny.api.upload.model.UploadError
-import net.bunny.api.upload.service.PauseState
-import net.bunny.api.upload.service.UploadListener
-import net.bunny.api.upload.service.UploadRequest
+import net.bunny.api.upload.model.UploadEvent
+import net.bunny.api.upload.service.UploadControl
 import net.bunny.api.upload.service.UploadService
-import org.openapitools.client.infrastructure.ClientException
-import org.openapitools.client.infrastructure.ServerException
 import org.openapitools.client.models.VideoCreateVideoRequest
+import java.io.Closeable
+import java.io.IOException
+import java.io.InputStream
 import java.util.UUID
 
-class DefaultVideoUploader(
+/**
+ * Owns uploads as long-lived, addressable things: their coroutine scope, their registry, the
+ * event stream each one broadcasts, and the video-record bookkeeping around the transfer itself.
+ * The bytes go through an [UploadService] — plain or resumable — chosen at construction.
+ *
+ * Uploads run on [uploadScope], not on the caller's coroutine, so a screen that starts one and
+ * then goes away does not take it down. That scope belongs to the owning
+ * [net.bunny.api.BunnyStreamApi] instance and is torn down with it via [shutdown]; nothing here
+ * outlives the SDK instance that created it.
+ */
+@OptIn(ExperimentalCoroutinesApi::class)
+internal class DefaultVideoUploader(
     private val context: Context,
     private val videoUploadService: UploadService,
-    ioDispatcher: CoroutineDispatcher,
-    private val videosApi: ManageVideosApi
+    private val ioDispatcher: CoroutineDispatcher,
+    private val videosApi: ManageVideosApi,
 ) : VideoUploader {
 
-    companion object {
+    private companion object {
         private const val TAG = "DefaultVideoUploader"
+
+        /** Progress events buffered per upload before the oldest are coalesced away. */
+        private const val EVENT_BUFFER = 64
+
+        /**
+         * How many uploads stay addressable. Finished ones are kept so a screen returning just
+         * after a transfer ended can still read its outcome instead of getting `null`; beyond this
+         * many, the oldest finished entries are forgotten.
+         */
+        private const val MAX_REMEMBERED = 32
     }
 
-    private val supervisorJob = SupervisorJob()
-    private val exceptionHandler = CoroutineExceptionHandler { context, exception ->
-        exception.printStackTrace()
-        Log.d(TAG, "CoroutineExceptionHandler: context=$context exception=$exception")
-    }
-    private val scope = CoroutineScope(ioDispatcher + exceptionHandler + supervisorJob)
+    private val uploadScope = CoroutineScope(
+        ioDispatcher + SupervisorJob() + CoroutineExceptionHandler { _, error ->
+            Log.w(TAG, "upload coroutine failed: $error")
+        },
+    )
 
     private val lock = Any()
-    private val uploadsInProgress: MutableMap<String, UploadRequest> = mutableMapOf()
 
-    override fun uploadVideo(libraryId: Long, videoUri: Uri, listener: UploadListener) {
-        Log.d(TAG, "uploadVideo libraryId=$libraryId videoUri=$videoUri")
+    /** Insertion-ordered so eviction can drop the oldest finished uploads first. */
+    private val uploads = LinkedHashMap<String, Upload>()
 
-        val fileInfo = getFileInfo(videoUri)
+    private class Upload(
+        val libraryId: Long,
+        val control: UploadControl,
+        val events: MutableSharedFlow<UploadEvent>,
+    ) {
+        @Volatile
+        var videoId: String? = null
 
-        if (fileInfo == null) {
-            listener.onUploadError(UploadError.ErrorReadingFile, null)
-            return
-        }
+        @Volatile
+        var finished: Boolean = false
 
-        Log.d(TAG, "fileInfo: $fileInfo")
-
-        scope.launch {
-            val videoId: String?
-            try {
-                videoId = createVideo(libraryId, fileInfo.fileName)
-            } catch (e: Exception) {
-                Log.e(TAG, "could not create video: ${e.message}")
-                e.printStackTrace()
-
-                val error = when (e) {
-                    is ClientException -> {
-                        when (e.statusCode) {
-                            HttpStatusCodes.UNAUTHORIZED -> UploadError.Unauthorized
-                            HttpStatusCodes.NOT_FOUND -> UploadError.VideoNotFound
-                            else -> UploadError.UnknownError("${e.statusCode} ${e.message}")
-                        }
-                    }
-
-                    is ServerException -> UploadError.ServerError
-                    else -> UploadError.UnknownError(e.message ?: e.toString())
-                }
-                listener.onUploadError(error, null)
-                return@launch
-            }
-
-            if (videoId.isNullOrEmpty()) {
-                listener.onUploadError(UploadError.ErrorCreating, videoId)
-                return@launch
-            }
-
-            val uploadId = UUID.randomUUID().toString()
-
-            val request = videoUploadService.upload(
-                libraryId, videoId, fileInfo, object : UploadListener {
-                    override fun onProgressUpdated(
-                        percentage: Int,
-                        videoId: String,
-                        pauseState: PauseState
-                    ) {
-                        Log.d(TAG, "onProgressUpdated: $percentage")
-                        listener.onProgressUpdated(percentage, videoId, pauseState)
-                    }
-
-                    override fun onUploadDone(videoId: String) {
-                        Log.d(TAG, "onUploadDone")
-                        listener.onUploadDone(videoId)
-                    }
-
-                    override fun onUploadStarted(uploadId: String, videoId: String) {
-                        Log.d(TAG, "onUploadStarted uploadId=$uploadId")
-                    }
-
-                    override fun onUploadError(error: UploadError, videoId: String?) {
-                        Log.d(TAG, "onUploadError: $error")
-                        listener.onUploadError(error, videoId)
-                    }
-
-                    override fun onUploadCancelled(videoId: String) {
-                        Log.d(TAG, "onUploadCancelled")
-                        listener.onUploadCancelled(videoId)
-                    }
-                }
-            )
-
-            synchronized(lock) {
-                uploadsInProgress[uploadId] = request
-                listener.onUploadStarted(uploadId, videoId)
-            }
-
-            Log.d(TAG, "uploadsInProgress: $uploadsInProgress")
+        suspend fun finishWith(event: UploadEvent) {
+            events.emit(event)
+            finished = true
         }
     }
 
-    override fun cancelUpload(uploadId: String) {
-        Log.d(TAG, "cancelUpload: $uploadId")
+    override fun startUpload(libraryId: Long, videoUri: Uri): String =
+        launchUpload(libraryId, videoUri, existingVideoId = null)
 
-        val request: UploadRequest?
+    override fun continueUpload(libraryId: Long, videoId: String, videoUri: Uri): String =
+        launchUpload(libraryId, videoUri, existingVideoId = videoId)
+
+    private fun launchUpload(libraryId: Long, videoUri: Uri, existingVideoId: String?): String {
+        val uploadId = UUID.randomUUID().toString()
+        val upload = Upload(
+            libraryId = libraryId,
+            control = UploadControl(),
+            events = MutableSharedFlow(
+                replay = 1,
+                extraBufferCapacity = EVENT_BUFFER,
+                // A slow observer must never slow the transfer down, and losing an intermediate
+                // percentage costs nothing. The terminal event is always the most recent value,
+                // so replay keeps it reachable even when older ones were coalesced away.
+                onBufferOverflow = BufferOverflow.DROP_OLDEST,
+            ),
+        ).apply { videoId = existingVideoId }
 
         synchronized(lock) {
-            request = uploadsInProgress.remove(uploadId)
+            evictFinished()
+            uploads[uploadId] = upload
         }
 
-        if (request == null) {
-            Log.w(TAG, "Cannot cancel, upload ID $uploadId not found")
+        uploadScope.launch { runUpload(uploadId, upload, videoUri, existingVideoId) }
+        return uploadId
+    }
+
+    @Suppress("ReturnCount")
+    private suspend fun runUpload(
+        uploadId: String,
+        upload: Upload,
+        videoUri: Uri,
+        existingVideoId: String?,
+    ) {
+        if (existingVideoId != null && !videoUploadService.supportsResuming) {
+            upload.finishWith(
+                UploadEvent.Failed(
+                    BunnyError.InvalidState(
+                        "This uploader cannot continue an interrupted upload. Use the resumable " +
+                            "(TUS) uploader, or start a new upload instead.",
+                    ),
+                    videoId = existingVideoId,
+                ),
+            )
             return
         }
 
-        scope.launch { request.cancel() }
+        val fileInfo = when (val opened = openFile(videoUri)) {
+            is BunnyResult.Err -> {
+                upload.finishWith(UploadEvent.Failed(opened.error, existingVideoId))
+                return
+            }
+            is BunnyResult.Ok -> opened.value
+        }
 
-        scope.launch { deleteVideo(request.libraryId, request.videoId) }
+        try {
+            val videoId = existingVideoId
+                ?: when (val created = createVideo(upload.libraryId, fileInfo.fileName)) {
+                    is BunnyResult.Err -> {
+                        upload.finishWith(UploadEvent.Failed(created.error, videoId = null))
+                        return
+                    }
+                    is BunnyResult.Ok -> created.value
+                }
+            upload.videoId = videoId
+
+            // Cancelling during video creation is a real race: the record now exists but nobody
+            // asked for it. Clean it up rather than leaving an empty video in the library.
+            if (upload.control.isCancelled) {
+                uploadScope.launch { deleteVideo(upload.libraryId, videoId) }
+                upload.finishWith(UploadEvent.Cancelled(videoId))
+                return
+            }
+
+            upload.events.emit(UploadEvent.Started(uploadId, videoId))
+            videoUploadService
+                .upload(upload.libraryId, videoId, fileInfo, upload.control)
+                .collect { event -> upload.events.emit(event) }
+        } finally {
+            fileInfo.inputStream.closeQuietly()
+            upload.finished = true
+        }
+    }
+
+    override fun observeUpload(uploadId: String): Flow<UploadEvent>? {
+        val upload = synchronized(lock) { uploads[uploadId] } ?: return null
+        return upload.events.transformWhile { event ->
+            emit(event)
+            !event.isTerminal
+        }
     }
 
     override fun pauseUpload(uploadId: String) {
-        Log.d(TAG, "pauseUpload: $uploadId")
-
-        val request: UploadRequest?
-
-        synchronized(lock) {
-            request = uploadsInProgress.get(uploadId)
-        }
-
-        if (request == null) {
-            Log.w(TAG, "Cannot pause, upload ID $uploadId not found")
-            return
-        }
-
-        scope.launch { request.pause() }
+        find(uploadId, "pause")?.control?.pause()
     }
 
     override fun resumeUpload(uploadId: String) {
-        Log.d(TAG, "resumeUpload: $uploadId")
+        find(uploadId, "resume")?.control?.resume()
+    }
 
-        val request: UploadRequest?
+    override fun cancelUpload(uploadId: String) {
+        val upload = find(uploadId, "cancel") ?: return
+        upload.control.cancel()
+        // Null while the video record is still being created; the race is handled in runUpload,
+        // which deletes it as soon as it exists.
+        val videoId = upload.videoId ?: return
+        uploadScope.launch { deleteVideo(upload.libraryId, videoId) }
+    }
 
+    /**
+     * Stops every upload and tears down the scope. Called when the owning
+     * [net.bunny.api.BunnyStreamApi] instance is replaced or released, so uploads can never
+     * outlive the SDK instance that started them.
+     */
+    fun shutdown() {
         synchronized(lock) {
-            request = uploadsInProgress.get(uploadId)
+            uploads.values.forEach { it.control.cancel() }
+            uploads.clear()
         }
-
-        if (request == null) {
-            Log.w(TAG, "Cannot resume, upload ID $uploadId not found")
-            return
-        }
-
-        scope.launch { request.resume() }
+        uploadScope.cancel()
     }
 
-    private fun createVideo(
-        libraryId: Long,
-        title: String,
-        collectionId: String? = null,
-        thumbnailTime: Int? = null
-    ): String? {
-        val createVideoRequest = VideoCreateVideoRequest(
-            title = title,
-            collectionId = collectionId,
-            thumbnailTime = thumbnailTime
-        )
-        val result = videosApi.videoCreateVideo(
-            libraryId = libraryId,
-            videoCreateVideoRequest = createVideoRequest
-        )
-
-        return result.guid
+    private fun find(uploadId: String, action: String): Upload? {
+        val upload = synchronized(lock) { uploads[uploadId] }
+        if (upload == null || upload.finished) {
+            Log.w(TAG, "cannot $action, upload id $uploadId is not in flight")
+            return null
+        }
+        return upload
     }
 
-    @Suppress("PrintStackTrace")
-    private fun deleteVideo(libraryId: Long, videoId: String) {
-        Log.d(TAG, "deleteVideo libraryId=$libraryId videoId=$videoId")
-        try {
-            val result = videosApi.videoDeleteVideo(libraryId, videoId)
-            if (result.success == true) {
-                Log.d(TAG, "Video deleted")
-            } else {
-                Log.e(TAG, "Error deleting video: $result")
+    /** Drops the oldest finished uploads once the registry grows past [MAX_REMEMBERED]. */
+    private fun evictFinished() {
+        if (uploads.size < MAX_REMEMBERED) return
+        val entries = uploads.entries.iterator()
+        while (entries.hasNext() && uploads.size >= MAX_REMEMBERED) {
+            if (entries.next().value.finished) entries.remove()
+        }
+    }
+
+    /**
+     * Creates the video record the bytes will be attached to.
+     *
+     * A `2xx` with no guid is treated as [BunnyError.Decode]: the call succeeded but the response
+     * did not carry what the contract promises, which is exactly what that variant is for.
+     */
+    private suspend fun createVideo(libraryId: Long, title: String): BunnyResult<String> {
+        val created = bunnyCatching {
+            videosApi.videoCreateVideo(
+                libraryId = libraryId,
+                videoCreateVideoRequest = VideoCreateVideoRequest(title = title),
+            ).guid
+        }
+
+        return when (created) {
+            is BunnyResult.Err -> created
+            is BunnyResult.Ok -> created.value
+                ?.takeIf { it.isNotEmpty() }
+                ?.let { BunnyResult.Ok(it) }
+                ?: BunnyResult.Err(
+                    BunnyError.Decode("Video was created but the response carried no video id"),
+                )
+        }
+    }
+
+    private suspend fun deleteVideo(libraryId: Long, videoId: String) {
+        when (val result = bunnyCatching { videosApi.videoDeleteVideo(libraryId, videoId) }) {
+            is BunnyResult.Err ->
+                Log.w(TAG, "could not delete cancelled video $videoId: ${result.message}")
+            is BunnyResult.Ok ->
+                Log.d(TAG, "deleted cancelled video $videoId")
+        }
+    }
+
+    /**
+     * Resolves name, size and a readable stream for [uri].
+     *
+     * Metadata is read before the stream is opened: the other order leaks a file handle whenever
+     * the content resolver has the file but no metadata for it.
+     */
+    @Suppress("TooGenericExceptionCaught", "ReturnCount")
+    private fun openFile(uri: Uri): BunnyResult<FileInfo> {
+        var stream: InputStream? = null
+        return try {
+            val cursor = context.contentResolver.query(uri, null, null, null, null)
+                ?: return unreadable("no metadata available for $uri")
+
+            val fileName: String
+            val fileSize: Long
+            cursor.use {
+                val nameIndex = it.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                val sizeIndex = it.getColumnIndex(OpenableColumns.SIZE)
+                if (!it.moveToFirst() || nameIndex < 0 || sizeIndex < 0) {
+                    return unreadable("incomplete metadata for $uri")
+                }
+                fileName = it.getString(nameIndex)
+                fileSize = it.getLong(sizeIndex)
             }
+
+            stream = context.contentResolver.openInputStream(uri)
+                ?: return unreadable("cannot open $uri for reading")
+
+            BunnyResult.Ok(FileInfo(fileName, fileSize, stream))
         } catch (e: Exception) {
-            Log.e(TAG, "deleteVideo exception: ${e.message}")
-            e.printStackTrace()
+            stream.closeQuietly()
+            BunnyResult.Err(
+                BunnyError.LocalFile(
+                    message = "Cannot read the selected file: ${e.message ?: e::class.simpleName}",
+                    cause = e,
+                ),
+            )
         }
     }
 
-    private fun getFileInfo(uri: Uri): FileInfo? {
+    private fun unreadable(detail: String): BunnyResult<FileInfo> =
+        BunnyResult.Err(BunnyError.LocalFile("Cannot read the selected file: $detail"))
+}
 
-        val inputStream = context.contentResolver.openInputStream(uri) ?: return null
+/** Whether this event ends the upload, so an observer's flow can complete on it. */
+private val UploadEvent.isTerminal: Boolean
+    get() = this is UploadEvent.Completed ||
+        this is UploadEvent.Cancelled ||
+        this is UploadEvent.Failed
 
-        val cursor = context.contentResolver.query(uri, null, null, null, null) ?: return null
-
-        cursor.use {
-            val nameIndex = it.getColumnIndex(OpenableColumns.DISPLAY_NAME)
-            val sizeIndex = it.getColumnIndex(OpenableColumns.SIZE)
-            it.moveToFirst()
-
-            val name = it.getString(nameIndex)
-            val size = it.getLong(sizeIndex)
-
-            return FileInfo(name, size, inputStream)
-        }
+private fun Closeable?.closeQuietly() {
+    try {
+        this?.close()
+    } catch (e: IOException) {
+        Log.w("DefaultVideoUploader", "could not close file stream: ${e.message}")
     }
 }

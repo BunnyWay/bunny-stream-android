@@ -15,9 +15,7 @@ import net.bunny.api.BunnyStreamApi
 import net.bunny.api.livestream.domain.model.LiveStream
 import net.bunny.api.livestream.domain.model.LiveStreamCreateRequest
 import net.bunny.api.livestream.domain.model.LiveStreamThumbnail
-import net.bunny.api.upload.model.UploadError
-import net.bunny.api.upload.service.PauseState
-import net.bunny.api.upload.service.UploadListener
+import net.bunny.api.upload.model.UploadEvent
 
 /**
  * Backs [LiveStreamEditorRoute]. Loads the stream being edited (edit mode) and submits
@@ -267,28 +265,29 @@ class LiveStreamEditorViewModel : ViewModel() {
 
     // region — Pre-stream trailer
 
-    /** Forwards upload callbacks for the trailer video into [UiState.trailer]. */
-    private val trailerUploadListener = object : UploadListener {
-        override fun onUploadStarted(uploadId: String, videoId: String) {
-            Log.d(TAG, "trailer upload started — videoId=$videoId")
-        }
+    /** Projects one upload event for the trailer video onto [UiState.trailer]. */
+    private fun onTrailerUploadEvent(event: UploadEvent) {
+        when (event) {
+            is UploadEvent.Started ->
+                Log.d(TAG, "trailer upload started — videoId=${event.videoId}")
 
-        override fun onProgressUpdated(percentage: Int, videoId: String, pauseState: PauseState) {
-            mutableUiState.update { it.copy(trailer = TrailerState.Uploading(percentage)) }
-        }
+            is UploadEvent.Progress ->
+                mutableUiState.update { it.copy(trailer = TrailerState.Uploading(event.percentage)) }
 
-        override fun onUploadDone(videoId: String) {
-            Log.d(TAG, "trailer upload done — videoId=$videoId")
-            mutableUiState.update { it.copy(trailer = TrailerState.Ready(videoId, deletable = true)) }
-        }
+            is UploadEvent.Completed -> {
+                Log.d(TAG, "trailer upload done — videoId=${event.videoId}")
+                mutableUiState.update {
+                    it.copy(trailer = TrailerState.Ready(event.videoId, deletable = true))
+                }
+            }
 
-        override fun onUploadError(error: UploadError, videoId: String?) {
-            Log.w(TAG, "trailer upload failed: $error")
-            mutableUiState.update { it.copy(trailer = TrailerState.Failed(error.toString())) }
-        }
+            is UploadEvent.Failed -> {
+                Log.w(TAG, "trailer upload failed: ${event.error}")
+                mutableUiState.update { it.copy(trailer = TrailerState.Failed(event.error.message)) }
+            }
 
-        override fun onUploadCancelled(videoId: String) {
-            mutableUiState.update { it.copy(trailer = TrailerState.None) }
+            is UploadEvent.Cancelled ->
+                mutableUiState.update { it.copy(trailer = TrailerState.None) }
         }
     }
 
@@ -312,8 +311,12 @@ class LiveStreamEditorViewModel : ViewModel() {
     fun uploadTrailer(videoUri: Uri) {
         Log.d(TAG, "uploadTrailer uri=$videoUri")
         mutableUiState.update { it.copy(trailer = TrailerState.Uploading(0)) }
-        App.di.videoUploadService.uploadListener = trailerUploadListener
-        App.di.videoUploadService.uploadVideo(libraryId, videoUri)
+
+        val uploader = App.di.streamSdk.videoUploader
+        val uploadId = uploader.startUpload(libraryId, videoUri)
+        viewModelScope.launch {
+            uploader.observeUpload(uploadId)?.collect(::onTrailerUploadEvent)
+        }
     }
 
     /** Deletes the uploaded trailer video from the library and clears the trailer. */

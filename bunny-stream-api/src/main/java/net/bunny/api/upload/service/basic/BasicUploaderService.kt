@@ -1,7 +1,6 @@
 package net.bunny.api.upload.service.basic
 
 import android.util.Log
-import arrow.core.Either
 import io.ktor.client.HttpClient
 import io.ktor.client.plugins.onUpload
 import io.ktor.client.plugins.timeout
@@ -10,86 +9,139 @@ import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
-import kotlinx.coroutines.CoroutineExceptionHandler
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.channels.SendChannel
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.channelFlow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.launch
 import net.bunny.api.BuildConfig
+import net.bunny.api.error.BunnyErrorMapper
 import net.bunny.api.upload.model.FileInfo
-import net.bunny.api.upload.model.HttpStatusCodes
+import net.bunny.api.upload.model.PauseState
 import net.bunny.api.upload.model.StreamContent
-import net.bunny.api.upload.model.UploadError
-import net.bunny.api.upload.service.PauseState
-import net.bunny.api.upload.service.UploadListener
-import net.bunny.api.upload.service.UploadRequest
+import net.bunny.api.upload.model.UploadEvent
+import net.bunny.api.upload.service.UploadControl
 import net.bunny.api.upload.service.UploadService
-import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.Duration
 
-class BasicUploaderService(
+/**
+ * Sends the whole file in a single `PUT`.
+ *
+ * Simple and fast, but the transfer cannot be held: there is no chunk boundary to stop at, so
+ * every [UploadEvent.Progress] reports [PauseState.Unsupported] and pause/resume are no-ops.
+ * A dropped connection restarts the upload from zero. Use
+ * [net.bunny.api.upload.service.tus.TusUploaderService] when either matters.
+ */
+internal class BasicUploaderService(
     private val httpClient: HttpClient,
-    private val coroutineDispatcher: CoroutineDispatcher
-): UploadService {
+    private val coroutineDispatcher: CoroutineDispatcher,
+) : UploadService {
 
-    companion object {
+    private companion object {
         private const val TAG = "BasicUploaderService"
     }
 
-    private val superVisorJob = SupervisorJob()
-    private val exceptionHandler = CoroutineExceptionHandler { context, exception ->
-        exception.printStackTrace()
-        Log.d(TAG, "CoroutineExceptionHandler: context=$context exception=$exception")
-    }
-    private val scope = CoroutineScope(coroutineDispatcher + exceptionHandler + superVisorJob)
+    /** One request, no offset to come back to. */
+    override val supportsResuming: Boolean = false
 
-    override suspend fun upload(
-        libraryId: Long, videoId: String, fileInfo: FileInfo, listener: UploadListener
-    ): UploadRequest {
-        val uploadJob = scope.launch {
-            val url = "${BuildConfig.BASE_API}/library/$libraryId/videos/$videoId"
-            var uploadProcess = 0
-            val request = httpClient.preparePut(url) {
+    override fun upload(
+        libraryId: Long,
+        videoId: String,
+        fileInfo: FileInfo,
+        control: UploadControl,
+    ): Flow<UploadEvent> = channelFlow {
+        // Distinguishes "the caller cancelled this upload" from "our collector went away".
+        // The first is a Cancelled event; the second must propagate, or structured concurrency
+        // silently stops meaning anything.
+        var cancelledByCaller = false
+
+        val terminal: UploadEvent? = try {
+            coroutineScope {
+                val watcher = launch {
+                    control.awaitCancellation()
+                    cancelledByCaller = true
+                    // There is no chunk boundary to poll, so the only way to stop a PUT that is
+                    // already streaming is to cancel the coroutine running it.
+                    this@coroutineScope.cancel()
+                }
+                val event = transfer(libraryId, videoId, fileInfo, this@channelFlow)
+                watcher.cancel()
+                event
+            }
+        } catch (e: CancellationException) {
+            if (!cancelledByCaller) throw e
+            Log.d(TAG, "upload cancelled by caller")
+            null
+        }
+
+        send(terminal ?: UploadEvent.Cancelled(videoId))
+    }.flowOn(coroutineDispatcher)
+
+    /**
+     * Runs the request and returns the terminal event, pushing [UploadEvent.Progress] onto
+     * [events] as the body drains. Never throws except for cancellation.
+     */
+    @Suppress("TooGenericExceptionCaught")
+    private suspend fun transfer(
+        libraryId: Long,
+        videoId: String,
+        fileInfo: FileInfo,
+        events: SendChannel<UploadEvent>,
+    ): UploadEvent {
+        val url = "${BuildConfig.BASE_API}/library/$libraryId/videos/$videoId"
+        var lastPercentage = -1
+
+        return try {
+            val statement = httpClient.preparePut(url) {
                 contentType(ContentType.Application.OctetStream)
-                setBody(StreamContent(fileInfo.inputStream))
+                setBody(StreamContent(fileInfo.inputStream, fileInfo.size))
                 timeout {
                     requestTimeoutMillis = Duration.INFINITE.inWholeMilliseconds
                 }
                 onUpload { bytesSentTotal, contentLength ->
-                    val percentage = ((bytesSentTotal / (contentLength?.toFloat() ?: 0f)) * 100).toInt()
-                    if(percentage != uploadProcess) {
-                        uploadProcess = percentage
-                        listener.onProgressUpdated(percentage, videoId, PauseState.Unsupported)
+                    // contentLength is null for a stream of unknown length, and dividing by it
+                    // unguarded is how this used to report Infinity percent.
+                    val total = contentLength ?: 0L
+                    if (total <= 0L) return@onUpload
+
+                    val percentage = ((bytesSentTotal.toDouble() / total) * PERCENT)
+                        .toInt()
+                        .coerceIn(0, PERCENT)
+                    if (percentage != lastPercentage) {
+                        lastPercentage = percentage
+                        events.send(
+                            UploadEvent.Progress(percentage, videoId, PauseState.Unsupported),
+                        )
                     }
                 }
             }
 
-            try {
-                val response = request.execute()
+            val response = statement.execute()
 
-                if(response.status.isSuccess()) {
-                    listener.onUploadDone(videoId)
-                } else {
-                    when (response.status.value) {
-                        HttpStatusCodes.UNAUTHORIZED -> Either.Left(UploadError.Unauthorized)
-                        HttpStatusCodes.NOT_FOUND -> Either.Left(UploadError.VideoNotFound)
-                        HttpStatusCodes.SERVER_ERROR -> Either.Left(UploadError.ServerError)
-                        else -> Either.Left(UploadError.UnknownError(response.status.toString()))
-                    }
-                }
-
-            } catch (e: Exception) {
-                if(e is CancellationException){
-                    Log.d(TAG, "upload cancelled")
-                    listener.onUploadCancelled(videoId)
-                } else {
-                    Log.w(TAG, "error uploading: ${e.message}")
-                    e.printStackTrace()
-                    listener.onUploadError(UploadError.UnknownError(e.message ?: e.toString()), videoId)
-                }
+            if (response.status.isSuccess()) {
+                UploadEvent.Completed(videoId)
+            } else {
+                // Before 4.0.0 this branch built an Either.Left and dropped it on the floor, so a
+                // rejected upload reported nothing at all and the UI sat at its last percentage.
+                UploadEvent.Failed(
+                    error = BunnyErrorMapper.fromHttpStatus(
+                        statusCode = response.status.value,
+                        fallbackMessage = response.status.description,
+                    ),
+                    videoId = videoId,
+                )
             }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.w(TAG, "error uploading: ${e.message}")
+            UploadEvent.Failed(BunnyErrorMapper.map(e), videoId)
         }
-
-        return BasicUploadRequest(libraryId, videoId, uploadJob, listener)
     }
 }
+
+private const val PERCENT = 100
