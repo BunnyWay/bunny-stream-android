@@ -10,6 +10,8 @@ import net.bunny.api.error.BunnyResult
 import net.bunny.api.ktor.initHttpClient
 import net.bunny.api.livestream.data.DefaultLiveStreamRepository
 import net.bunny.api.settings.data.DefaultSettingsRepository
+import net.bunny.api.livestream.domain.LiveStreamRepository
+import net.bunny.api.settings.domain.SettingsRepository
 import net.bunny.api.settings.domain.model.PlayerSettings
 import net.bunny.api.upload.DefaultVideoUploader
 import net.bunny.api.upload.VideoUploader
@@ -181,12 +183,12 @@ class BunnyStreamApi private constructor(
         (tusVideoUploader as? DefaultVideoUploader)?.shutdown()
     }
 
-    override val settingsRepository = DefaultSettingsRepository(
+    override val settingsRepository: SettingsRepository = DefaultSettingsRepository(
         httpClient = ktorClient,
         coroutineDispatcher = Dispatchers.IO
     )
 
-    override val liveStreamRepository = DefaultLiveStreamRepository(
+    override val liveStreamRepository: LiveStreamRepository = DefaultLiveStreamRepository(
         liveStreamsApi = liveStreamsApi,
         coroutineDispatcher = Dispatchers.IO
     )

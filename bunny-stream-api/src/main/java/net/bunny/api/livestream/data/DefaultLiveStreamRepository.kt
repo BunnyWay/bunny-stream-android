@@ -45,7 +45,7 @@ import org.openapitools.client.models.LiveStreamUpdateRequest as GeneratedLiveSt
  * client exceptions, transport failures, malformed bodies — comes back as a typed
  * [net.bunny.api.error.BunnyError] inside the [BunnyResult] envelope.
  */
-class DefaultLiveStreamRepository(
+internal class DefaultLiveStreamRepository(
     private val liveStreamsApi: ManageLiveStreamsApi,
     private val coroutineDispatcher: CoroutineDispatcher,
 ) : LiveStreamRepository {

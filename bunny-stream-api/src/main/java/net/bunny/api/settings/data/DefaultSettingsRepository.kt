@@ -15,7 +15,7 @@ import net.bunny.api.settings.data.model.PlayerSettingsResponse
 import net.bunny.api.settings.domain.SettingsRepository
 import net.bunny.api.settings.domain.model.PlayerSettings
 
-class DefaultSettingsRepository(
+internal class DefaultSettingsRepository(
     private val httpClient: HttpClient,
     private val coroutineDispatcher: CoroutineDispatcher
 ) : SettingsRepository {

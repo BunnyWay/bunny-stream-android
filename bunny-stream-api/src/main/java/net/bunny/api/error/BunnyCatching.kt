@@ -21,8 +21,12 @@ import kotlin.coroutines.cancellation.CancellationException
  *    concurrency — a cancelled caller would receive a fake "error" instead of cancelling.
  *  * Only [Exception]s are caught. JVM [Error]s (OOM, stack overflow) keep crashing loudly
  *    instead of surfacing as a retriable [BunnyError.Network].
+ *
+ * Deliberately not `inline`: the body would then be compiled into the caller, which forces the
+ * exception-mapping table it uses to be public API too. One suspend lambda per network call costs
+ * nothing next to the request; advertising the SDK's internals costs a lot.
  */
-public suspend inline fun <T> bunnyCatching(crossinline block: suspend () -> T): BunnyResult<T> =
+public suspend fun <T> bunnyCatching(block: suspend () -> T): BunnyResult<T> =
     try {
         BunnyResult.Ok(block())
     } catch (e: CancellationException) {

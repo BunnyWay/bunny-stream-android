@@ -29,7 +29,7 @@ import org.openapitools.client.infrastructure.ServerException
  * [kotlinx.coroutines.CancellationException] must never reach this mapper — cancellation is not
  * an error. [bunnyCatching] rethrows it before mapping; any other call site has to do the same.
  */
-public object BunnyErrorMapper {
+internal object BunnyErrorMapper {
 
     /** Maps [throwable] to the matching [BunnyError]; total — never throws. */
     public fun map(throwable: Throwable): BunnyError = when (throwable) {
