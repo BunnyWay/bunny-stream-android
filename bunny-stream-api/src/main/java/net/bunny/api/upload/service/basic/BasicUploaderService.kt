@@ -54,16 +54,10 @@ internal class BasicUploaderService(
         fileInfo: FileInfo,
         control: UploadControl,
     ): Flow<UploadEvent> = channelFlow {
-        // Distinguishes "the caller cancelled this upload" from "our collector went away".
-        // The first is a Cancelled event; the second must propagate, or structured concurrency
-        // silently stops meaning anything.
-        var cancelledByCaller = false
-
         val terminal: UploadEvent? = try {
             coroutineScope {
                 val watcher = launch {
                     control.awaitCancellation()
-                    cancelledByCaller = true
                     // There is no chunk boundary to poll, so the only way to stop a PUT that is
                     // already streaming is to cancel the coroutine running it.
                     this@coroutineScope.cancel()
@@ -73,7 +67,12 @@ internal class BasicUploaderService(
                 event
             }
         } catch (e: CancellationException) {
-            if (!cancelledByCaller) throw e
+            // Distinguishes "the caller cancelled this upload" from "our collector went away".
+            // The first is a Cancelled event; the second must propagate, or structured concurrency
+            // silently stops meaning anything. Read the control rather than a mirror flag written
+            // from the watcher coroutine — that flag was a plain var shared across threads with no
+            // happens-before edge, and reading it stale would drop the terminal event entirely.
+            if (!control.isCancelled) throw e
             Log.d(TAG, "upload cancelled by caller")
             null
         }

@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
 import android.util.Log
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
@@ -17,6 +18,7 @@ import kotlinx.coroutines.flow.transformWhile
 import kotlinx.coroutines.launch
 import net.bunny.api.api.ManageVideosApi
 import net.bunny.api.error.BunnyError
+import net.bunny.api.error.BunnyErrorMapper
 import net.bunny.api.error.BunnyResult
 import net.bunny.api.error.bunnyCatching
 import net.bunny.api.upload.model.FileInfo
@@ -67,10 +69,26 @@ internal class DefaultVideoUploader(
         },
     )
 
+    /**
+     * Deleting the video of a cancelled upload is a compensating action: if it does not happen, a
+     * half-uploaded video is left in the user's library with nobody to clean it up. It therefore
+     * runs on its own scope, which [shutdown] deliberately does **not** cancel — tearing the SDK
+     * down must not turn a cancel into litter. The work is bounded (one DELETE per cancelled
+     * upload) and needs no handle.
+     */
+    private val cleanupScope = CoroutineScope(
+        ioDispatcher + SupervisorJob() + CoroutineExceptionHandler { _, error ->
+            Log.w(TAG, "background cleanup failed: $error")
+        },
+    )
+
     private val lock = Any()
 
     /** Insertion-ordered so eviction can drop the oldest finished uploads first. */
     private val uploads = LinkedHashMap<String, Upload>()
+
+    @Volatile
+    private var isShutdown = false
 
     private class Upload(
         val libraryId: Long,
@@ -80,12 +98,54 @@ internal class DefaultVideoUploader(
         @Volatile
         var videoId: String? = null
 
+        /**
+         * Whether a terminal event has reached [events].
+         *
+         * This is the flag everything hinges on, because a [MutableSharedFlow] never completes by
+         * itself: observers finish only when they *see* a terminal event. An upload that ends
+         * without emitting one — a cancelled scope, an exception escaping the service — would
+         * strand every collector, so every exit path is required to go through [emit] or
+         * [emitTerminal].
+         */
         @Volatile
         var finished: Boolean = false
+            private set
 
-        suspend fun finishWith(event: UploadEvent) {
+        suspend fun emit(event: UploadEvent) {
             events.emit(event)
-            finished = true
+            if (event.isTerminal) finished = true
+        }
+
+        /**
+         * Emits [event] without suspending, and only if no terminal event has been emitted yet.
+         *
+         * Used by teardown paths that cannot suspend or must not be cancelled ([shutdown], the
+         * `finally` of a dying upload coroutine). `tryEmit` always succeeds here because the flow
+         * drops its oldest buffered value on overflow.
+         */
+        fun emitTerminal(event: UploadEvent) {
+            synchronized(this) {
+                if (finished) return
+                finished = true
+            }
+            events.tryEmit(event)
+        }
+
+        /**
+         * The terminal event describing an upload stopped from outside rather than by its own
+         * outcome: cancelled when that is what the caller asked for and the video exists to say so,
+         * a typed failure otherwise.
+         */
+        fun teardownEvent(): UploadEvent {
+            val id = videoId
+            return if (control.isCancelled && id != null) {
+                UploadEvent.Cancelled(id)
+            } else {
+                UploadEvent.Failed(
+                    BunnyError.InvalidState("The upload was stopped before it finished."),
+                    id,
+                )
+            }
         }
     }
 
@@ -115,6 +175,21 @@ internal class DefaultVideoUploader(
             uploads[uploadId] = upload
         }
 
+        // launch() on a cancelled scope returns a dead job silently, which would leave a
+        // never-finishing upload in the registry and an observer waiting on nothing. Report the
+        // refusal as a terminal event instead, so the caller gets an answer rather than a hang.
+        if (isShutdown) {
+            upload.emitTerminal(
+                UploadEvent.Failed(
+                    BunnyError.InvalidState(
+                        "This SDK instance has been released; start uploads on the current instance.",
+                    ),
+                    videoId = existingVideoId,
+                ),
+            )
+            return uploadId
+        }
+
         uploadScope.launch { runUpload(uploadId, upload, videoUri, existingVideoId) }
         return uploadId
     }
@@ -127,7 +202,7 @@ internal class DefaultVideoUploader(
         existingVideoId: String?,
     ) {
         if (existingVideoId != null && !videoUploadService.supportsResuming) {
-            upload.finishWith(
+            upload.emit(
                 UploadEvent.Failed(
                     BunnyError.InvalidState(
                         "This uploader cannot continue an interrupted upload. Use the resumable " +
@@ -141,7 +216,7 @@ internal class DefaultVideoUploader(
 
         val fileInfo = when (val opened = openFile(videoUri)) {
             is BunnyResult.Err -> {
-                upload.finishWith(UploadEvent.Failed(opened.error, existingVideoId))
+                upload.emit(UploadEvent.Failed(opened.error, existingVideoId))
                 return
             }
             is BunnyResult.Ok -> opened.value
@@ -151,7 +226,7 @@ internal class DefaultVideoUploader(
             val videoId = existingVideoId
                 ?: when (val created = createVideo(upload.libraryId, fileInfo.fileName)) {
                     is BunnyResult.Err -> {
-                        upload.finishWith(UploadEvent.Failed(created.error, videoId = null))
+                        upload.emit(UploadEvent.Failed(created.error, videoId = null))
                         return
                     }
                     is BunnyResult.Ok -> created.value
@@ -161,18 +236,29 @@ internal class DefaultVideoUploader(
             // Cancelling during video creation is a real race: the record now exists but nobody
             // asked for it. Clean it up rather than leaving an empty video in the library.
             if (upload.control.isCancelled) {
-                uploadScope.launch { deleteVideo(upload.libraryId, videoId) }
-                upload.finishWith(UploadEvent.Cancelled(videoId))
+                cleanupScope.launch { deleteVideo(upload.libraryId, videoId) }
+                upload.emit(UploadEvent.Cancelled(videoId))
                 return
             }
 
-            upload.events.emit(UploadEvent.Started(uploadId, videoId))
+            upload.emit(UploadEvent.Started(uploadId, videoId))
             videoUploadService
                 .upload(upload.libraryId, videoId, fileInfo, upload.control)
-                .collect { event -> upload.events.emit(event) }
+                .collect { event -> upload.emit(event) }
+        } catch (e: CancellationException) {
+            // The scope died under us — shutdown, or the SDK instance being replaced. Say so
+            // before unwinding, or every observer waits on a flow that will never speak again.
+            upload.emitTerminal(upload.teardownEvent())
+            throw e
+        } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
+            // The services map their own failures; anything reaching here escaped them, and
+            // letting it unwind silently would strand observers just the same.
+            Log.w(TAG, "upload $uploadId failed outside the transfer: ${e.message}")
+            upload.emitTerminal(UploadEvent.Failed(BunnyErrorMapper.map(e), upload.videoId))
         } finally {
             fileInfo.inputStream.closeQuietly()
-            upload.finished = true
+            // Last resort: a service flow that completed without a terminal event of its own.
+            upload.emitTerminal(upload.teardownEvent())
         }
     }
 
@@ -198,18 +284,35 @@ internal class DefaultVideoUploader(
         // Null while the video record is still being created; the race is handled in runUpload,
         // which deletes it as soon as it exists.
         val videoId = upload.videoId ?: return
-        uploadScope.launch { deleteVideo(upload.libraryId, videoId) }
+        cleanupScope.launch { deleteVideo(upload.libraryId, videoId) }
     }
 
     /**
-     * Stops every upload and tears down the scope. Called when the owning
+     * Stops every upload and tears down the transfer scope. Called when the owning
      * [net.bunny.api.BunnyStreamApi] instance is replaced or released, so uploads can never
      * outlive the SDK instance that started them.
+     *
+     * Every live upload is given a terminal event **before** the scope dies. Cancelling the scope
+     * first would leave observers — which live in their callers' scopes, not this one — waiting on
+     * a flow that can never speak again.
+     *
+     * Unlike [cancelUpload], this does **not** delete the partially uploaded videos. Shutdown means
+     * the instance is going away — typically because the access key or library changed — and the
+     * new credentials may not even be entitled to delete records in the old library. Half-uploaded
+     * videos from a shutdown are left for the owner to clean up server-side.
+     *
+     * Deletions already requested by [cancelUpload] do still run: see [cleanupScope].
      */
     fun shutdown() {
-        synchronized(lock) {
-            uploads.values.forEach { it.control.cancel() }
+        isShutdown = true
+        val live = synchronized(lock) {
+            val snapshot = uploads.values.toList()
             uploads.clear()
+            snapshot
+        }
+        live.forEach { upload ->
+            upload.control.cancel()
+            upload.emitTerminal(upload.teardownEvent())
         }
         uploadScope.cancel()
     }

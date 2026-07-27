@@ -114,9 +114,18 @@ internal class TusUploaderService(
             releaseQuietly(uploader)
             throw e
         } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
-            Log.w(TAG, "error uploading: ${e.message}")
             releaseQuietly(uploader)
-            emit(UploadEvent.Failed(BunnyErrorMapper.map(e), videoId))
+            if (control.isCancelled) {
+                // The chunk in flight when cancel arrived fails on a connection that is being torn
+                // down, or against a video the caller already deleted. That is the cancel landing,
+                // not a failure — reporting it as one would put an error in front of a user who
+                // just pressed Cancel.
+                Log.d(TAG, "upload cancelled while a chunk was in flight")
+                emit(UploadEvent.Cancelled(videoId))
+            } else {
+                Log.w(TAG, "error uploading: ${e.message}")
+                emit(UploadEvent.Failed(BunnyErrorMapper.map(e), videoId))
+            }
         }
     }.flowOn(dispatcher)
 
