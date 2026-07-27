@@ -6,10 +6,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 /**
  * Out-of-band control for an upload that is already in flight.
  *
- * The upload itself runs inside the [kotlinx.coroutines.flow.Flow] returned to the caller, which
- * means it executes in the *collector's* coroutine. Pause, resume and cancel therefore cannot be
- * ordinary calls into the running code — they arrive from a different coroutine (a UI button,
- * typically) and have to be observed cooperatively. This class is that channel.
+ * The transfer runs on the SDK's own scope, so pause, resume and cancel cannot be ordinary calls
+ * into the running code — they arrive from a different coroutine (a UI button, typically) and have
+ * to be observed cooperatively at a point where stopping is safe. This class is that channel.
  *
  * [net.bunny.api.upload.DefaultVideoUploader] keeps one instance per in-flight upload, keyed by
  * upload id, and hands it to the [UploadService] that does the transfer.

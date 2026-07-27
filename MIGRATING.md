@@ -14,23 +14,29 @@ compiler points at each call site, and the fixes are mechanical.
 
 ## 1. Management calls return `BunnyResult<T>` instead of `Either<String, T>`
 
-Everything on `LiveStreamRepository`, `SettingsRepository` and `BunnyStreamApi.fetchPlayerSettings`
-now returns [`BunnyResult<T>`][result] — `Ok(value)` or `Err(BunnyError)`.
+In 3.x exactly three things returned `Either<String, T>`:
+
+- `BunnyStreamApi.fetchPlayerSettings` (and `StreamApi.fetchPlayerSettings`),
+- `SettingsRepository.fetchSettings`,
+- `RecordingRepository.prepareRecording` in the `:recording` module.
+
+All three now return [`BunnyResult<T>`][result] — `Ok(value)` or `Err(BunnyError)` — as does the new
+`LiveStreamRepository` that arrives with live streams in this release.
 
 **Before**
 
 ```kotlin
-repository.getLiveStream(libraryId, streamId).fold(
+BunnyStreamApi.getInstance().fetchPlayerSettings(libraryId, videoId).fold(
     ifLeft = { message -> showError(message) },
-    ifRight = { stream -> render(stream) },
+    ifRight = { settings -> apply(settings) },
 )
 ```
 
 **After**
 
 ```kotlin
-repository.getLiveStream(libraryId, streamId).fold(
-    onOk = { stream -> render(stream) },
+BunnyStreamApi.getInstance().fetchPlayerSettings(libraryId, videoId).fold(
+    onOk = { settings -> apply(settings) },
     onErr = { error -> showError(error.message) },
 )
 ```
@@ -42,20 +48,44 @@ compatible enough that a swapped pair still compiles.
 `when` works too, and is usually clearer when you branch on the error:
 
 ```kotlin
-when (val result = repository.listLiveStreams(libraryId)) {
-    is BunnyResult.Ok -> render(result.value)
+when (val result = repository.fetchSettings(libraryId, videoId)) {
+    is BunnyResult.Ok -> apply(result.value)
     is BunnyResult.Err -> if (result.isTerminal) giveUp(result.message) else retryLater()
 }
 ```
 
 Helpers: `getOrNull()`, `errorOrNull()`, `map { }`, `fold(onOk, onErr)`.
 
+### `:recording` — `RecordingRepository`
+
+If you drive the camera broadcaster yourself rather than through `StreamCameraUploadView`, all five
+`RecordingRepository` methods changed shape the same way:
+
+```kotlin
+// Before
+recordingRepository.prepareRecording(libraryId).fold(
+    ifLeft = { message -> showError(message) },
+    ifRight = { rtmpUrl -> publish(rtmpUrl) },
+)
+
+// After
+recordingRepository.prepareRecording(libraryId).fold(
+    onOk = { rtmpUrl -> publish(rtmpUrl) },
+    onErr = { error -> showError(error.message) },
+)
+```
+
+Two failures this repository decides itself — publishing to a live stream that has already ended,
+and one whose stream key has not been issued yet — now arrive as `BunnyError.InvalidState` with the
+terminality they actually have, instead of two indistinguishable strings. Branch on
+`error.isTerminal` to tell "create a new stream" from "try again in a moment".
+
 ### Arrow is no longer on your compile classpath
 
-Arrow was never meant to be part of the contract. It is now an internal implementation detail
-(declared `implementation`, not `api`), so it no longer leaks transitively. If your code imported
-`arrow.core.Either` only to read an SDK result, drop the dependency. If you use Arrow elsewhere,
-nothing changes — just convert at the boundary:
+Arrow was never meant to be part of the contract. It is now gone from the SDK entirely — no module
+declares it and no source imports it — so it cannot reach your classpath through us by any route.
+If your code imported `arrow.core.Either` only to read an SDK result, drop the dependency. If you
+use Arrow elsewhere, nothing changes — just convert at the boundary:
 
 ```kotlin
 fun <T> BunnyResult<T>.toEither(): Either<String, T> =
@@ -66,7 +96,7 @@ fun <T> BunnyResult<T>.toEither(): Either<String, T> =
 
 ## 2. Errors are typed: the `BunnyError` taxonomy
 
-An error is no longer a `String`. Six cases cover everything the SDK can fail with:
+An error is no longer a `String`. Seven cases cover everything the SDK can fail with:
 
 | Variant | When | `httpStatus` | `isTerminal` |
 |---|---|---|---|
@@ -76,6 +106,7 @@ An error is no longer a `String`. Six cases cover everything the SDK can fail wi
 | `BunnyError.Network` | no usable response at all: DNS, connect, socket timeout, TLS, dropped connection | `0` | `false` |
 | `BunnyError.Decode` | the response arrived but did not match the expected shape | `0` | `false` |
 | `BunnyError.LocalFile` | the device could not read the file picked for upload | `0` | `true` |
+| `BunnyError.InvalidState` | the call succeeded but the resource forbids the operation: publishing to an ended live stream, continuing an upload on the non-resumable path | `0` | varies — it says so itself |
 
 Two properties answer the questions callers actually ask:
 
@@ -98,8 +129,8 @@ unchanged from 3.x, so existing log greps and debug UI keep working.
 
 ## 3. Uploads are a `Flow`, not a listener
 
-`VideoUploader.uploadVideo` used to take an `UploadListener` and start immediately. It now returns
-a cold `Flow<UploadEvent>` that runs the upload when collected.
+`VideoUploader.uploadVideo` used to take an `UploadListener` and start immediately. It is replaced
+by `startUpload`, which returns an id, and `observeUpload`, which streams that upload's events.
 
 **Before**
 
@@ -184,15 +215,22 @@ New in 4.0.0. On `UploadEvent.Failed` with a non-terminal error, `continueUpload
 up from the offset the server already has instead of re-sending the file:
 
 ```kotlin
+// The upload was started on the resumable uploader:
+val uploadId = tusVideoUploader.startUpload(libraryId, uri)
+
+// …and later, on a transient failure, the same uploader continues it:
 is UploadEvent.Failed -> if (!event.error.isTerminal && event.videoId != null) {
-    val retryId = tusVideoUploader.continueUpload(libraryId, event.videoId, sameUri)
+    val retryId = tusVideoUploader.continueUpload(libraryId, event.videoId, uri)
     observe(retryId)
 }
 ```
 
-It needs the `videoId` and the same content URI, so persist both alongside the upload id. Only the
-resumable (TUS) uploader can do this; on the plain uploader the returned upload fails immediately
-with `BunnyError.InvalidState` rather than quietly re-sending everything.
+Continue on the **same uploader that started the upload**. Only the resumable (TUS) one records an
+offset, so continuing a transfer that went out through the plain uploader has nothing to resume
+from: that call fails immediately with `BunnyError.InvalidState` rather than quietly re-sending the
+whole file.
+
+It needs the `videoId` and the same content URI, so persist both alongside the upload id.
 
 ---
 
@@ -238,8 +276,14 @@ Behaviour that was wrong before and is worth knowing about, because it may look 
   was a fresh random UUID per attempt, so nothing could ever match a stored offset and every retry
   restarted from zero. It is now derived from the library and video id, and `continueUpload` is the
   entry point that uses it.
-- **Cancellation is no longer reported as a failure.** `CancellationException` was caught and turned
-  into an error event; it is now rethrown, so structured concurrency behaves as expected.
+- **Cancellation and failure are told apart.** A `CancellationException` used to be reported as a
+  cancelled upload whoever caused it, so a collector going away looked identical to the user
+  pressing Cancel. Now a caller's `cancelUpload` produces `Cancelled` — including when the chunk in
+  flight dies as a result — while a genuinely cancelled coroutine propagates, as structured
+  concurrency requires.
+- **An upload always ends with a terminal event.** Releasing the SDK instance, or an unexpected
+  failure outside the transfer itself, used to end the stream silently and leave anyone observing
+  it waiting forever. Every path now emits `Completed`, `Cancelled` or `Failed` before it closes.
 - **The picked file's stream is always closed**, including when the upload fails or is cancelled.
 
 ---

@@ -3,19 +3,19 @@ package net.bunny.api.error
 /**
  * The error half of the SDK's result envelope ([BunnyResult]).
  *
- * Every failure the SDK surfaces — management calls and uploads alike — collapses into one of six
+ * Every failure the SDK surfaces — management calls and uploads alike — collapses into one of seven
  * cases. The taxonomy is deliberately small: callers almost always branch on two questions only —
  * "was it the network or the server" and "is it worth retrying" — and both answers are derivable
  * from every variant:
  *
  *  * [httpStatus] carries the numeric HTTP status of the failed call, or `0` when no usable HTTP
- *    response existed at all ([Network], [Decode], [LocalFile]).
+ *    response existed at all ([Network], [Decode], [LocalFile], [InvalidState]).
  *  * [isTerminal] tells whether retrying can ever succeed. It is `true` for `401`, `403`, `404`
  *    and `410` — the same set the live-stream polling loop has always used (`410 Gone` is what
- *    Bunny returns for a deleted library; once seen, it never recovers) — and for [LocalFile],
- *    where the failure is on the device and no retry against the server can change it.
- *    Everything else — `5xx`, transport failures, undecodable bodies — is transient: retrying,
- *    or the next poll, may succeed.
+ *    Bunny returns for a deleted library; once seen, it never recovers) — for [LocalFile], where
+ *    the failure is on the device and no retry against the server can change it, and for
+ *    [InvalidState], which decides for itself. Everything else — `5xx`, transport failures,
+ *    undecodable bodies — is transient: retrying, or the next poll, may succeed.
  *
  * The dedicated [Auth] and [NotFound] variants exist because those are the failures integrators
  * handle specially (wrong or expired key, wrong id); all other HTTP failures stay in the generic
@@ -28,13 +28,14 @@ public sealed class BunnyError {
 
     /**
      * HTTP status of the failed call, or [NO_HTTP_STATUS] (`0`) when the failure happened before
-     * a usable HTTP response existed ([Network], [Decode]).
+     * a usable HTTP response existed ([Network], [Decode], [LocalFile], [InvalidState]).
      */
     public abstract val httpStatus: Int
 
     /**
-     * `true` when retrying the same call can never succeed (`401`, `403`, `404`, `410`, and
-     * [LocalFile]). Transient failures — `5xx`, [Network], [Decode] — return `false`.
+     * `true` when retrying the same call can never succeed: `401`, `403`, `404`, `410`,
+     * [LocalFile] always, and [InvalidState] when it says so. Transient failures — `5xx`,
+     * [Network], [Decode] — return `false`.
      */
     public open val isTerminal: Boolean
         get() = httpStatus in TERMINAL_STATUSES

@@ -18,8 +18,8 @@ API change; see [MIGRATING.md](MIGRATING.md) for before/after examples.
 - `BunnyResult<T>` — the result envelope returned by every management call: `Ok(value)` or
   `Err(BunnyError)`, with `getOrNull()`, `errorOrNull()`, `map` and `fold(onOk, onErr)`.
 - `BunnyError` — typed error taxonomy (`Auth`, `NotFound`, `Http`, `Network`, `Decode`,
-  `LocalFile`). Every variant exposes `httpStatus` and `isTerminal`, so callers no longer parse
-  message strings to decide whether to retry.
+  `LocalFile`, `InvalidState`). Every variant exposes `httpStatus` and `isTerminal`, so callers no
+  longer parse message strings to decide whether to retry.
 - `UploadEvent` — the upload stream's event type (`Started`, `Progress`, `Completed`, `Cancelled`,
   `Failed`).
 - `VideoUploader.continueUpload(libraryId, videoId, uri)` — picks an interrupted upload up from the
@@ -60,8 +60,14 @@ API change; see [MIGRATING.md](MIGRATING.md) for before/after examples.
 - Resumable uploads resume. The TUS fingerprint keying an upload's stored offset was a fresh random
   UUID per attempt, so no offset could ever be matched and every retry restarted from zero. It is
   now derived from the library and video id, and `continueUpload` is the entry point that uses it.
-- `CancellationException` is rethrown instead of being reported as an upload failure, restoring
-  structured concurrency.
+- An upload always ends with a terminal event. Releasing the SDK instance, or a failure outside the
+  transfer itself, used to close the stream silently and leave every observer waiting forever.
+- A cancel that lands while a chunk is in flight reports `Cancelled` rather than the failure that
+  chunk hit on the way down — the user pressed Cancel and should not get an error.
+- `CancellationException` from a genuinely cancelled coroutine propagates instead of being reported
+  as an upload outcome, restoring structured concurrency.
+- Deleting a cancelled upload's video no longer runs on the scope being torn down, so cancelling and
+  then releasing the SDK does not leave the partial video behind.
 - The stream for the picked file is closed on every path, including failure and cancellation.
 - Upload metadata is read before the stream is opened, so a file with unreadable metadata no longer
   leaks a file handle.

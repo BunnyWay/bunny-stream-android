@@ -15,9 +15,9 @@ package net.bunny.api.error
  *
  *  * `kotlin.Result` requires the failure to be a [Throwable] and exposes it as such, so the
  *    typed [BunnyError] taxonomy would be lost behind casts at every call site.
- *  * Arrow's `Either` would tie the SDK's public API to a third-party library. Arrow stays an
- *    internal implementation detail; integrators should not need it on their classpath to read
- *    an error.
+ *  * Arrow's `Either` would tie the SDK's public API to a third-party library. Arrow is no longer
+ *    used anywhere in the SDK, so integrators need nothing extra on their classpath to read an
+ *    error.
  *
  * The shape follows the polling result the live player has used since the live release
  * (success/failure with an HTTP status and a derivable terminal flag), promoted from one method

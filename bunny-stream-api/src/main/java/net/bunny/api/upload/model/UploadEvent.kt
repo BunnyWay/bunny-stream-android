@@ -6,12 +6,16 @@ import net.bunny.api.error.BunnyError
  * One observation about an upload in flight, emitted on the [kotlinx.coroutines.flow.Flow]
  * returned by [net.bunny.api.upload.VideoUploader.observeUpload].
  *
- * The stream is ordered and finite. It opens with exactly one [Started] — carrying the `videoId`
- * that [continueUpload][net.bunny.api.upload.VideoUploader.continueUpload] needs to pick this
- * upload up after a failure — then emits zero or more [Progress], then closes with exactly one
- * terminal event: [Completed], [Cancelled] or [Failed]. The one exception is a failure raised
- * before the transfer could start (an unreadable file, or the video record could not be created):
- * then [Failed] is the only event, with no preceding [Started].
+ * The stream is ordered and finite. It opens with one [Started] — carrying the `videoId` that
+ * [continueUpload][net.bunny.api.upload.VideoUploader.continueUpload] needs to pick this upload up
+ * after a failure — then emits zero or more [Progress], then closes with exactly one terminal
+ * event: [Completed], [Cancelled] or [Failed].
+ *
+ * Two things can shorten that. An upload stopped before the transfer began — an unreadable file,
+ * a video record that could not be created, or a cancel arriving while it was being created —
+ * emits its terminal event alone, with no [Started]. And a collector attaching to an upload
+ * already in flight joins at the most recent event, so it will not see the [Started] that came
+ * before it. Read the `videoId` off whichever event arrives first rather than off [Started] only.
  *
  * After the terminal event the flow completes. Failures arrive as a [Failed] value rather than a
  * thrown exception, so a `collect` cannot miss one by forgetting a `catch`:
@@ -35,7 +39,8 @@ import net.bunny.api.error.BunnyError
 public sealed class UploadEvent {
 
     /**
-     * The video record exists server-side and the transfer has begun. Always the first event.
+     * The video record exists server-side and the transfer has begun. The first event of an upload
+     * that got that far, and the one a late-attaching collector may miss.
      *
      * @property uploadId the id this upload is addressed by — the same value
      *   [startUpload][net.bunny.api.upload.VideoUploader.startUpload] returned. Repeated here so
@@ -50,8 +55,9 @@ public sealed class UploadEvent {
     ) : UploadEvent()
 
     /**
-     * Transfer progress. Emitted only when [percentage] actually changes, so a UI can bind to it
-     * directly without throttling.
+     * Transfer progress. Emitted only when something about it actually changes — the percentage,
+     * or the [pauseState] (holding an upload changes the state without moving the number) — so a
+     * UI can bind to it directly without throttling.
      *
      * @property percentage `0..100`.
      * @property pauseState whether the transfer is running, held, or cannot be held at all.
@@ -68,8 +74,11 @@ public sealed class UploadEvent {
     ) : UploadEvent()
 
     /**
-     * The upload stopped because [net.bunny.api.upload.VideoUploader.cancelUpload] was called.
-     * Terminal. The half-uploaded video record has been deleted server-side.
+     * The upload stopped because [net.bunny.api.upload.VideoUploader.cancelUpload] was called, or
+     * because the SDK instance running it was released. Terminal.
+     *
+     * Deletion of the half-uploaded video is requested in the background and its outcome is not
+     * reported — this event does not promise the record is already gone.
      */
     public data class Cancelled(
         public val videoId: String,

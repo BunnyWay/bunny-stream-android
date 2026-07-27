@@ -127,76 +127,50 @@ try {
 
 ### Upload video
 
-#### Uploading Using session uploader
+An upload is addressed by an **upload id**: `startUpload` begins the transfer and returns it,
+`observeUpload` streams that upload's events. The transfer runs inside the SDK, so it keeps going
+when the screen that started it goes away — keep the id somewhere that outlives the screen and
+re-attach with `observeUpload` on the way back in.
 
 ```kotlin
-BunnyStreamApi.getInstance().videoUploader.uploadVideo(libraryId, videoUri, object : UploadListener {
-    override fun onUploadError(error: UploadError, videoId: String?) {
-        Log.d(TAG, "onVideoUploadError: $error")
-    }
+val uploader = BunnyStreamApi.getInstance().videoUploader   // or tusVideoUploader
+val uploadId = uploader.startUpload(libraryId, videoUri)
+store.activeUpload = uploadId
 
-    override fun onUploadDone(videoId: String) {
-        Log.d(TAG, "onVideoUploadDone")
+lifecycleScope.launch {
+    uploader.observeUpload(uploadId)?.collect { event ->
+        when (event) {
+            is UploadEvent.Started   -> Log.d(TAG, "started, videoId=${event.videoId}")
+            is UploadEvent.Progress  -> showProgress(event.percentage, event.pauseState)
+            is UploadEvent.Completed -> showDone(event.videoId)
+            is UploadEvent.Cancelled -> dismiss()
+            is UploadEvent.Failed    -> showError(event.error.message)
+        }
     }
-
-    override fun onUploadStarted(uploadId: String, videoId: String) {
-        Log.d(TAG, "onVideoUploadStarted: uploadId=$uploadId")
-    }
-
-    override fun onProgressUpdated(percentage: Int, videoId: String) {
-        Log.d(TAG, "onUploadProgress: percentage=$percentage")
-    }
-
-    override fun onUploadCancelled(videoId: String) {
-        Log.d(TAG, "onUploadProgress: onVideoUploadCancelled")
-    }
-})
+}
 ```
 
-#### Using TUS resumable uploader
+Failures arrive as an `UploadEvent.Failed` value carrying a typed `BunnyError`, not as a thrown
+exception. `pauseUpload`, `resumeUpload` and `cancelUpload` all take the upload id; pausing works
+only on the resumable uploader, which is what `UploadEvent.Progress.pauseState` tells the UI.
 
-If TUS upload gets interrupted, calling `uploadVideo` with same parameters will resume upload.
+#### Resumable (TUS) uploads
+
+`tusVideoUploader` sends the file in chunks, which is what makes pausing and resuming possible. Use
+it for large files and unreliable networks.
+
+An interrupted upload is continued with `continueUpload`, on the same uploader that started it —
+it needs the `videoId` from the event stream plus the same content URI, so persist both:
 
 ```kotlin
-BunnyStreamApi.getInstance().tusVideoUploader.uploadVideo(libraryId, videoUri, object : UploadListener {
-    override fun onUploadError(error: UploadError, videoId: String?) {
-        Log.d(TAG, "onVideoUploadError: $error")
-    }
-
-    override fun onUploadDone(videoId: String) {
-        Log.d(TAG, "onVideoUploadDone")
-    }
-
-    override fun onUploadStarted(uploadId: String, videoId: String) {
-        Log.d(TAG, "onVideoUploadStarted: uploadId=$uploadId")
-    }
-
-    override fun onProgressUpdated(percentage: Int, videoId: String) {
-        Log.d(TAG, "onUploadProgress: percentage=$percentage")
-    }
-
-    override fun onUploadCancelled(videoId: String) {
-        Log.d(TAG, "onUploadProgress: onVideoUploadCancelled")
-    }
-})
+is UploadEvent.Failed -> if (!event.error.isTerminal && event.videoId != null) {
+    val retryId = tusVideoUploader.continueUpload(libraryId, event.videoId, videoUri)
+    observe(retryId)
+}
 ```
 
-#### Cancel video upload
-```
-BunnyStreamApi.getInstance().videoUploader.cancelUpload(uploadId)
-```
-or
-
-```
-BunnyStreamApi.getInstance().tusVideoUploader.cancelUpload(uploadId)
-```
-
-`uploadId` comes from `onUploadStarted(uploadId: String, videoId: String)` callback function.
-
-Full example can be found in demo app.
-
-Checkout full [API reference](api/README.md#full-api-reference) 
-
+Uploads survive navigation, not process death. To keep one running while the app is away, collect
+it from a foreground service or `WorkManager` job.
 ## 2. BunnyStreamPlayer - Video Playback
 
 Before attempting video playback, make sure `BunnyStreamApi` is initialized  with your access key (optional) and library ID:
