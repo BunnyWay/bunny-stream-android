@@ -5,6 +5,7 @@ import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.MockRequestHandleScope
 import io.ktor.client.engine.mock.respond
 import io.ktor.client.engine.mock.respondError
+import io.ktor.client.engine.mock.toByteArray
 import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.request.HttpResponseData
 import io.ktor.http.HttpStatusCode
@@ -47,7 +48,15 @@ class BasicUploaderServiceTest {
     )
 
     private fun clientReturning(handler: suspend MockRequestHandleScope.() -> HttpResponseData) =
-        HttpClient(MockEngine { handler() }) {
+        HttpClient(
+            MockEngine { request ->
+                // Drain the request body. Ktor's onUpload hook is driven by the body actually being
+                // read, so an engine that never reads it reports no progress at all — and the
+                // progress assertions below would hold vacuously.
+                request.body.toByteArray()
+                handler()
+            },
+        ) {
             install(HttpTimeout)
         }
 
@@ -130,6 +139,8 @@ class BasicUploaderServiceTest {
         val events = service.upload(libraryId, videoId, fileInfo(), UploadControl()).toList()
         val progress = events.filterIsInstance<UploadEvent.Progress>()
 
+        // Without this the two assertions below hold vacuously if progress stops being reported.
+        assertTrue("expected at least one progress event", progress.isNotEmpty())
         assertTrue(progress.all { it.percentage in 0..100 })
         assertTrue(progress.all { it.videoId == videoId })
     }
@@ -142,10 +153,9 @@ class BasicUploaderServiceTest {
 
         val events = service.upload(libraryId, videoId, fileInfo(), UploadControl()).toList()
 
-        assertTrue(
-            events.filterIsInstance<UploadEvent.Progress>()
-                .all { it.pauseState == PauseState.Unsupported },
-        )
+        val progress = events.filterIsInstance<UploadEvent.Progress>()
+        assertTrue("expected at least one progress event", progress.isNotEmpty())
+        assertTrue(progress.all { it.pauseState == PauseState.Unsupported })
     }
 
     // endregion

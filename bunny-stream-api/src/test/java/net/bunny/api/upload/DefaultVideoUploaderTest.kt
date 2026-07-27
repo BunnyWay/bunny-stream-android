@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import net.bunny.api.api.ManageVideosApi
@@ -50,6 +51,7 @@ class DefaultVideoUploaderTest {
     /** Records what it was asked to transfer, then replays a scripted event sequence. */
     private class FakeUploadService(
         override val supportsResuming: Boolean,
+        private val emitDelayMillis: Long = 0L,
         private val script: (videoId: String) -> List<UploadEvent>,
     ) : UploadService {
 
@@ -66,12 +68,42 @@ class DefaultVideoUploaderTest {
             // upload would finish inside one scheduler tick, which no network does and which would
             // make these tests assert against a situation that cannot occur.
             delay(TRANSFER_TICK_MILLIS)
-            script(videoId).forEach { emit(it) }
+            script(videoId).forEachIndexed { index, event ->
+                if (index > 0) delay(emitDelayMillis)
+                emit(event)
+            }
         }
     }
 
     private fun completingService(supportsResuming: Boolean = true) = FakeUploadService(
         supportsResuming = supportsResuming,
+        script = { videoId ->
+            listOf(
+                UploadEvent.Progress(50, videoId, PauseState.Uploading),
+                UploadEvent.Completed(videoId),
+            )
+        },
+    )
+
+    /** Emits its Progress, then stalls before completing, leaving a window in which to attach. */
+    private fun pausingService() = FakeUploadService(
+        supportsResuming = true,
+        emitDelayMillis = STALL_MILLIS,
+        script = { videoId ->
+            listOf(
+                UploadEvent.Progress(50, videoId, PauseState.Uploading),
+                UploadEvent.Completed(videoId),
+            )
+        },
+    )
+
+    /**
+     * Transfers, reports progress, and then stalls — the shape of an upload still in flight when
+     * something tears it down from outside.
+     */
+    private fun stallingService() = FakeUploadService(
+        supportsResuming = true,
+        emitDelayMillis = STALL_MILLIS,
         script = { videoId ->
             listOf(
                 UploadEvent.Progress(50, videoId, PauseState.Uploading),
@@ -128,7 +160,7 @@ class DefaultVideoUploaderTest {
     }
 
     @Test
-    fun `an observer attached after starting sees the whole sequence`() = runTest {
+    fun `an observer attached before any event runs sees the whole sequence`() = runTest {
         stubVideoCreation()
         val uploader = uploader(completingService())
         val uploadId = uploader.startUpload(libraryId, videoUri)
@@ -146,6 +178,34 @@ class DefaultVideoUploaderTest {
             ),
             events,
         )
+    }
+
+    @Test
+    fun `an observer attaching mid-transfer starts at the latest event, not at Started`() = runTest {
+        stubVideoCreation()
+        val uploader = uploader(pausingService())
+        val uploadId = uploader.startUpload(libraryId, videoUri)
+
+        // Let the upload get past Started and emit its first Progress before anyone attaches —
+        // this is the returning-screen case, and the one LibraryViewModel relies on when it reads
+        // the video id off Progress rather than only off Started.
+        advanceTimeBy(TRANSFER_TICK_MILLIS + 1)
+
+        val events = mutableListOf<UploadEvent>()
+        val collector = launch { uploader.observeUpload(uploadId)!!.toList(events) }
+        advanceUntilIdle()
+        collector.join()
+
+        assertTrue("expected at least one event", events.isNotEmpty())
+        assertTrue(
+            "a late observer must not be replayed Started, got ${events.first()}",
+            events.first() !is UploadEvent.Started,
+        )
+        assertEquals(
+            UploadEvent.Progress(50, createdVideoId, PauseState.Uploading),
+            events.first(),
+        )
+        assertTrue(events.last() is UploadEvent.Completed)
     }
 
     @Test
@@ -267,23 +327,56 @@ class DefaultVideoUploaderTest {
         }
 
     @Test
-    fun `shutdown stops in-flight uploads`() = runTest {
+    fun `shutdown gives an in-flight upload a terminal event instead of stranding its observer`() =
+        runTest {
+            stubVideoCreation()
+            val uploader = uploader(stallingService())
+            val uploadId = uploader.startUpload(libraryId, videoUri)
+
+            val events = mutableListOf<UploadEvent>()
+            val collector = launch { uploader.observeUpload(uploadId)!!.toList(events) }
+            // Get the transfer genuinely under way — otherwise this asserts against queued work
+            // that never ran, and would pass even if shutdown() did nothing at all.
+            advanceTimeBy(TRANSFER_TICK_MILLIS + 1)
+            assertTrue("the upload should be in flight by now", events.isNotEmpty())
+            assertTrue(events.none { it.isTerminalEvent() })
+
+            uploader.shutdown()
+            advanceUntilIdle()
+
+            // join() returns only if the flow completed — a stranded observer hangs here, which is
+            // exactly the failure this guards against.
+            collector.join()
+            assertTrue("shutdown must end the stream", events.last().isTerminalEvent())
+        }
+
+    @Test
+    fun `an upload started after shutdown fails instead of hanging`() = runTest {
         stubVideoCreation()
-        val service = completingService()
+        val service = stallingService()
         val uploader = uploader(service)
-
-        uploader.startUpload(libraryId, videoUri)
         uploader.shutdown()
-        advanceUntilIdle()
 
-        // The scope was torn down before the queued work could run.
+        // launch() on a cancelled scope is a silent no-op, so without a guard this upload would
+        // never run and never speak — the caller would wait on it forever.
+        val uploadId = uploader.startUpload(libraryId, videoUri)
+        val events = mutableListOf<UploadEvent>()
+        val collector = launch { uploader.observeUpload(uploadId)!!.toList(events) }
+        advanceUntilIdle()
+        collector.join()
+
+        val failed = events.single() as UploadEvent.Failed
+        assertTrue(failed.error is BunnyError.InvalidState)
         assertTrue(service.transferred.isEmpty())
-        assertNotNull(uploader)
     }
 
     // endregion
 
+    private fun UploadEvent.isTerminalEvent(): Boolean =
+        this is UploadEvent.Completed || this is UploadEvent.Cancelled || this is UploadEvent.Failed
+
     private companion object {
         private const val TRANSFER_TICK_MILLIS = 1L
+        private const val STALL_MILLIS = 60_000L
     }
 }
