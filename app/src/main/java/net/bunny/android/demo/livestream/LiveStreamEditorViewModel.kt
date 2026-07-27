@@ -5,6 +5,7 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
@@ -97,6 +98,15 @@ class LiveStreamEditorViewModel : ViewModel() {
 
     private val repository
         get() = App.di.streamSdk.liveStreamRepository
+
+    private var trailerUploadJob: Job? = null
+
+    init {
+        // A trailer upload may still be running from an earlier instance of this screen — the
+        // transfer lives in the SDK, not here. Re-attach rather than showing an empty trailer slot
+        // over a live upload.
+        attachToTrailerUpload()
+    }
 
     fun load(streamId: String) {
         // Only fetch once per editor instance — recompositions/back-navigation shouldn't refetch.
@@ -276,6 +286,7 @@ class LiveStreamEditorViewModel : ViewModel() {
 
             is UploadEvent.Completed -> {
                 Log.d(TAG, "trailer upload done — videoId=${event.videoId}")
+                App.di.activeTrailerUpload = null
                 mutableUiState.update {
                     it.copy(trailer = TrailerState.Ready(event.videoId, deletable = true))
                 }
@@ -283,11 +294,14 @@ class LiveStreamEditorViewModel : ViewModel() {
 
             is UploadEvent.Failed -> {
                 Log.w(TAG, "trailer upload failed: ${event.error}")
+                App.di.activeTrailerUpload = null
                 mutableUiState.update { it.copy(trailer = TrailerState.Failed(event.error.message)) }
             }
 
-            is UploadEvent.Cancelled ->
+            is UploadEvent.Cancelled -> {
+                App.di.activeTrailerUpload = null
                 mutableUiState.update { it.copy(trailer = TrailerState.None) }
+            }
         }
     }
 
@@ -307,16 +321,51 @@ class LiveStreamEditorViewModel : ViewModel() {
         mutableUiState.update { it.copy(trailer = TrailerState.None) }
     }
 
-    /** Uploads [videoUri] to the library as the pre-stream trailer; result surfaces via [UiState.trailer]. */
+    /**
+     * Uploads [videoUri] to the library as the pre-stream trailer; result surfaces via
+     * [UiState.trailer].
+     *
+     * The upload id goes into [Di.activeTrailerUpload] rather than a local, because the transfer
+     * lives inside the SDK and outlives this ViewModel: keeping it there is what makes
+     * [cancelTrailerUpload] possible and what lets [attachToTrailerUpload] pick the upload back up
+     * when the editor is reopened. Losing the id would leave a transfer nobody can stop, finishing
+     * into a library video nothing references.
+     */
     fun uploadTrailer(videoUri: Uri) {
         Log.d(TAG, "uploadTrailer uri=$videoUri")
+        // One trailer at a time — a second pick abandons the first, so stop it properly.
+        cancelTrailerUpload()
         mutableUiState.update { it.copy(trailer = TrailerState.Uploading(0)) }
 
-        val uploader = App.di.streamSdk.videoUploader
-        val uploadId = uploader.startUpload(libraryId, videoUri)
-        viewModelScope.launch {
-            uploader.observeUpload(uploadId)?.collect(::onTrailerUploadEvent)
+        val uploadId = App.di.streamSdk.videoUploader.startUpload(libraryId, videoUri)
+        App.di.activeTrailerUpload = uploadId
+        observeTrailerUpload(uploadId)
+    }
+
+    /** Stops the trailer upload and deletes the partially uploaded video. */
+    fun cancelTrailerUpload() {
+        val uploadId = App.di.activeTrailerUpload ?: return
+        Log.d(TAG, "cancelTrailerUpload uploadId=$uploadId")
+        App.di.streamSdk.videoUploader.cancelUpload(uploadId)
+        App.di.activeTrailerUpload = null
+    }
+
+    /** Re-attaches to a trailer upload still running from an earlier instance of this screen. */
+    private fun attachToTrailerUpload() {
+        val uploadId = App.di.activeTrailerUpload ?: return
+        Log.d(TAG, "re-attaching to trailer upload $uploadId")
+        observeTrailerUpload(uploadId)
+    }
+
+    private fun observeTrailerUpload(uploadId: String) {
+        trailerUploadJob?.cancel()
+        val events = App.di.streamSdk.videoUploader.observeUpload(uploadId)
+        if (events == null) {
+            // Finished long enough ago that the SDK no longer remembers it.
+            App.di.activeTrailerUpload = null
+            return
         }
+        trailerUploadJob = viewModelScope.launch { events.collect(::onTrailerUploadEvent) }
     }
 
     /** Deletes the uploaded trailer video from the library and clears the trailer. */

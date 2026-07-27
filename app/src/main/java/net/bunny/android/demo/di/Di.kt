@@ -42,11 +42,19 @@ class Di(val context: Context) {
      */
     var activeUpload: ActiveUpload? = null
 
+    /**
+     * The trailer upload in flight, if any. Separate from [activeUpload] because the library screen
+     * and the live-stream editor upload independently and must not steal each other's handle.
+     */
+    var activeTrailerUpload: String? = null
+
     fun updateKeys(accessKey: String, libraryId: Long) {
         localPrefs.accessKey = accessKey
         localPrefs.libraryId = libraryId
-        // Re-initialising stops any in-flight upload, so the handle to it is dead too.
+        // Re-initialising stops any in-flight upload, so the handles to them are dead too. The SDK
+        // gives each one a terminal event first, so any screen still observing is told.
         activeUpload = null
+        activeTrailerUpload = null
         BunnyStreamApi.initialize(context, accessKey, libraryId)
         streamSdk = BunnyStreamApi.getInstance()
     }
