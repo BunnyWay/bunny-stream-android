@@ -13,9 +13,9 @@ Create, schedule, start, stop and decorate live streams from your app through
 val repo = BunnyStreamApi.getInstance().liveStreamRepository
 ```
 
-<!-- TODO before the 4.0.0 release: result handling below uses the current Either-based
-     returns; swap the fold() calls to the final 4.0.0 result type. Method names and
-     parameters stay as they are. -->
+Every method returns `BunnyResult<T>` — `Ok` with the value or `Err` with a typed
+`BunnyError`. See [Handle errors](handle-errors.md) for the taxonomy and the terminal/transient
+split.
 
 ## Create a stream
 
@@ -33,8 +33,8 @@ val result = repo.createLiveStream(
     ),
 )
 result.fold(
-    { error -> /* show error */ },
-    { stream -> /* stream.id, stream.streamKey, stream.primaryIngestUrl */ },
+    onOk = { stream -> /* stream.id, stream.streamKey, stream.primaryIngestUrl */ },
+    onErr = { error -> /* show error.message; error.isTerminal says whether to retry */ },
 )
 ```
 
@@ -74,10 +74,10 @@ Poll with `pollLiveStream` when you need the state cheaply and repeatedly (a lob
 
 ```kotlin
 when (val result = repo.pollLiveStream(libraryId, streamId)) {
-    is LiveStreamPollResult.Success -> render(result.stream.status)
-    is LiveStreamPollResult.Failure ->
-        if (result.isTerminal()) stopPolling()   // 401/403/404/410: gone for good
-        else Unit                                // transient (5xx, network): keep polling
+    is BunnyResult.Ok -> render(result.value.status)
+    is BunnyResult.Err ->
+        if (result.isTerminal) stopPolling()   // 401/403/404/410: gone for good
+        else Unit                              // transient (5xx, network): keep polling
 }
 ```
 
