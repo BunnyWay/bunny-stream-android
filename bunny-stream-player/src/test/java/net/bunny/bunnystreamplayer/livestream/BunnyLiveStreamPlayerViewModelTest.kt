@@ -1,12 +1,12 @@
 package net.bunny.bunnystreamplayer.livestream
 
-import arrow.core.Either
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
-import net.bunny.api.livestream.domain.LiveStreamPollResult
+import net.bunny.api.error.BunnyError
+import net.bunny.api.error.BunnyResult
 import net.bunny.api.livestream.domain.LiveStreamRepository
 import net.bunny.api.livestream.domain.model.LiveStream
 import net.bunny.api.livestream.domain.model.LiveStreamCreateRequest
@@ -57,7 +57,7 @@ class BunnyLiveStreamPlayerViewModelTest {
         val repo = FakeRepo(
             pollResult = {
                 callCount.incrementAndGet()
-                LiveStreamPollResult.Failure(statusCode = 403, message = "Forbidden")
+                BunnyResult.Err(BunnyError.Auth(403, "Forbidden"))
             },
         )
         val vm = newVm(repo)
@@ -87,7 +87,7 @@ class BunnyLiveStreamPlayerViewModelTest {
         val repo = FakeRepo(
             pollResult = {
                 callCount.incrementAndGet()
-                LiveStreamPollResult.Failure(statusCode = 503, message = "Service Unavailable")
+                BunnyResult.Err(BunnyError.Http(503, "Service Unavailable"))
             },
         )
         val vm = newVm(repo)
@@ -125,7 +125,7 @@ class BunnyLiveStreamPlayerViewModelTest {
         val repo = FakeRepo(
             pollResult = {
                 callCount.incrementAndGet()
-                LiveStreamPollResult.Failure(statusCode = 0, message = "Network error: timeout")
+                BunnyResult.Err(BunnyError.Network("Network error: timeout"))
             },
         )
         val vm = newVm(repo)
@@ -149,7 +149,7 @@ class BunnyLiveStreamPlayerViewModelTest {
         val repo = FakeRepo(
             pollResult = {
                 callCount.incrementAndGet()
-                LiveStreamPollResult.Failure(statusCode = 500, message = "Server")
+                BunnyResult.Err(BunnyError.Http(500, "Server"))
             },
         )
         val vm = newVm(repo)
@@ -173,7 +173,7 @@ class BunnyLiveStreamPlayerViewModelTest {
         val repo = FakeRepo(
             pollResult = {
                 callCount.incrementAndGet()
-                LiveStreamPollResult.Failure(statusCode = 500, message = "Server")
+                BunnyResult.Err(BunnyError.Http(500, "Server"))
             },
         )
         val vm = newVm(repo)
@@ -201,7 +201,7 @@ class BunnyLiveStreamPlayerViewModelTest {
     fun `410 Gone is terminal`() {
         val repo = FakeRepo(
             pollResult = {
-                LiveStreamPollResult.Failure(statusCode = 410, message = "Gone")
+                BunnyResult.Err(BunnyError.Http(410, "Gone"))
             },
         )
         val vm = newVm(repo)
@@ -219,8 +219,8 @@ class BunnyLiveStreamPlayerViewModelTest {
     @Test
     fun `successful poll updates state from Loading`() {
         val repo = FakeRepo(
-            pollResult = { LiveStreamPollResult.Success(runningStream()) },
-            playData = { Either.Right(playDataWithUrl("https://live.test/p.m3u8")) },
+            pollResult = { BunnyResult.Ok(runningStream()) },
+            playData = { BunnyResult.Ok(playDataWithUrl("https://live.test/p.m3u8")) },
         )
         val vm = newVm(repo)
         try {
@@ -244,11 +244,11 @@ class BunnyLiveStreamPlayerViewModelTest {
         val repo = FakeRepo(
             pollResult = {
                 pollCount.incrementAndGet()
-                LiveStreamPollResult.Success(runningStream())
+                BunnyResult.Ok(runningStream())
             },
             playData = {
                 playDataCount.incrementAndGet()
-                Either.Right(playDataWithUrl("https://live.test/p.m3u8"))
+                BunnyResult.Ok(playDataWithUrl("https://live.test/p.m3u8"))
             },
         )
         val vm = newVm(repo)
@@ -285,8 +285,8 @@ class BunnyLiveStreamPlayerViewModelTest {
         // must not rebuild immediately (throttle) but MUST schedule a deferred retry — an errored
         // ExoPlayer never re-raises, so dropping it would strand the viewer on a frozen frame.
         val repo = FakeRepo(
-            pollResult = { LiveStreamPollResult.Success(runningStream()) },
-            playData = { Either.Right(playDataWithUrl("https://live.test/p.m3u8")) },
+            pollResult = { BunnyResult.Ok(runningStream()) },
+            playData = { BunnyResult.Ok(playDataWithUrl("https://live.test/p.m3u8")) },
         )
         val vm = newVm(repo)
         try {
@@ -319,9 +319,9 @@ class BunnyLiveStreamPlayerViewModelTest {
         // Offline and no rebuild must be requested.
         val status = java.util.concurrent.atomic.AtomicReference(LiveStreamStatus.RUNNING)
         val repo = FakeRepo(
-            pollResult = { LiveStreamPollResult.Success(runningStream().copy(status = status.get())) },
+            pollResult = { BunnyResult.Ok(runningStream().copy(status = status.get())) },
             playData = {
-                Either.Right(
+                BunnyResult.Ok(
                     playDataWithUrl("https://live.test/p.m3u8")
                         .let { it.copy(liveStream = it.liveStream?.copy(status = status.get())) },
                 )
@@ -360,10 +360,10 @@ class BunnyLiveStreamPlayerViewModelTest {
         val repo = FakeRepo(
             pollResult = {
                 pollCount.incrementAndGet()
-                LiveStreamPollResult.Success(endedRecorded)
+                BunnyResult.Ok(endedRecorded)
             },
             playData = {
-                Either.Right(
+                BunnyResult.Ok(
                     playDataWithUrl("https://vod.test/recording.m3u8")
                         .let { it.copy(liveStream = endedRecorded) },
                 )
@@ -472,9 +472,9 @@ class BunnyLiveStreamPlayerViewModelTest {
      * outcome without subclassing.
      */
     private class FakeRepo(
-        private val pollResult: () -> LiveStreamPollResult,
-        private val playData: () -> Either<String, LiveStreamPlayData> =
-            { Either.Left("not used in this test") },
+        private val pollResult: () -> BunnyResult<LiveStream>,
+        private val playData: () -> BunnyResult<LiveStreamPlayData> =
+            { BunnyResult.Err(BunnyError.Network("not used in this test")) },
     ) : LiveStreamRepository {
         override suspend fun pollLiveStream(libraryId: Long, streamId: String) = pollResult()
 
@@ -486,51 +486,51 @@ class BunnyLiveStreamPlayerViewModelTest {
         override suspend fun listLiveStreams(
             libraryId: Long, page: Int?, itemsPerPage: Int?, search: String?,
             orderBy: String?, collectionId: String?,
-        ): Either<String, LiveStreamList> = error("not implemented for test")
+        ): BunnyResult<LiveStreamList> = error("not implemented for test")
 
         override suspend fun getLiveStream(
             libraryId: Long, streamId: String,
-        ): Either<String, LiveStream> = error("not implemented for test")
+        ): BunnyResult<LiveStream> = error("not implemented for test")
 
         override suspend fun createLiveStream(
             libraryId: Long, request: LiveStreamCreateRequest,
-        ): Either<String, LiveStream> = error("not implemented for test")
+        ): BunnyResult<LiveStream> = error("not implemented for test")
 
         override suspend fun updateLiveStream(
             libraryId: Long, streamId: String, request: LiveStreamCreateRequest,
-        ): Either<String, Unit> = error("not implemented for test")
+        ): BunnyResult<Unit> = error("not implemented for test")
 
         override suspend fun deleteLiveStream(
             libraryId: Long, streamId: String,
-        ): Either<String, Unit> = error("not implemented for test")
+        ): BunnyResult<Unit> = error("not implemented for test")
 
         override suspend fun startLiveStream(
             libraryId: Long, streamId: String,
-        ): Either<String, LiveStream> = error("not implemented for test")
+        ): BunnyResult<LiveStream> = error("not implemented for test")
 
         override suspend fun stopLiveStream(
             libraryId: Long, streamId: String,
-        ): Either<String, LiveStream> = error("not implemented for test")
+        ): BunnyResult<LiveStream> = error("not implemented for test")
 
         override suspend fun setLiveStreamThumbnail(
             libraryId: Long, streamId: String, thumbnailUrl: String,
-        ): Either<String, Unit> = error("not implemented for test")
+        ): BunnyResult<Unit> = error("not implemented for test")
 
         override suspend fun uploadLiveStreamThumbnail(
             libraryId: Long, streamId: String, imageBytes: ByteArray, contentType: String,
-        ): Either<String, Unit> = error("not implemented for test")
+        ): BunnyResult<Unit> = error("not implemented for test")
 
         override suspend fun listLiveStreamThumbnails(
             libraryId: Long, streamId: String, limit: Int?, from: String?, to: String?,
-        ): Either<String, List<LiveStreamThumbnail>> = error("not implemented for test")
+        ): BunnyResult<List<LiveStreamThumbnail>> = error("not implemented for test")
 
         override suspend fun deleteLiveStreamThumbnail(
             libraryId: Long, streamId: String, restoreLibraryDefault: Boolean,
-        ): Either<String, Unit> = error("not implemented for test")
+        ): BunnyResult<Unit> = error("not implemented for test")
 
         override suspend fun getLiveStreamStatus(
             libraryId: Long, streamId: String,
-        ): Either<String, net.bunny.api.livestream.domain.model.LiveStreamIngestStatus> =
+        ): BunnyResult<net.bunny.api.livestream.domain.model.LiveStreamIngestStatus> =
             error("not implemented for test")
     }
 

@@ -108,10 +108,6 @@ dependencies {
     // https://developer.android.com/jetpack/androidx/releases/test#espresso
     androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")
 
-    // Functional programming library (Arrow)
-    // https://arrow-kt.io
-    implementation("io.arrow-kt:arrow-core:2.0.1")
-
     // Tus client libraries (update to newer patch versions if available)
     // https://github.com/pedroSG94/RootEncoder
     implementation("com.github.pedroSG94.RootEncoder:library:2.6.6")

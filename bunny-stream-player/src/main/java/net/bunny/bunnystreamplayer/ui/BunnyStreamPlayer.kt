@@ -22,6 +22,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import net.bunny.api.BunnyStreamApi
+import net.bunny.api.error.fold
 import net.bunny.api.playback.PlaybackPosition
 import net.bunny.api.playback.ResumeConfig
 import net.bunny.api.playback.ResumePositionListener
@@ -547,7 +548,7 @@ class BunnyStreamPlayer @JvmOverloads constructor(
                     .fetchPlayerSettings(providedLibraryId, videoId, token, expires)
 
                 settings.fold(
-                    ifLeft = {
+                    onErr = {
                         initializeVideo(
                             video, PlayerSettings(
                                 thumbnailUrl = "",
@@ -577,9 +578,9 @@ class BunnyStreamPlayer @JvmOverloads constructor(
                                 captionsPath = ""
                             )
                         )
-                        playerView.showError(it)
+                        playerView.showError(it.message)
                     },
-                    ifRight = { initializeVideo(video, it) }
+                    onOk = { initializeVideo(video, it) }
                 )
             }
         }

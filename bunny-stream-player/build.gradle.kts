@@ -146,9 +146,6 @@ dependencies {
     // https://github.com/bumptech/glide
     implementation("com.github.bumptech.glide:glide:4.16.0")
 
-    // Functional Programming (Arrow)
-    // https://arrow-kt.io
-    implementation("io.arrow-kt:arrow-core:2.0.1")
 
     // YAML Parsing (Kaml)
     // https://github.com/charleskorn/kaml

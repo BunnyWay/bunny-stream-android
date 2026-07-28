@@ -17,16 +17,18 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import net.bunny.api.error.fold
 import net.bunny.android.demo.App
+import net.bunny.android.demo.di.ActiveUpload
 import net.bunny.android.demo.library.model.Error
 import net.bunny.android.demo.library.model.Video
 import net.bunny.android.demo.library.model.VideoListUiState
 import net.bunny.android.demo.library.model.VideoStatus
 import net.bunny.android.demo.library.model.VideoUploadUiState
 import net.bunny.api.BunnyStreamApi
-import net.bunny.api.upload.model.UploadError
-import net.bunny.api.upload.service.PauseState
-import net.bunny.api.upload.service.UploadListener
+import net.bunny.api.upload.VideoUploader
+import net.bunny.api.upload.model.PauseState
+import net.bunny.api.upload.model.UploadEvent
 import org.openapitools.client.models.VideoModel
 import java.util.UUID
 import kotlin.time.DurationUnit
@@ -58,40 +60,9 @@ class LibraryViewModel : ViewModel() {
     private val mutableErrorState: MutableSharedFlow<Error?> = MutableSharedFlow()
     val errorState = mutableErrorState.asSharedFlow()
 
-    private var uploadInProgressId: String? = null
+    private var uploadJob: Job? = null
 
     private var enrichJob: Job? = null
-
-    private val uploadListener = object : UploadListener {
-        override fun onUploadError(error: UploadError, videoId: String?) {
-            Log.d(TAG, "onVideoUploadError: $error")
-            mutableUploadUiState.value = VideoUploadUiState.UploadError(error.toString())
-            uploadInProgressId = null
-        }
-
-        override fun onUploadDone(videoId: String) {
-            Log.d(TAG, "onVideoUploadDone")
-            loadLibrary()
-            mutableUploadUiState.value = VideoUploadUiState.NotUploading
-            uploadInProgressId = null
-        }
-
-        override fun onUploadStarted(uploadId: String, videoId: String) {
-            Log.d(TAG, "onVideoUploadStarted: uploadId=$uploadId")
-            uploadInProgressId = uploadId
-        }
-
-        override fun onProgressUpdated(percentage: Int, videoId: String, pauseState: PauseState) {
-            Log.d(TAG, "onUploadProgress: percentage=$percentage")
-            mutableUploadUiState.value = VideoUploadUiState.Uploading(percentage, pauseState)
-        }
-
-        override fun onUploadCancelled(videoId: String) {
-            Log.d(TAG, "onVideoUploadCancelled")
-            mutableUploadUiState.value = VideoUploadUiState.NotUploading
-            uploadInProgressId = null
-        }
-    }
 
     private val libraryId: Long
         get() = BunnyStreamApi.libraryId
@@ -101,7 +72,9 @@ class LibraryViewModel : ViewModel() {
 
     init {
         Log.d(TAG, "<init> $this")
-        App.di.videoUploadService.uploadListener = uploadListener
+        // The transfer runs inside the SDK, so one may still be going from an earlier instance of
+        // this screen. Re-attach to it instead of showing an idle upload area over a live upload.
+        App.di.activeUpload?.let(::attachTo)
     }
 
     fun loadLibrary() {
@@ -205,11 +178,11 @@ class LibraryViewModel : ViewModel() {
                     BunnyStreamApi.getInstance()
                         .fetchPlayerSettings(libraryId, video.id)
                         .fold(
-                            ifLeft = {
+                            onErr = {
                                 Log.w(TAG, "Failed to fetch details for ${video.id}")
                                 null
                             },
-                            ifRight = { video.id to it.thumbnailUrl }
+                            onOk = { video.id to it.thumbnailUrl }
                         )
                 }.toMap()
             }
@@ -232,46 +205,131 @@ class LibraryViewModel : ViewModel() {
         mutableErrorState.emit(null)
     }
 
+    private fun uploaderFor(useTus: Boolean): VideoUploader =
+        if (useTus) App.di.streamSdk.tusVideoUploader else App.di.streamSdk.videoUploader
+
     fun uploadVideo(videoUri: Uri) {
         Log.d(TAG, "uploadVideo uri=$videoUri useTusUpload=$useTusUpload")
         mutableUploadUiState.value = VideoUploadUiState.Preparing
 
-        if (useTusUpload) {
-            App.di.tusVideoUploadService.uploadListener = uploadListener
-            App.di.tusVideoUploadService.uploadVideo(libraryId, videoUri)
+        val uploadId = uploaderFor(useTusUpload).startUpload(libraryId, videoUri)
+        val active = ActiveUpload(uploadId, libraryId, videoUri, useTusUpload)
+        App.di.activeUpload = active
+        attachTo(active)
+    }
+
+    /**
+     * Picks the failed transfer up where it stopped rather than starting a second upload of the
+     * same file. Only offered when the SDK can actually do it — see
+     * [VideoUploadUiState.UploadError.retryable].
+     */
+    fun retryUpload() {
+        val active = App.di.activeUpload ?: return
+        val videoId = active.videoId
+        Log.d(TAG, "retryUpload uploadId=${active.uploadId} videoId=$videoId")
+
+        val uploader = uploaderFor(active.useTus)
+        val retryId = if (videoId == null) {
+            // The previous attempt never got as far as creating the video, so there is nothing to
+            // continue — start over.
+            uploader.startUpload(active.libraryId, active.videoUri)
         } else {
-            App.di.videoUploadService.uploadListener = uploadListener
-            App.di.videoUploadService.uploadVideo(libraryId, videoUri)
+            uploader.continueUpload(active.libraryId, videoId, active.videoUri)
+        }
+
+        val next = active.copy(uploadId = retryId)
+        App.di.activeUpload = next
+        mutableUploadUiState.value = VideoUploadUiState.Preparing
+        attachTo(next)
+    }
+
+    /** Observes [active] without starting or stopping anything; safe to call on every screen entry. */
+    private fun attachTo(active: ActiveUpload) {
+        uploadJob?.cancel()
+        val events = uploaderFor(active.useTus).observeUpload(active.uploadId)
+        if (events == null) {
+            // Finished long enough ago that the SDK no longer remembers it.
+            Log.d(TAG, "no upload to attach to for uploadId=${active.uploadId}")
+            App.di.activeUpload = null
+            mutableUploadUiState.value = VideoUploadUiState.NotUploading
+            return
+        }
+        uploadJob = viewModelScope.launch { events.collect(::onUploadEvent) }
+    }
+
+    private fun onUploadEvent(event: UploadEvent) {
+        when (event) {
+            is UploadEvent.Started -> {
+                Log.d(TAG, "upload started: uploadId=${event.uploadId} videoId=${event.videoId}")
+                rememberVideoId(event.videoId)
+            }
+
+            is UploadEvent.Progress -> {
+                // Also captured here, not only on Started: attaching to an upload already in
+                // flight starts from the most recent event, so Started may never arrive.
+                rememberVideoId(event.videoId)
+                mutableUploadUiState.value =
+                    VideoUploadUiState.Uploading(event.percentage, event.pauseState)
+            }
+
+            is UploadEvent.Completed -> {
+                Log.d(TAG, "upload done: videoId=${event.videoId}")
+                loadLibrary()
+                finishUpload(VideoUploadUiState.NotUploading)
+            }
+
+            is UploadEvent.Cancelled -> {
+                Log.d(TAG, "upload cancelled: videoId=${event.videoId}")
+                finishUpload(VideoUploadUiState.NotUploading)
+            }
+
+            is UploadEvent.Failed -> {
+                Log.w(TAG, "upload failed: ${event.error}")
+                // A transient failure on the resumable path can be continued from the stored
+                // offset — so keep the handle instead of dropping it.
+                val active = App.di.activeUpload
+                val retryable = !event.error.isTerminal && active?.useTus == true
+                mutableUploadUiState.value =
+                    VideoUploadUiState.UploadError(event.error.message, retryable)
+                if (!retryable) App.di.activeUpload = null
+            }
         }
     }
 
+    /** The video id is what [retryUpload] needs to continue rather than start over. */
+    private fun rememberVideoId(videoId: String) {
+        val active = App.di.activeUpload ?: return
+        if (active.videoId != videoId) {
+            App.di.activeUpload = active.copy(videoId = videoId)
+        }
+    }
+
+    private fun finishUpload(state: VideoUploadUiState) {
+        mutableUploadUiState.value = state
+        App.di.activeUpload = null
+    }
+
     fun clearUploadError() {
+        App.di.activeUpload = null
         mutableUploadUiState.value = VideoUploadUiState.NotUploading
     }
 
     fun cancelUpload() {
-        Log.d(TAG, "cancelUpload: uploadInProgressId=$uploadInProgressId")
-        uploadInProgressId?.let {
-            if (useTusUpload) {
-                App.di.tusVideoUploadService.cancelUpload(it)
-            } else {
-                App.di.videoUploadService.cancelUpload(it)
-            }
-        }
+        val active = App.di.activeUpload ?: return
+        Log.d(TAG, "cancelUpload: uploadId=${active.uploadId}")
+        uploaderFor(active.useTus).cancelUpload(active.uploadId)
     }
 
     fun pauseResumeUpload() {
-        Log.d(TAG, "pauseResumeUpload: uploadInProgressId=$uploadInProgressId")
-        uploadInProgressId?.let {
-            if (useTusUpload) {
-                val uploadState = mutableUploadUiState.value as? VideoUploadUiState.Uploading
-                when (uploadState?.pauseState) {
-                    PauseState.Paused -> App.di.tusVideoUploadService.resumeUpload(it)
-                    PauseState.Uploading -> App.di.tusVideoUploadService.pauseUpload(it)
-                    else -> { /* no-op */
-                    }
-                }
-            }
+        val active = App.di.activeUpload ?: return
+        val uploading = mutableUploadUiState.value as? VideoUploadUiState.Uploading ?: return
+        Log.d(TAG, "pauseResumeUpload: uploadId=${active.uploadId} state=${uploading.pauseState}")
+
+        val uploader = uploaderFor(active.useTus)
+        when (uploading.pauseState) {
+            PauseState.Paused -> uploader.resumeUpload(active.uploadId)
+            PauseState.Uploading -> uploader.pauseUpload(active.uploadId)
+            PauseState.Unsupported -> Unit
         }
     }
 

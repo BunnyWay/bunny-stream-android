@@ -105,6 +105,9 @@ dependencies {
     testImplementation("io.mockk:mockk:1.13.13")
     // Virtual-time + TestDispatcher for the repository's withContext(coroutineDispatcher) path.
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.6.4")
+    // MockEngine — drives BasicUploaderService's upload Flow through real Ktor machinery
+    // (progress callbacks, status handling) without a server. Version tracks the ktor client below.
+    testImplementation("io.ktor:ktor-client-mock:3.1.2")
     // https://developer.android.com/jetpack/androidx/releases/test
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
     // https://developer.android.com/jetpack/androidx/releases/test#espresso
@@ -136,9 +139,6 @@ dependencies {
     implementation("io.ktor:ktor-serialization-kotlinx-json:3.1.2")
     implementation("io.ktor:ktor-client-logging-jvm:3.1.2")
 
-    // Arrow
-    // https://arrow-kt.io
-    implementation("io.arrow-kt:arrow-core:2.0.1")
 
     // Tus client libraries (update to newer patch versions if available)
     // https://github.com/tus/tus-java-client

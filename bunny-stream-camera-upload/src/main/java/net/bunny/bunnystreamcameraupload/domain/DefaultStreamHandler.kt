@@ -4,7 +4,9 @@ import android.util.Log
 import android.view.SurfaceHolder
 import android.view.ViewGroup
 import android.widget.Toast
-import arrow.core.Either
+import net.bunny.api.error.BunnyResult
+import net.bunny.api.error.fold
+import net.bunny.api.error.map
 import com.pedro.common.ConnectChecker
 import com.pedro.common.socket.base.SocketType
 import com.pedro.encoder.input.sources.audio.MicrophoneSource
@@ -198,11 +200,11 @@ internal class DefaultStreamHandler(
         liveStartRequested = true
         scope.launch {
             streamRepository.startLiveStream(live.first, live.second).fold(
-                ifLeft = { message ->
-                    Log.w(TAG, "startLiveStream failed: $message")
+                onOk = { Log.d(TAG, "live stream marked as started") },
+                onErr = { error ->
+                    Log.w(TAG, "startLiveStream failed: ${error.message}")
                     liveStartRequested = false
                 },
-                ifRight = { Log.d(TAG, "live stream marked as started") },
             )
         }
     }
@@ -316,8 +318,8 @@ internal class DefaultStreamHandler(
         ingestStatusJob = scope.launch {
             while (isActive) {
                 streamRepository.getIngestStatus(live.first, live.second).fold(
-                    ifLeft = { message -> Log.w(TAG, "ingest status poll failed: $message") },
-                    ifRight = { status -> onIngestStatus(status.primaryLive, status.backupLive) },
+                    onOk = { status -> onIngestStatus(status.primaryLive, status.backupLive) },
+                    onErr = { error -> Log.w(TAG, "ingest status poll failed: ${error.message}") },
                 )
                 delay(INGEST_STATUS_POLL_MS)
             }
@@ -453,17 +455,17 @@ internal class DefaultStreamHandler(
         startWithEndpoint { streamRepository.prepareLiveBroadcast(libraryId, streamId, ingestEndpoint) }
     }
 
-    private fun startWithEndpoint(prepare: suspend () -> Either<String, ResolvedIngest>) {
+    private fun startWithEndpoint(prepare: suspend () -> BunnyResult<ResolvedIngest>) {
         recordingStateListener?.onStreamInitializing()
         scope.launch {
             when (val result = prepare()) {
-                is Either.Left -> {
+                is BunnyResult.Err -> {
                     MainScope().launch {
-                        recordingStateListener?.onStreamConnectionFailed(result.value)
+                        recordingStateListener?.onStreamConnectionFailed(result.message)
                     }
                 }
 
-                is Either.Right -> {
+                is BunnyResult.Ok -> {
                     if (stream.isStreaming) {
                         Log.w(TAG, "startStream skipped — already streaming")
                         return@launch
@@ -541,8 +543,8 @@ internal class DefaultStreamHandler(
             liveStartRequested = false
             scope.launch {
                 streamRepository.stopLiveStream(live.first, live.second).fold(
-                    ifLeft = { message -> Log.w(TAG, "stopLiveStream failed: $message") },
-                    ifRight = { Log.d(TAG, "live stream stopped server-side") },
+                    onOk = { Log.d(TAG, "live stream stopped server-side") },
+                    onErr = { error -> Log.w(TAG, "stopLiveStream failed: ${error.message}") },
                 )
             }
         }

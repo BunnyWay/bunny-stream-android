@@ -32,8 +32,10 @@ Everything is reachable from `BunnyStreamApi.getInstance()`:
 // Videos and collections (blocking calls - run them off the main thread)
 val videos = BunnyStreamApi.getInstance().videosApi.videoList(libraryId = 12345L)
 
-// Uploads (TUS, with pause and resume)
-BunnyStreamApi.getInstance().tusVideoUploader.uploadVideo(libraryId, videoUri, listener)
+// Uploads (TUS, with pause and resume) - addressed by the id startUpload returns
+val uploader = BunnyStreamApi.getInstance().tusVideoUploader
+val uploadId = uploader.startUpload(libraryId, videoUri)
+uploader.observeUpload(uploadId)?.collect { event -> render(event) }
 
 // Live streams: create, schedule, start, stop, thumbnails, status
 val repo = BunnyStreamApi.getInstance().liveStreamRepository
