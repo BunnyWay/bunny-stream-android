@@ -42,6 +42,31 @@ import org.openapitools.client.models.VideoModel
 import org.openapitools.client.models.VideoPlayDataModelVideo
 
 
+/**
+ * The video player view of the Bunny Stream SDK. Add it to a layout (or wrap it in `AndroidView`
+ * from Compose) and call [playVideo] with a video id from your library:
+ *
+ * ```kotlin
+ * player.playVideo(videoId = "your-video-guid")
+ * ```
+ *
+ * [net.bunny.api.BunnyStreamApi.initialize] must have been called first; without it [playVideo]
+ * logs an error and shows nothing. Appearance (accent color, visible controls, captions styling)
+ * comes from the library's player settings in the Bunny dashboard. Icons can be replaced through
+ * [iconSet].
+ *
+ * What the view handles on its own:
+ * - playback controls, seek-bar preview thumbnails, chapters, moments and captions
+ * - fullscreen (opens a dedicated fullscreen screen) and Picture-in-Picture (the host activity
+ *   must declare `android:supportsPictureInPicture="true"`)
+ * - Chromecast, when Google Play services are available
+ * - pausing when the host goes to the background and resuming on return
+ * - resume positions, once enabled with [enableResumePosition]
+ *
+ * The view attaches to its host lifecycle automatically. Playback stops when the view is detached
+ * from the window. One playback engine is shared per process; use one player view at a time and
+ * detach it before starting playback in another.
+ */
 class BunnyStreamPlayer @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null,

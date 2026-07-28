@@ -9,8 +9,11 @@ import net.bunny.api.livestream.domain.model.LiveStreamIngestStatus
  *
  * Every call returns [BunnyResult], the same envelope the rest of the SDK uses, so a caller
  * branches on one typed [net.bunny.api.error.BunnyError] rather than on a message string.
+ *
+ * Internal: the broadcaster is driven through [net.bunny.bunnystreamcameraupload.BunnyStreamCameraUpload],
+ * which owns its own instance. Nothing in the documented API takes one of these.
  */
-interface RecordingRepository {
+internal interface RecordingRepository {
 
     /**
      * Creates a video and returns the RTMP URL to publish the recording into.

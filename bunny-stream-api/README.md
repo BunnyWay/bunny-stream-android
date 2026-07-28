@@ -1,112 +1,61 @@
-# BunnyStreamApi
+# bunny-stream-api
 
-The core package that provides interface to Bunny's REST Stream API. It handles all API communication, request authentication, and response parsing, allowing you to easily manage your video content, retrieve analytics, and control CDN settings. Features include video management, collection organization, and thumbnail generation.
-
-## Minimum supported Android version
-
-- Android 8.0 (API level 26)
+Core module of the Bunny Stream Android SDK (`net.bunny:api`). REST API access for the videos,
+collections and live streams of your library, video uploads (including chunked TUS with
+mid-upload pause and resume), playback
+settings and resume-position storage. The player and camera modules build on it.
 
 ## Installation
 
-Declare desired dependencies in your project's `build.gradle.kts`:
-```
+```kotlin
 implementation("net.bunny:api:latest.release")
 ```
 
+Requires Android 8.0 (API 26) and the `INTERNET` permission in your manifest.
+
 ## Initialization
 
-After installation, you'll need to configure the package with your Bunny credentials.
+Call once, before anything else from the SDK - `Application.onCreate` is the usual place:
 
 ```kotlin
-// Initialize with your access key (optional) and library ID
-BunnyStreamApi.initialize(context, accessKey, libraryId)
+BunnyStreamApi.initialize(context, accessKey = "your-api-key", libraryId = 12345L)
 ```
 
-## 1. Getting Started with video management using BunnyStreamApi
+`accessKey` is your library's API key (Bunny dashboard > Stream > your library > API). Keep it
+out of source control.
 
-BunnyStreamApi.initialize(context, accessKey, libraryId)
+## What you can do with it
 
-### List videos from library
-
- ```
- try {
-    val response: PaginationListOfVideoModel = BunnyStreamApi.videosApi.videoList(
-        libraryId = libraryId
-    )
-    println("response=$response")
-} catch (e: Exception) {
-    // handle exception
-}
- ```
-
-### Create a video
-
- ```
- val createVideoRequest = VideoCreateVideoRequest(
-    title = title,
-    collectionId = collectionId,
-    thumbnailTime = thumbnailTime
-)
-try {
-    val result: VideoModel = BunnyStreamApi.videosApi.videoCreateVideo(
-        libraryId = libraryId,
-        videoCreateVideoRequest = createVideoRequest
-    )
-    println("result=$result")
-} catch (e: Exception) {
-    // handle exception
-}
- ```
-
-### Upload video
-
-An upload is addressed by an **upload id**: `startUpload` begins the transfer and returns it,
-`observeUpload` streams that upload's events. The transfer runs inside the SDK, so it keeps going
-when the screen that started it goes away — keep the id somewhere that outlives the screen and
-re-attach with `observeUpload` on the way back in.
+Everything is reachable from `BunnyStreamApi.getInstance()`:
 
 ```kotlin
-val uploader = BunnyStreamApi.getInstance().videoUploader   // or tusVideoUploader
+// Videos and collections (blocking calls - run them off the main thread)
+val videos = BunnyStreamApi.getInstance().videosApi.videoList(libraryId = 12345L)
+
+// Uploads (TUS, with pause and resume) - addressed by the id startUpload returns
+val uploader = BunnyStreamApi.getInstance().tusVideoUploader
 val uploadId = uploader.startUpload(libraryId, videoUri)
-store.activeUpload = uploadId
+uploader.observeUpload(uploadId)?.collect { event -> render(event) }
 
-lifecycleScope.launch {
-    uploader.observeUpload(uploadId)?.collect { event ->
-        when (event) {
-            is UploadEvent.Started   -> Log.d(TAG, "started, videoId=${event.videoId}")
-            is UploadEvent.Progress  -> showProgress(event.percentage, event.pauseState)
-            is UploadEvent.Completed -> showDone(event.videoId)
-            is UploadEvent.Cancelled -> dismiss()
-            is UploadEvent.Failed    -> showError(event.error.message)
-        }
-    }
-}
+// Live streams: create, schedule, start, stop, thumbnails, status
+val repo = BunnyStreamApi.getInstance().liveStreamRepository
+val created = repo.createLiveStream(libraryId, LiveStreamCreateRequest(title = "My stream"))
 ```
 
-Failures arrive as an `UploadEvent.Failed` value carrying a typed `BunnyError`, not as a thrown
-exception. `pauseUpload`, `resumeUpload` and `cancelUpload` all take the upload id; pausing works
-only on the resumable uploader, which is what `UploadEvent.Progress.pauseState` tells the UI.
+Step-by-step flows with prerequisites and gotchas:
 
-#### Resumable (TUS) uploads
+- [Upload videos](../docs/guides/upload-videos.md)
+- [Manage live streams](../docs/guides/manage-live-streams.md)
+- [Handle errors](../docs/guides/handle-errors.md)
+- [Secure playback](../docs/guides/secure-playback.md) (tokens, Referer)
 
-`tusVideoUploader` sends the file in chunks, which is what makes pausing and resuming possible. Use
-it for large files and unreliable networks.
+## Reference
 
-An interrupted upload is continued with `continueUpload`, on the same uploader that started it —
-it needs the `videoId` from the event stream plus the same content URI, so persist both:
+- [API reference](https://bunnyway.github.io/bunny-stream-android/api/) (generated from the source)
+- Generated REST endpoint docs: [Videos](../docs/ManageVideosApi.md),
+  [Collections](../docs/ManageCollectionsApi.md),
+  [Live streams](../docs/ManageLiveStreamsApi.md)
 
-```kotlin
-is UploadEvent.Failed -> if (!event.error.isTerminal && event.videoId != null) {
-    val retryId = tusVideoUploader.continueUpload(libraryId, event.videoId, videoUri)
-    observe(retryId)
-}
-```
+## License
 
-Uploads survive navigation, not process death. To keep one running while the app is away, collect
-it from a foreground service or `WorkManager` job.
-### Full API reference
-
-- [Collections API](../docs/ManageCollectionsApi.md)
-- [Videos API](../docs/ManageVideosApi.md)
-
-Bunny Stream Android is licensed under the [MIT License](LICENSE). See the LICENSE file for more details.
+Bunny Stream Android is licensed under the [MIT License](../LICENSE).

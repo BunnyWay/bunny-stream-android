@@ -1,0 +1,11 @@
+# Generated documentation. docs/ is produced by the OpenAPI generator and Dokka
+# (see copyGeneratedDocs in bunny-stream-api/build.gradle.kts and the dokkaGfm tasks);
+# the per-module docs/ trees are Dokka GFM output. Marking them as generated collapses
+# them in pull-request diffs and keeps them out of language statistics.
+docs/** linguist-generated=true
+# ...except the hand-written integration guides.
+docs/guides/** linguist-generated=false
+bunny-stream-api/docs/** linguist-generated=true
+bunny-stream-player/docs/** linguist-generated=true
+bunny-stream-camera-upload/docs/** linguist-generated=true
+bunny-stream-tv/docs/** linguist-generated=true

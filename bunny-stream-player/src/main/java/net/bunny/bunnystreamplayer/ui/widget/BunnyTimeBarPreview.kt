@@ -23,7 +23,7 @@ import java.util.Locale
 import java.util.concurrent.TimeUnit
 import kotlin.math.min
 
-@UnstableApi class BunnyTimeBarPreview(
+@UnstableApi internal class BunnyTimeBarPreview(
     context: Context, private val attrs: AttributeSet?
 ) : LinearLayout(context, attrs) {
 

@@ -18,10 +18,10 @@ class I18n(private val context: Context) {
     }
 
     /**
-     * Gets a localized string for the specified language and string resource ID.
+     * Returns the string for [resId] in the language set through [load], falling back to the
+     * device locale when no language was set and to the default resource when the lookup fails.
      *
      * @param resId ID from R.string.*
-     * @param languageCode ISO 639 language code, e.g., "en", "bg", "fr"
      */
     fun getTranslation(resId: Int): String {
         return try {

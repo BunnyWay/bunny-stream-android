@@ -71,6 +71,15 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
 
+/**
+ * The ExoPlayer-based implementation of [BunnyPlayer], obtained through [getInstance].
+ *
+ * The engine is a process-wide singleton: every
+ * [net.bunny.bunnystreamplayer.ui.BunnyStreamPlayer] view in the app shares this one instance;
+ * use one player view at a time. Apps that embed the
+ * player view never create this class themselves; use the engine directly only when building
+ * custom player chrome on top of the [BunnyPlayer] interface.
+ */
 @SuppressLint("UnsafeOptInUsageError")
 class DefaultBunnyPlayer private constructor(private val appContext: Context) : BunnyPlayer {
 
@@ -83,6 +92,7 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
         @Volatile
         private var instance: BunnyPlayer? = null
 
+        /** Returns the shared playback engine, creating it on first use. */
         fun getInstance(context: Context) =
             instance ?: synchronized(this) {
                 instance ?: DefaultBunnyPlayer(context.applicationContext).also { instance = it }

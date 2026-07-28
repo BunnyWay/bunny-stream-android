@@ -32,6 +32,14 @@ tasks.dokkaGfmMultiModule {
     outputDirectory.set(file("docs"))
 }
 
+// Browsable API reference (HTML) aggregated across :api, :player and :recording.
+// Output goes to build/ (not committed); .github/workflows/docs.yml publishes it
+// to GitHub Pages. Run locally with: ./gradlew dokkaHtmlMultiModule
+tasks.dokkaHtmlMultiModule {
+    moduleName.set("Bunny Stream Android SDK")
+    outputDirectory.set(layout.buildDirectory.dir("dokka/htmlMultiModule"))
+}
+
 subprojects {
     // Only configure publishing in Android-library modules
     pluginManager.withPlugin("com.android.library") {

@@ -214,6 +214,33 @@ tasks.withType<DokkaTaskPartial> {
     )
 }
 
+// API-reference content settings shared by every Dokka output (GFM and HTML).
+// The generated OpenAPI client (org.openapitools.*) is an implementation detail:
+// its REST surface is already documented by the generated Markdown under ../docs,
+// so it is suppressed here to keep the reference focused on the hand-written API.
+tasks.withType<org.jetbrains.dokka.gradle.AbstractDokkaLeafTask> {
+    moduleName.set("BunnyStreamApi")
+    // Android variant source sets (debug/release/staging) have no sources of their own but,
+    // left unsuppressed, they break Dokka's source-link merging - only "main" should document.
+    dokkaSourceSets.configureEach {
+        if (name != "main") suppress.set(true)
+    }
+    dokkaSourceSets.configureEach {
+        includes.from("Module.md")
+        sourceLink {
+            localDirectory.set(file("src/main/java"))
+            remoteUrl.set(
+                uri("https://github.com/BunnyWay/bunny-stream-android/tree/main/bunny-stream-api/src/main/java").toURL()
+            )
+            remoteLineSuffix.set("#L")
+        }
+        perPackageOption {
+            matchingRegex.set("""org\.openapitools.*""")
+            suppress.set(true)
+        }
+    }
+}
+
 tasks.register<Copy>("copyGeneratedDocs") {
     dependsOn("openApiGenerateAll")
     from(layout.buildDirectory.dir("generated/api/docs"))

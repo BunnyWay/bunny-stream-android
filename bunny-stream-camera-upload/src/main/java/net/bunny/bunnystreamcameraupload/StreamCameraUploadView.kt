@@ -2,6 +2,20 @@ package net.bunny.bunnystreamcameraupload
 
 import android.view.View
 
+/**
+ * Contract of the camera capture view, [BunnyStreamCameraUpload]. The same view covers two cases:
+ *
+ * - [liveStreamId] not set (default): the camera records straight to a new video in your library.
+ * - [liveStreamId] set: the camera broadcasts to that existing live stream. The SDK starts the
+ *   stream on the server when the connection is up and ends it when you call [stopRecording].
+ *
+ * Before use: call `BunnyStreamApi.initialize(...)` and make sure the `CAMERA` and `RECORD_AUDIO`
+ * runtime permissions are granted - [startPreview] does nothing without them. Configure
+ * [liveStreamId], [dualPublish] and the listeners before starting, not mid-broadcast.
+ *
+ * The view ships its own controls (start/stop, mute, camera switch, close, status). Set
+ * [hideDefaultControls] to true to drive it from your own UI through the methods below.
+ */
 interface StreamCameraUploadView {
     /**
      * Hides default controls, if you plan to use your own
@@ -51,27 +65,35 @@ interface StreamCameraUploadView {
     var streamDurationListener: RecordingDurationListener?
 
     /**
-     * Starts camera preview
+     * Starts the camera preview.
+     *
+     * Requires the `CAMERA` and `RECORD_AUDIO` runtime permissions to be granted already. When
+     * either is missing the call logs a warning and returns without an error callback - the host
+     * app must request the permissions first and call this again after they are granted.
      */
     fun startPreview()
 
     /**
-     * Stops streaming
+     * Stops the recording or broadcast. For a live stream ([liveStreamId] set) this also ends the
+     * stream on the server, so viewers see it as ended. Stop through this method rather than just
+     * tearing the view down; otherwise the stream stays live for viewers until the server times
+     * it out.
      */
     fun stopRecording()
 
     /**
-     * Switches stream camera
+     * Switches between the front and back camera. Works during preview and mid-broadcast.
      */
     fun switchCamera()
 
     /**
-     * Mutes/un-mutes audio
+     * Mutes or unmutes the microphone. The video keeps streaming either way.
      */
     fun setAudioMuted(muted: Boolean)
 
     /**
-     * Check if streaming is in progress
+     * Returns true while a recording or live broadcast is running. Covers both the VOD-record and
+     * the live-broadcast case despite the name.
      */
     fun isRecording(): Boolean
 }
