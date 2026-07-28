@@ -1,11 +1,14 @@
 package net.bunny.bunnystreamcameraupload.data
 
 import android.util.Log
-import arrow.core.Either
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import net.bunny.api.BuildConfig
 import net.bunny.api.BunnyStreamApi
+import net.bunny.api.error.BunnyError
+import net.bunny.api.error.BunnyResult
+import net.bunny.api.error.bunnyCatching
+import net.bunny.api.error.map
 import net.bunny.api.livestream.domain.model.LiveStreamIngestStatus
 import net.bunny.api.model.LiveStreamStatus
 import net.bunny.bunnystreamcameraupload.domain.RecordingRepository
@@ -36,41 +39,47 @@ class DefaultRecordingRepository(
         ): String = "${rtmpEndpoint.trimEnd('/')}/??vid=$videoGuid&accessKey=$accessKey&lib=$libraryId"
     }
 
-    override suspend fun prepareRecording(libraryId: Long): Either<String, String> = withContext(coroutineDispatcher) {
-        val createVideoRequest = VideoCreateVideoRequest(
-            title = "recording-${System.currentTimeMillis()}",
-            collectionId = null,
-            thumbnailTime = null
-        )
-
-        try {
-            val result = BunnyStreamApi.getInstance().videosApi.videoCreateVideo(
-                libraryId = libraryId,
-                videoCreateVideoRequest = createVideoRequest
+    override suspend fun prepareRecording(libraryId: Long): BunnyResult<String> =
+        withContext(coroutineDispatcher) {
+            val createVideoRequest = VideoCreateVideoRequest(
+                title = "recording-${System.currentTimeMillis()}",
+                collectionId = null,
+                thumbnailTime = null
             )
 
-            val guid = result.guid
-                ?: return@withContext Either.Left("Video was created without a guid, cannot publish")
+            val created = bunnyCatching {
+                BunnyStreamApi.getInstance().videosApi.videoCreateVideo(
+                    libraryId = libraryId,
+                    videoCreateVideoRequest = createVideoRequest
+                ).guid
+            }
 
-            val endpoint = buildVodIngestUrl(
-                rtmpEndpoint = BuildConfig.RTMP_ENDPOINT,
-                videoGuid = guid.toString(),
-                accessKey = ApiClient.apiKey["AccessKey"],
-                libraryId = libraryId,
-            )
-
-            Log.d(TAG, "endpoint=$endpoint")
-
-            Either.Right(endpoint)
-        } catch (e: Exception) {
-            Either.Left(e.message ?: e.toString())
+            when (created) {
+                is BunnyResult.Err -> created
+                is BunnyResult.Ok -> {
+                    val guid = created.value
+                    if (guid == null) {
+                        BunnyResult.Err(
+                            BunnyError.Decode("Video was created without a guid, cannot publish"),
+                        )
+                    } else {
+                        val endpoint = buildVodIngestUrl(
+                            rtmpEndpoint = BuildConfig.RTMP_ENDPOINT,
+                            videoGuid = guid.toString(),
+                            accessKey = ApiClient.apiKey["AccessKey"],
+                            libraryId = libraryId,
+                        )
+                        Log.d(TAG, "endpoint=$endpoint")
+                        BunnyResult.Ok(endpoint)
+                    }
+                }
+            }
         }
-    }
 
     override suspend fun startLiveStream(
         libraryId: Long,
         streamId: String,
-    ): Either<String, Unit> = withContext(coroutineDispatcher) {
+    ): BunnyResult<Unit> = withContext(coroutineDispatcher) {
         BunnyStreamApi.getInstance().liveStreamRepository
             .startLiveStream(libraryId, streamId)
             .map { stream ->
@@ -82,7 +91,7 @@ class DefaultRecordingRepository(
     override suspend fun stopLiveStream(
         libraryId: Long,
         streamId: String,
-    ): Either<String, Unit> = withContext(coroutineDispatcher) {
+    ): BunnyResult<Unit> = withContext(coroutineDispatcher) {
         BunnyStreamApi.getInstance().liveStreamRepository
             .stopLiveStream(libraryId, streamId)
             .map { stream ->
@@ -94,18 +103,19 @@ class DefaultRecordingRepository(
     override suspend fun getIngestStatus(
         libraryId: Long,
         streamId: String,
-    ): Either<String, LiveStreamIngestStatus> = withContext(coroutineDispatcher) {
-        BunnyStreamApi.getInstance().liveStreamRepository.getLiveStreamStatus(libraryId, streamId)
+    ): BunnyResult<LiveStreamIngestStatus> = withContext(coroutineDispatcher) {
+        BunnyStreamApi.getInstance().liveStreamRepository
+            .getLiveStreamStatus(libraryId, streamId)
     }
 
     override suspend fun prepareLiveBroadcast(
         libraryId: Long,
         streamId: String,
         ingestEndpoint: String?,
-    ): Either<String, ResolvedIngest> = withContext(coroutineDispatcher) {
+    ): BunnyResult<ResolvedIngest> = withContext(coroutineDispatcher) {
         when (val result = BunnyStreamApi.getInstance().liveStreamRepository.getLiveStream(libraryId, streamId)) {
-            is Either.Left -> Either.Left(result.value)
-            is Either.Right -> {
+            is BunnyResult.Err -> result
+            is BunnyResult.Ok -> {
                 val stream = result.value
                 val streamKey = stream.streamKey
                 when {
@@ -115,12 +125,21 @@ class DefaultRecordingRepository(
                     // message so the caller can guide the user to create a new stream.
                     stream.status == LiveStreamStatus.ENDED ||
                         stream.status == LiveStreamStatus.VOD_PROCESSING ->
-                        Either.Left(
-                            "This live stream has ended and can't be restarted — create a new stream.",
+                        BunnyResult.Err(
+                            BunnyError.InvalidState(
+                                "This live stream has ended and can't be restarted — create a new stream.",
+                            ),
                         )
 
                     streamKey.isNullOrBlank() ->
-                        Either.Left("Live stream $streamId has no stream key yet, cannot publish")
+                        BunnyResult.Err(
+                            BunnyError.InvalidState(
+                                message = "Live stream $streamId has no stream key yet, cannot publish",
+                                // The key is issued moments after creation, so this one is worth
+                                // retrying — unlike an ended stream.
+                                isTerminal = false,
+                            ),
+                        )
 
                     else -> {
                         // Publish to the real primary ingest host from the API (overridable via
@@ -134,7 +153,7 @@ class DefaultRecordingRepository(
                             ?.let { "${it.trimEnd('/')}/$streamKey" }
                         // Log hosts only — the stream key is a secret and must not leak to logcat.
                         Log.d(TAG, "live ingest primaryHost=$primaryHost hasBackup=${backupUrl != null}")
-                        Either.Right(ResolvedIngest(primaryUrl, backupUrl))
+                        BunnyResult.Ok(ResolvedIngest(primaryUrl, backupUrl))
                     }
                 }
             }

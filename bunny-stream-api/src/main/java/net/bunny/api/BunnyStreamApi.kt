@@ -2,16 +2,19 @@ package net.bunny.api
 
 import android.content.Context
 import android.util.Log
-import arrow.core.Either
 import kotlinx.coroutines.Dispatchers
 import net.bunny.api.api.ManageCollectionsApi
 import net.bunny.api.api.ManageLiveStreamsApi
 import net.bunny.api.api.ManageVideosApi
+import net.bunny.api.error.BunnyResult
 import net.bunny.api.ktor.initHttpClient
 import net.bunny.api.livestream.data.DefaultLiveStreamRepository
 import net.bunny.api.settings.data.DefaultSettingsRepository
+import net.bunny.api.livestream.domain.LiveStreamRepository
+import net.bunny.api.settings.domain.SettingsRepository
 import net.bunny.api.settings.domain.model.PlayerSettings
 import net.bunny.api.upload.DefaultVideoUploader
+import net.bunny.api.upload.VideoUploader
 import net.bunny.api.upload.service.basic.BasicUploaderService
 import net.bunny.api.upload.service.tus.TusUploaderService
 import org.openapitools.client.infrastructure.ApiClient
@@ -46,6 +49,11 @@ class BunnyStreamApi private constructor(
          * every SDK feature (REST, uploads, live streaming) authenticates with it.
          */
         fun initialize(context: Context, accessKey: String, libraryId: Long) {
+            // Uploads run on a scope owned by the instance. Replacing the instance without
+            // stopping them would leave transfers running against the previous library and key,
+            // with no handle left to reach them.
+            (instance as? BunnyStreamApi)?.shutdownUploads()
+
             instance = BunnyStreamApi(
                 context.applicationContext,
                 accessKey,
@@ -64,6 +72,7 @@ class BunnyStreamApi private constructor(
         }
 
         fun release() {
+            (instance as? BunnyStreamApi)?.shutdownUploads()
             instance = null
         }
     }
@@ -150,31 +159,46 @@ class BunnyStreamApi private constructor(
         dispatcher = Dispatchers.IO
     )
 
-    override val videoUploader = DefaultVideoUploader(
+    override val videoUploader: VideoUploader = DefaultVideoUploader(
         context = context,
         videoUploadService = basicUploaderService,
         ioDispatcher = Dispatchers.IO,
-        videosApi
+        videosApi = videosApi
     )
 
-    override val tusVideoUploader = DefaultVideoUploader(
+    override val tusVideoUploader: VideoUploader = DefaultVideoUploader(
         context = context,
         videoUploadService = tusVideoUploaderService,
         ioDispatcher = Dispatchers.IO,
-        videosApi
+        videosApi = videosApi
     )
 
-    override val settingsRepository = DefaultSettingsRepository(
+    /**
+     * Stops every in-flight upload and tears down the uploaders' scopes. Called when this instance
+     * is replaced by [initialize] or dropped by [release], so an upload can never outlive the SDK
+     * instance that started it.
+     */
+    private fun shutdownUploads() {
+        (videoUploader as? DefaultVideoUploader)?.shutdown()
+        (tusVideoUploader as? DefaultVideoUploader)?.shutdown()
+    }
+
+    override val settingsRepository: SettingsRepository = DefaultSettingsRepository(
         httpClient = ktorClient,
         coroutineDispatcher = Dispatchers.IO
     )
 
-    override val liveStreamRepository = DefaultLiveStreamRepository(
+    override val liveStreamRepository: LiveStreamRepository = DefaultLiveStreamRepository(
         liveStreamsApi = liveStreamsApi,
         coroutineDispatcher = Dispatchers.IO
     )
 
-    override suspend fun fetchPlayerSettings(libraryId: Long, videoId: String, token: String?, expires: Long?): Either<String, PlayerSettings> {
+    override suspend fun fetchPlayerSettings(
+        libraryId: Long,
+        videoId: String,
+        token: String?,
+        expires: Long?,
+    ): BunnyResult<PlayerSettings> {
         return settingsRepository.fetchSettings(libraryId, videoId, token, expires)
     }
 }

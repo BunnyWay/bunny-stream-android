@@ -5,18 +5,18 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import net.bunny.api.error.fold
 import net.bunny.android.demo.App
 import net.bunny.api.BunnyStreamApi
 import net.bunny.api.livestream.domain.model.LiveStream
 import net.bunny.api.livestream.domain.model.LiveStreamCreateRequest
 import net.bunny.api.livestream.domain.model.LiveStreamThumbnail
-import net.bunny.api.upload.model.UploadError
-import net.bunny.api.upload.service.PauseState
-import net.bunny.api.upload.service.UploadListener
+import net.bunny.api.upload.model.UploadEvent
 
 /**
  * Backs [LiveStreamEditorRoute]. Loads the stream being edited (edit mode) and submits
@@ -99,6 +99,15 @@ class LiveStreamEditorViewModel : ViewModel() {
     private val repository
         get() = App.di.streamSdk.liveStreamRepository
 
+    private var trailerUploadJob: Job? = null
+
+    init {
+        // A trailer upload may still be running from an earlier instance of this screen — the
+        // transfer lives in the SDK, not here. Re-attach rather than showing an empty trailer slot
+        // over a live upload.
+        attachToTrailerUpload()
+    }
+
     fun load(streamId: String) {
         // Only fetch once per editor instance — recompositions/back-navigation shouldn't refetch.
         if (mutableUiState.value.stream != null || mutableUiState.value.loading) return
@@ -107,11 +116,11 @@ class LiveStreamEditorViewModel : ViewModel() {
         mutableUiState.update { it.copy(loading = true) }
         viewModelScope.launch {
             repository.getLiveStream(libraryId, streamId).fold(
-                ifLeft = { message ->
-                    Log.w(TAG, "getLiveStream failed: $message")
-                    mutableUiState.update { it.copy(loading = false, error = message) }
+                onErr = { error ->
+                    Log.w(TAG, "getLiveStream failed: ${error.message}")
+                    mutableUiState.update { it.copy(loading = false, error = error.message) }
                 },
-                ifRight = { stream ->
+                onOk = { stream ->
                     Log.d(TAG, "getLiveStream ok — title='${stream.title}'")
                     val trailer = stream.preStreamTrailerVideoId
                         ?.takeIf { it.isNotBlank() }
@@ -136,8 +145,8 @@ class LiveStreamEditorViewModel : ViewModel() {
         Log.d(TAG, "refreshCreatedStream id=$streamId")
         viewModelScope.launch {
             repository.getLiveStream(libraryId, streamId).fold(
-                ifLeft = { message -> Log.w(TAG, "refreshCreatedStream failed: $message") },
-                ifRight = { stream ->
+                onErr = { error -> Log.w(TAG, "refreshCreatedStream failed: ${error.message}") },
+                onOk = { stream ->
                     Log.d(TAG, "refreshCreatedStream ok — status=${stream.status}")
                     mutableUiState.update { it.copy(createdStream = stream) }
                 },
@@ -151,13 +160,13 @@ class LiveStreamEditorViewModel : ViewModel() {
         mutableUiState.update { it.copy(thumbnails = ThumbnailListState.Loading) }
         viewModelScope.launch {
             repository.listLiveStreamThumbnails(libraryId, streamId).fold(
-                ifLeft = { message ->
-                    Log.w(TAG, "listThumbnails failed: $message")
+                onErr = { error ->
+                    Log.w(TAG, "listThumbnails failed: ${error.message}")
                     mutableUiState.update {
-                        it.copy(thumbnails = ThumbnailListState.Failed(message))
+                        it.copy(thumbnails = ThumbnailListState.Failed(error.message))
                     }
                 },
-                ifRight = { items ->
+                onOk = { items ->
                     Log.d(TAG, "listThumbnails ok — ${items.size} item(s)")
                     mutableUiState.update {
                         it.copy(thumbnails = ThumbnailListState.Loaded(items))
@@ -173,12 +182,12 @@ class LiveStreamEditorViewModel : ViewModel() {
         mutableUiState.update { it.copy(thumbnails = ThumbnailListState.Loading) }
         viewModelScope.launch {
             repository.deleteLiveStreamThumbnail(libraryId, streamId).fold(
-                ifLeft = { message ->
-                    Log.w(TAG, "deleteThumbnail failed: $message")
-                    mutableUiState.update { it.copy(error = message) }
+                onErr = { error ->
+                    Log.w(TAG, "deleteThumbnail failed: ${error.message}")
+                    mutableUiState.update { it.copy(error = error.message) }
                     loadThumbnails(streamId)
                 },
-                ifRight = {
+                onOk = {
                     Log.d(TAG, "deleteThumbnail ok")
                     loadThumbnails(streamId)
                 },
@@ -198,11 +207,11 @@ class LiveStreamEditorViewModel : ViewModel() {
         viewModelScope.launch {
             if (streamId == null) {
                 repository.createLiveStream(libraryId, request).fold(
-                    ifLeft = { message ->
-                        Log.w(TAG, "create failed: $message")
-                        mutableUiState.update { it.copy(saving = false, error = message) }
+                    onErr = { error ->
+                        Log.w(TAG, "create failed: ${error.message}")
+                        mutableUiState.update { it.copy(saving = false, error = error.message) }
                     },
-                    ifRight = { created ->
+                    onOk = { created ->
                         Log.d(
                             TAG,
                             "create ok — id=${created.id} streamKey=${created.streamKey} " +
@@ -219,11 +228,11 @@ class LiveStreamEditorViewModel : ViewModel() {
                 )
             } else {
                 repository.updateLiveStream(libraryId, streamId, request).fold(
-                    ifLeft = { message ->
-                        Log.w(TAG, "update failed: $message")
-                        mutableUiState.update { it.copy(saving = false, error = message) }
+                    onErr = { error ->
+                        Log.w(TAG, "update failed: ${error.message}")
+                        mutableUiState.update { it.copy(saving = false, error = error.message) }
                     },
-                    ifRight = {
+                    onOk = {
                         Log.d(TAG, "update ok")
                         App.di.dualPublishPreferences.setDualPublish(streamId, dualPublish)
                         val thumbError = thumbnail?.let { applyThumbnail(streamId, it) }
@@ -253,11 +262,11 @@ class LiveStreamEditorViewModel : ViewModel() {
             )
         }
         return result.fold(
-            ifLeft = { message ->
-                Log.w(TAG, "thumbnail failed: $message")
-                "The stream was saved, but the thumbnail could not be set: $message"
+            onErr = { error ->
+                Log.w(TAG, "thumbnail failed: ${error.message}")
+                "The stream was saved, but the thumbnail could not be set: ${error.message}"
             },
-            ifRight = {
+            onOk = {
                 Log.d(TAG, "thumbnail set")
                 null
             },
@@ -266,28 +275,33 @@ class LiveStreamEditorViewModel : ViewModel() {
 
     // region — Pre-stream trailer
 
-    /** Forwards upload callbacks for the trailer video into [UiState.trailer]. */
-    private val trailerUploadListener = object : UploadListener {
-        override fun onUploadStarted(uploadId: String, videoId: String) {
-            Log.d(TAG, "trailer upload started — videoId=$videoId")
-        }
+    /** Projects one upload event for the trailer video onto [UiState.trailer]. */
+    private fun onTrailerUploadEvent(event: UploadEvent) {
+        when (event) {
+            is UploadEvent.Started ->
+                Log.d(TAG, "trailer upload started — videoId=${event.videoId}")
 
-        override fun onProgressUpdated(percentage: Int, videoId: String, pauseState: PauseState) {
-            mutableUiState.update { it.copy(trailer = TrailerState.Uploading(percentage)) }
-        }
+            is UploadEvent.Progress ->
+                mutableUiState.update { it.copy(trailer = TrailerState.Uploading(event.percentage)) }
 
-        override fun onUploadDone(videoId: String) {
-            Log.d(TAG, "trailer upload done — videoId=$videoId")
-            mutableUiState.update { it.copy(trailer = TrailerState.Ready(videoId, deletable = true)) }
-        }
+            is UploadEvent.Completed -> {
+                Log.d(TAG, "trailer upload done — videoId=${event.videoId}")
+                App.di.activeTrailerUpload = null
+                mutableUiState.update {
+                    it.copy(trailer = TrailerState.Ready(event.videoId, deletable = true))
+                }
+            }
 
-        override fun onUploadError(error: UploadError, videoId: String?) {
-            Log.w(TAG, "trailer upload failed: $error")
-            mutableUiState.update { it.copy(trailer = TrailerState.Failed(error.toString())) }
-        }
+            is UploadEvent.Failed -> {
+                Log.w(TAG, "trailer upload failed: ${event.error}")
+                App.di.activeTrailerUpload = null
+                mutableUiState.update { it.copy(trailer = TrailerState.Failed(event.error.message)) }
+            }
 
-        override fun onUploadCancelled(videoId: String) {
-            mutableUiState.update { it.copy(trailer = TrailerState.None) }
+            is UploadEvent.Cancelled -> {
+                App.di.activeTrailerUpload = null
+                mutableUiState.update { it.copy(trailer = TrailerState.None) }
+            }
         }
     }
 
@@ -307,12 +321,51 @@ class LiveStreamEditorViewModel : ViewModel() {
         mutableUiState.update { it.copy(trailer = TrailerState.None) }
     }
 
-    /** Uploads [videoUri] to the library as the pre-stream trailer; result surfaces via [UiState.trailer]. */
+    /**
+     * Uploads [videoUri] to the library as the pre-stream trailer; result surfaces via
+     * [UiState.trailer].
+     *
+     * The upload id goes into [Di.activeTrailerUpload] rather than a local, because the transfer
+     * lives inside the SDK and outlives this ViewModel: keeping it there is what makes
+     * [cancelTrailerUpload] possible and what lets [attachToTrailerUpload] pick the upload back up
+     * when the editor is reopened. Losing the id would leave a transfer nobody can stop, finishing
+     * into a library video nothing references.
+     */
     fun uploadTrailer(videoUri: Uri) {
         Log.d(TAG, "uploadTrailer uri=$videoUri")
+        // One trailer at a time — a second pick abandons the first, so stop it properly.
+        cancelTrailerUpload()
         mutableUiState.update { it.copy(trailer = TrailerState.Uploading(0)) }
-        App.di.videoUploadService.uploadListener = trailerUploadListener
-        App.di.videoUploadService.uploadVideo(libraryId, videoUri)
+
+        val uploadId = App.di.streamSdk.videoUploader.startUpload(libraryId, videoUri)
+        App.di.activeTrailerUpload = uploadId
+        observeTrailerUpload(uploadId)
+    }
+
+    /** Stops the trailer upload and deletes the partially uploaded video. */
+    fun cancelTrailerUpload() {
+        val uploadId = App.di.activeTrailerUpload ?: return
+        Log.d(TAG, "cancelTrailerUpload uploadId=$uploadId")
+        App.di.streamSdk.videoUploader.cancelUpload(uploadId)
+        App.di.activeTrailerUpload = null
+    }
+
+    /** Re-attaches to a trailer upload still running from an earlier instance of this screen. */
+    private fun attachToTrailerUpload() {
+        val uploadId = App.di.activeTrailerUpload ?: return
+        Log.d(TAG, "re-attaching to trailer upload $uploadId")
+        observeTrailerUpload(uploadId)
+    }
+
+    private fun observeTrailerUpload(uploadId: String) {
+        trailerUploadJob?.cancel()
+        val events = App.di.streamSdk.videoUploader.observeUpload(uploadId)
+        if (events == null) {
+            // Finished long enough ago that the SDK no longer remembers it.
+            App.di.activeTrailerUpload = null
+            return
+        }
+        trailerUploadJob = viewModelScope.launch { events.collect(::onTrailerUploadEvent) }
     }
 
     /** Deletes the uploaded trailer video from the library and clears the trailer. */

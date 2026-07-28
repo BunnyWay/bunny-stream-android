@@ -1,11 +1,11 @@
 package net.bunny.api.livestream.data
 
 import android.graphics.Color
-import arrow.core.Either
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import net.bunny.api.api.ManageLiveStreamsApi
-import net.bunny.api.livestream.domain.LiveStreamPollResult
+import net.bunny.api.error.BunnyResult
+import net.bunny.api.error.bunnyCatching
 import net.bunny.api.livestream.domain.LiveStreamRepository
 import net.bunny.api.livestream.domain.model.LiveStream
 import net.bunny.api.livestream.domain.model.LiveStreamCreateRequest
@@ -41,10 +41,11 @@ import org.openapitools.client.models.LiveStreamUpdateRequest as GeneratedLiveSt
 /**
  * Default [LiveStreamRepository] backed by the generated [ManageLiveStreamsApi].
  *
- * Error mapping mirrors [net.bunny.api.settings.data.DefaultSettingsRepository]: any non-2xx
- * response is translated into a human-readable [Either.Left] string keyed by HTTP status code.
+ * Every call runs through [bunnyCatching], so anything the stack throws — generated
+ * client exceptions, transport failures, malformed bodies — comes back as a typed
+ * [net.bunny.api.error.BunnyError] inside the [BunnyResult] envelope.
  */
-class DefaultLiveStreamRepository(
+internal class DefaultLiveStreamRepository(
     private val liveStreamsApi: ManageLiveStreamsApi,
     private val coroutineDispatcher: CoroutineDispatcher,
 ) : LiveStreamRepository {
@@ -64,8 +65,8 @@ class DefaultLiveStreamRepository(
         search: String?,
         orderBy: String?,
         collectionId: String?,
-    ): Either<String, LiveStreamList> = withContext(coroutineDispatcher) {
-        runApi {
+    ): BunnyResult<LiveStreamList> = withContext(coroutineDispatcher) {
+        bunnyCatching {
             try {
                 liveStreamsApi.liveStreamList(
                     libraryId = libraryId,
@@ -96,8 +97,8 @@ class DefaultLiveStreamRepository(
     override suspend fun getLiveStream(
         libraryId: Long,
         streamId: String,
-    ): Either<String, LiveStream> = withContext(coroutineDispatcher) {
-        runApi {
+    ): BunnyResult<LiveStream> = withContext(coroutineDispatcher) {
+        bunnyCatching {
             liveStreamsApi.liveStreamGetByStreamId(libraryId, streamId).toDomain()
         }
     }
@@ -105,41 +106,19 @@ class DefaultLiveStreamRepository(
     override suspend fun pollLiveStream(
         libraryId: Long,
         streamId: String,
-    ): LiveStreamPollResult = withContext(coroutineDispatcher) {
-        // Bypass [runApi]'s String collapse so we can preserve the HTTP status code — the polling
-        // loop needs to distinguish terminal (401/403/404/410) from transient (5xx/network) before
-        // deciding whether to keep polling. Generated [ClientException]/[ServerException] both
-        // carry [statusCode]; transport errors get [statusCode] = 0 so the caller can treat them
-        // the same as 5xx.
-        try {
-            LiveStreamPollResult.Success(
-                liveStreamsApi.liveStreamGetByStreamId(libraryId, streamId).toDomain()
-            )
-        } catch (e: ClientException) {
-            LiveStreamPollResult.Failure(
-                statusCode = e.statusCode,
-                message = httpErrorMessage(e.statusCode, e.message),
-            )
-        } catch (e: ServerException) {
-            LiveStreamPollResult.Failure(
-                statusCode = e.statusCode,
-                message = httpErrorMessage(e.statusCode, e.message),
-            )
-        } catch (e: Exception) {
-            LiveStreamPollResult.Failure(
-                statusCode = 0,
-                message = "Network error: ${e.message ?: e::class.simpleName}",
-            )
-        }
-    }
+    ): BunnyResult<LiveStream> =
+        // Same call as [getLiveStream]; kept as a named entry point because the polling loop's
+        // terminal-vs-transient contract is documented on it. The BunnyResult envelope carries
+        // the HTTP status and terminality the old LiveStreamPollResult existed to preserve.
+        getLiveStream(libraryId, streamId)
 
     override suspend fun fetchLiveStreamPlayData(
         libraryId: Long,
         streamId: String,
         token: String?,
         expires: Long?,
-    ): Either<String, LiveStreamPlayData> = withContext(coroutineDispatcher) {
-        runApi {
+    ): BunnyResult<LiveStreamPlayData> = withContext(coroutineDispatcher) {
+        bunnyCatching {
             liveStreamsApi.liveStreamGetStreamPlayData(
                 libraryId = libraryId,
                 streamId = streamId,
@@ -152,8 +131,8 @@ class DefaultLiveStreamRepository(
     override suspend fun createLiveStream(
         libraryId: Long,
         request: LiveStreamCreateRequest,
-    ): Either<String, LiveStream> = withContext(coroutineDispatcher) {
-        runApi {
+    ): BunnyResult<LiveStream> = withContext(coroutineDispatcher) {
+        bunnyCatching {
             liveStreamsApi.liveStreamCreate(
                 libraryId = libraryId,
                 liveStreamCreateRequest = request.toCreateDto(),
@@ -165,8 +144,8 @@ class DefaultLiveStreamRepository(
         libraryId: Long,
         streamId: String,
         request: LiveStreamCreateRequest,
-    ): Either<String, Unit> = withContext(coroutineDispatcher) {
-        runApi {
+    ): BunnyResult<Unit> = withContext(coroutineDispatcher) {
+        bunnyCatching {
             // PUT — the official preview API echoes the updated LiveStreamModel back; callers
             // that need it can re-fetch, so the result is intentionally discarded here.
             liveStreamsApi.liveStreamUpdate(
@@ -181,8 +160,8 @@ class DefaultLiveStreamRepository(
     override suspend fun startLiveStream(
         libraryId: Long,
         streamId: String,
-    ): Either<String, LiveStream> = withContext(coroutineDispatcher) {
-        runApi {
+    ): BunnyResult<LiveStream> = withContext(coroutineDispatcher) {
+        bunnyCatching {
             liveStreamsApi.liveStreamStartStream(libraryId, streamId).toDomain()
         }
     }
@@ -190,8 +169,8 @@ class DefaultLiveStreamRepository(
     override suspend fun stopLiveStream(
         libraryId: Long,
         streamId: String,
-    ): Either<String, LiveStream> = withContext(coroutineDispatcher) {
-        runApi {
+    ): BunnyResult<LiveStream> = withContext(coroutineDispatcher) {
+        bunnyCatching {
             liveStreamsApi.liveStreamStopStream(libraryId, streamId).toDomain()
         }
     }
@@ -200,8 +179,8 @@ class DefaultLiveStreamRepository(
         libraryId: Long,
         streamId: String,
         thumbnailUrl: String,
-    ): Either<String, Unit> = withContext(coroutineDispatcher) {
-        runApi {
+    ): BunnyResult<Unit> = withContext(coroutineDispatcher) {
+        bunnyCatching {
             // The generated liveStreamSetThumbnail models the endpoint's optional octet-stream body
             // and throws ("requestBody currently only supports JSON body, byte body and File body")
             // when called with just the thumbnailUrl query and no body. Issue the POST directly —
@@ -223,8 +202,8 @@ class DefaultLiveStreamRepository(
         streamId: String,
         imageBytes: ByteArray,
         contentType: String,
-    ): Either<String, Unit> = withContext(coroutineDispatcher) {
-        runApi {
+    ): BunnyResult<Unit> = withContext(coroutineDispatcher) {
+        bunnyCatching {
             // The generated client only models the `thumbnailUrl` query variant, so issue the
             // binary upload directly — reusing the same OkHttp client, base URL and AccessKey the
             // generated [ManageLiveStreamsApi] is configured with.
@@ -237,8 +216,8 @@ class DefaultLiveStreamRepository(
 
             liveStreamsApi.client.newCall(requestBuilder.build()).execute().use { response ->
                 if (!response.isSuccessful) {
-                    // Mirror the generated client's exception shape so [runApi] maps it to the
-                    // shared error vocabulary.
+                    // Mirror the generated client's exception shape so [bunnyCatching] maps it
+                    // through the shared taxonomy.
                     throw ClientException(
                         message = response.body?.string()?.takeIf { it.isNotBlank() }
                             ?: "Thumbnail upload failed",
@@ -256,8 +235,8 @@ class DefaultLiveStreamRepository(
         limit: Int?,
         from: String?,
         to: String?,
-    ): Either<String, List<LiveStreamThumbnail>> = withContext(coroutineDispatcher) {
-        runApi {
+    ): BunnyResult<List<LiveStreamThumbnail>> = withContext(coroutineDispatcher) {
+        bunnyCatching {
             liveStreamsApi.liveStreamGetThumbnails(
                 libraryId = libraryId,
                 streamId = streamId,
@@ -272,8 +251,8 @@ class DefaultLiveStreamRepository(
         libraryId: Long,
         streamId: String,
         restoreLibraryDefault: Boolean,
-    ): Either<String, Unit> = withContext(coroutineDispatcher) {
-        runApi {
+    ): BunnyResult<Unit> = withContext(coroutineDispatcher) {
+        bunnyCatching {
             // The generated liveStreamDeleteThumbnail returns Unit on 2xx (no body cast), so unlike
             // liveStreamDelete it's safe to call directly.
             liveStreamsApi.liveStreamDeleteThumbnail(
@@ -286,8 +265,8 @@ class DefaultLiveStreamRepository(
     }
 
     /**
-     * Executes [request] on the shared OkHttp client and throws a [ClientException] (so [runApi]
-     * maps it to the shared error vocabulary) on any non-2xx response.
+     * Executes [request] on the shared OkHttp client and throws a [ClientException] (so
+     * [bunnyCatching] maps it through the shared taxonomy) on any non-2xx response.
      */
     private fun executeExpectingSuccess(request: Request, failureMessage: String) {
         liveStreamsApi.client.newCall(request).execute().use { response ->
@@ -303,8 +282,8 @@ class DefaultLiveStreamRepository(
     override suspend fun deleteLiveStream(
         libraryId: Long,
         streamId: String,
-    ): Either<String, Unit> = withContext(coroutineDispatcher) {
-        runApi {
+    ): BunnyResult<Unit> = withContext(coroutineDispatcher) {
+        bunnyCatching {
             // The delete endpoint returns 2xx with an empty body, but the generated
             // liveStreamDelete() blindly casts that null body to a non-null LiveStreamModel and
             // throws NPE. Use the *WithHttpInfo variant and treat any 2xx as success without
@@ -344,8 +323,8 @@ class DefaultLiveStreamRepository(
     /**
      * The Manage Live Streams API returns HTTP 200 with `success=false` when something like a
      * validation error happens, so a successful HTTP exchange is not the same as a successful
-     * mutation. Throw [ClientException] so [runApi] can translate it to [Either.Left] using the
-     * existing error-message vocabulary.
+     * mutation. Throw [ClientException] so [bunnyCatching] can translate it through the shared
+     * taxonomy, keeping the existing error-message vocabulary.
      */
     private fun StatusModel.requireSuccess() {
         if (success != true) {
@@ -401,8 +380,8 @@ class DefaultLiveStreamRepository(
     override suspend fun getLiveStreamStatus(
         libraryId: Long,
         streamId: String,
-    ): Either<String, LiveStreamIngestStatus> = withContext(coroutineDispatcher) {
-        runApi {
+    ): BunnyResult<LiveStreamIngestStatus> = withContext(coroutineDispatcher) {
+        bunnyCatching {
             val model = liveStreamsApi.liveStreamGetStreamStatus(libraryId, streamId)
             LiveStreamIngestStatus(
                 readyToStart = model.readyToStart ?: false,
@@ -412,28 +391,6 @@ class DefaultLiveStreamRepository(
                 durationSeconds = model.duration,
             )
         }
-    }
-
-    /**
-     * Centralised mapper for the OpenAPI generator's exceptions. Matches the status-code-to-message
-     * mapping used in `DefaultSettingsRepository` so the SDK has a single error vocabulary.
-     */
-    private inline fun <T> runApi(block: () -> T): Either<String, T> = try {
-        Either.Right(block())
-    } catch (e: ClientException) {
-        Either.Left(httpErrorMessage(e.statusCode, e.message))
-    } catch (e: ServerException) {
-        Either.Left(httpErrorMessage(e.statusCode, e.message))
-    } catch (e: Exception) {
-        e.printStackTrace()
-        Either.Left("Unknown exception: ${e.message}")
-    }
-
-    private fun httpErrorMessage(statusCode: Int, fallback: String?): String = when (statusCode) {
-        HTTP_UNAUTHORIZED -> "Authorization required Unauthorized"
-        HTTP_FORBIDDEN -> "Forbidden"
-        HTTP_NOT_FOUND -> "Not Found"
-        else -> fallback ?: "Error: $statusCode"
     }
 
     // region — DTO -> domain mapping
@@ -570,8 +527,6 @@ class DefaultLiveStreamRepository(
     // endregion
 
     companion object {
-        private const val HTTP_UNAUTHORIZED = 401
-        private const val HTTP_FORBIDDEN = 403
         private const val HTTP_NOT_FOUND = 404
     }
 }

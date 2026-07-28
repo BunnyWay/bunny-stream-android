@@ -26,6 +26,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
+import net.bunny.api.error.fold
 import net.bunny.api.BunnyStreamApi
 import net.bunny.api.playback.PlaybackPosition
 import net.bunny.api.playback.ResumeConfig
@@ -249,11 +250,11 @@ open class BunnyTVPlayerActivity : AppCompatActivity() {
                             val settingsResult =
                                 BunnyStreamApi.getInstance().fetchPlayerSettings(libraryId, videoId, token, expires)
                             settingsResult.fold(
-                                ifLeft = { error ->
-                                    Log.w(TAG, "Failed to fetch player settings: $error")
+                                onErr = { error ->
+                                    Log.w(TAG, "Failed to fetch player settings: ${error.message}")
                                     createDefaultPlayerSettings()
                                 },
-                                ifRight = { settings ->
+                                onOk = { settings ->
                                     Log.d(TAG, "Player settings loaded successfully")
                                     settings
                                 }

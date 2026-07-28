@@ -87,7 +87,7 @@ import net.bunny.android.demo.library.model.VideoUploadUiState
 import net.bunny.android.demo.settings.LocalPrefs
 import net.bunny.android.demo.ui.AppState
 import net.bunny.android.demo.ui.theme.BunnyStreamTheme
-import net.bunny.api.upload.service.PauseState
+import net.bunny.api.upload.model.PauseState
 import java.util.Locale
 
 @Composable
@@ -198,6 +198,7 @@ fun LibraryRoute(
             },
             uploadingUiState = uploadingUiState,
             onDismissUploadErrorClicked = viewModel::clearUploadError,
+            onRetryUploadClicked = viewModel::retryUpload,
             onCancelUploadClicked = viewModel::cancelUpload,
             onPauseResumeUploadClicked = viewModel::pauseResumeUpload,
             onTusUploadOptionChanged = {
@@ -243,6 +244,7 @@ private fun LibraryScreen(
     onUploadVideoClicked: () -> Unit,
     uploadingUiState: VideoUploadUiState,
     onDismissUploadErrorClicked: () -> Unit,
+    onRetryUploadClicked: () -> Unit,
     onCancelUploadClicked: () -> Unit,
     onPauseResumeUploadClicked: () -> Unit,
     onTusUploadOptionChanged: (Boolean) -> Unit,
@@ -349,6 +351,7 @@ private fun LibraryScreen(
                                     uploadingUiState = uploadingUiState,
                                     onUploadVideoClicked = onUploadVideoClicked,
                                     onDismissUploadErrorClicked = onDismissUploadErrorClicked,
+                                    onRetryUploadClicked = onRetryUploadClicked,
                                     onCancelUploadClicked = onCancelUploadClicked,
                                     onPauseResumeUploadClicked = onPauseResumeUploadClicked,
                                     onTusUploadOptionChanged = onTusUploadOptionChanged,
@@ -594,6 +597,7 @@ private fun VideoUploadControls(
     uploadingUiState: VideoUploadUiState,
     onUploadVideoClicked: () -> Unit,
     onDismissUploadErrorClicked: () -> Unit,
+    onRetryUploadClicked: () -> Unit,
     onCancelUploadClicked: () -> Unit,
     onPauseResumeUploadClicked: () -> Unit,
     onTusUploadOptionChanged: (Boolean) -> Unit,
@@ -657,6 +661,16 @@ private fun VideoUploadControls(
                         text = stringResource(R.string.label_upload_error, uploadingUiState.message),
                         color = MaterialTheme.colorScheme.error
                     )
+                    // Offered only when the SDK can continue from the stored offset; otherwise a
+                    // "retry" would quietly re-send the whole file.
+                    if (uploadingUiState.retryable) {
+                        TextButton(
+                            modifier = modifier.align(CenterVertically),
+                            onClick = onRetryUploadClicked,
+                        ) {
+                            Text(text = stringResource(R.string.button_retry))
+                        }
+                    }
                     IconButton(onClick = onDismissUploadErrorClicked) {
                         Icon(
                             imageVector = Icons.Filled.Clear,
