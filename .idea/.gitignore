@@ -1,3 +1,5 @@
 # Default ignored files
 /shelf/
 /workspace.xml
+# Local IDE state, not project configuration
+/deviceManager.xml
