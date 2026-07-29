@@ -18,7 +18,7 @@ android {
     sourceSets["main"].java.srcDir(layout.buildDirectory.dir("generated/api"))
 
     namespace = "net.bunny.api"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         minSdk = 26

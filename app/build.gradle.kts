@@ -32,7 +32,7 @@ val demoTokenAuthKey: String =
 
 android {
     namespace = "net.bunny.android.demo"
-    compileSdk = 35  // ← Changed from 34 to 35
+    compileSdk = 36
 
     viewBinding.enable = true
 
