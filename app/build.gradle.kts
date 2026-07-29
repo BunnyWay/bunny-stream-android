@@ -75,6 +75,7 @@ android {
         }
     }
     compileOptions {
+        isCoreLibraryDesugaringEnabled = true
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
@@ -96,6 +97,7 @@ android {
 }
 
 dependencies {
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
     // Project Modules
     implementation(project(":api"))
     implementation(project(":player"))
@@ -136,10 +138,10 @@ dependencies {
     implementation("androidx.constraintlayout:constraintlayout:2.2.1")
 
     // Media3 (ExoPlayer, UI, HLS, Cast)
-    implementation("androidx.media3:media3-exoplayer:1.6.0")
-    implementation("androidx.media3:media3-ui:1.6.0")
-    implementation("androidx.media3:media3-exoplayer-hls:1.6.0")
-    implementation("androidx.media3:media3-cast:1.6.0")
+    implementation("androidx.media3:media3-exoplayer:1.10.1")
+    implementation("androidx.media3:media3-ui:1.10.1")
+    implementation("androidx.media3:media3-exoplayer-hls:1.10.1")
+    implementation("androidx.media3:media3-cast:1.10.1")
 
     // Navigation and Lifecycle for Compose
     implementation("androidx.navigation:navigation-compose:2.8.9")

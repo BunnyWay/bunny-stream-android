@@ -26,6 +26,7 @@ android {
     }
 
     compileOptions {
+        isCoreLibraryDesugaringEnabled = true
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
@@ -43,6 +44,7 @@ android {
 }
 
 dependencies {
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
     // Core dependencies
     implementation("androidx.core:core-ktx:1.12.0")
     implementation("androidx.appcompat:appcompat:1.6.1")
@@ -74,8 +76,8 @@ dependencies {
     implementation(project(":player"))
 
     // Media3 (if not already included in your player module)
-    implementation("androidx.media3:media3-ui:1.2.1")
-    implementation("androidx.media3:media3-exoplayer:1.2.1")
+    implementation("androidx.media3:media3-ui:1.10.1")
+    implementation("androidx.media3:media3-exoplayer:1.10.1")
 
     // Arrow for functional programming (Either, etc.) - Add this if it's missing
 

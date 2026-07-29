@@ -35,6 +35,7 @@ android {
         }
     }
     compileOptions {
+        isCoreLibraryDesugaringEnabled = true
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
@@ -95,6 +96,7 @@ tasks.withType<org.jetbrains.dokka.gradle.AbstractDokkaLeafTask> {
 }
 
 dependencies {
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
     // Project Module
     // https://docs.gradle.org/current/userguide/java_plugin.html#sec:project_dependencies
     implementation(project(":api"))
@@ -110,17 +112,17 @@ dependencies {
 
     // AndroidX Media3
     // https://developer.android.com/jetpack/androidx/releases/media3
-    implementation("androidx.media3:media3-exoplayer:1.6.0")
+    implementation("androidx.media3:media3-exoplayer:1.10.1")
     // https://developer.android.com/jetpack/androidx/releases/media3
-    implementation("androidx.media3:media3-ui:1.6.0")
+    implementation("androidx.media3:media3-ui:1.10.1")
     // https://developer.android.com/jetpack/androidx/releases/media3
-    implementation("androidx.media3:media3-exoplayer-hls:1.6.0")
+    implementation("androidx.media3:media3-exoplayer-hls:1.10.1")
     // https://developer.android.com/jetpack/androidx/releases/media3
     implementation("androidx.media3:media3-exoplayer-dash:1.6.0")
     // https://developer.android.com/jetpack/androidx/releases/media3
-    implementation("androidx.media3:media3-cast:1.6.0")
+    implementation("androidx.media3:media3-cast:1.10.1")
     // https://developer.android.com/jetpack/androidx/releases/media3
-    implementation("androidx.media3:media3-exoplayer-ima:1.6.0")
+    implementation("androidx.media3:media3-exoplayer-ima:1.10.1")
 
     // AndroidX Startup
     // https://developer.android.com/jetpack/androidx/releases/startup
