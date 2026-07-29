@@ -39,9 +39,6 @@ android {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
-    kotlinOptions {
-        jvmTarget = "11"
-    }
     composeOptions {
         kotlinCompilerExtensionVersion = "1.5.14" // Replace with the correct version
     }
@@ -170,4 +167,10 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
     // viewModel() composable factory used by BunnyLiveStreamPlayer to obtain its VM.
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
+    }
 }

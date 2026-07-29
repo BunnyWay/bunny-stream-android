@@ -40,9 +40,6 @@ android {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
-    kotlinOptions {
-        jvmTarget = "11"
-    }
     composeOptions {
         kotlinCompilerExtensionVersion = "1.5.14" // Replace with the correct version
     }
@@ -112,4 +109,10 @@ dependencies {
     // https://github.com/pedroSG94/RootEncoder
     implementation("com.github.pedroSG94.RootEncoder:library:2.6.6")
     implementation("com.github.pedroSG94.RootEncoder:extra-sources:2.6.6")
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
+    }
 }
