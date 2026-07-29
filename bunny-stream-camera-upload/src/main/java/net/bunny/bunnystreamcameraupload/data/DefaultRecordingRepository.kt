@@ -7,17 +7,17 @@ import net.bunny.api.BuildConfig
 import net.bunny.api.BunnyStreamApi
 import net.bunny.api.error.BunnyError
 import net.bunny.api.error.BunnyResult
-import net.bunny.api.error.bunnyCatching
 import net.bunny.api.error.map
 import net.bunny.api.livestream.domain.model.LiveStreamIngestStatus
 import net.bunny.api.model.LiveStreamStatus
+import net.bunny.api.video.domain.model.CreateVideoRequest
 import net.bunny.bunnystreamcameraupload.domain.RecordingRepository
 import net.bunny.bunnystreamcameraupload.domain.ResolvedIngest
+import net.bunny.bunnystreamcameraupload.util.redactSecrets
 import org.openapitools.client.infrastructure.ApiClient
-import org.openapitools.client.models.VideoCreateVideoRequest
 
 internal class DefaultRecordingRepository(
-   private val coroutineDispatcher: CoroutineDispatcher
+    private val coroutineDispatcher: CoroutineDispatcher,
 ) : RecordingRepository {
 
     companion object {
@@ -41,37 +41,24 @@ internal class DefaultRecordingRepository(
 
     override suspend fun prepareRecording(libraryId: Long): BunnyResult<String> =
         withContext(coroutineDispatcher) {
-            val createVideoRequest = VideoCreateVideoRequest(
-                title = "recording-${System.currentTimeMillis()}",
-                collectionId = null,
-                thumbnailTime = null
+            val created = BunnyStreamApi.getInstance().videoRepository.createVideo(
+                libraryId = libraryId,
+                request = CreateVideoRequest(title = "recording-${System.currentTimeMillis()}"),
             )
-
-            val created = bunnyCatching {
-                BunnyStreamApi.getInstance().videosApi.videoCreateVideo(
-                    libraryId = libraryId,
-                    videoCreateVideoRequest = createVideoRequest
-                ).guid
-            }
 
             when (created) {
                 is BunnyResult.Err -> created
                 is BunnyResult.Ok -> {
-                    val guid = created.value
-                    if (guid == null) {
-                        BunnyResult.Err(
-                            BunnyError.Decode("Video was created without a guid, cannot publish"),
-                        )
-                    } else {
-                        val endpoint = buildVodIngestUrl(
-                            rtmpEndpoint = BuildConfig.RTMP_ENDPOINT,
-                            videoGuid = guid.toString(),
-                            accessKey = ApiClient.apiKey["AccessKey"],
-                            libraryId = libraryId,
-                        )
-                        Log.d(TAG, "endpoint=$endpoint")
-                        BunnyResult.Ok(endpoint)
-                    }
+                    // The repository already turns a 2xx without a guid into BunnyError.Decode,
+                    // so an Ok here always carries a usable id.
+                    val endpoint = buildVodIngestUrl(
+                        rtmpEndpoint = BuildConfig.RTMP_ENDPOINT,
+                        videoGuid = created.value.id,
+                        accessKey = ApiClient.apiKey["AccessKey"],
+                        libraryId = libraryId,
+                    )
+                    Log.d(TAG, "endpoint=${endpoint.redactSecrets()}")
+                    BunnyResult.Ok(endpoint)
                 }
             }
         }

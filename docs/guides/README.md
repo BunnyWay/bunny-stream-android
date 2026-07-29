@@ -14,11 +14,15 @@ Playback:
 - [Secure playback](secure-playback.md) - token authentication, hotlink protection
 - [Picture-in-Picture and Chromecast](picture-in-picture-and-cast.md)
 
-Publishing content:
+Managing content:
 
+- [Manage videos and collections](manage-videos.md)
 - [Upload videos](upload-videos.md)
-- [Go live from the camera](go-live-from-the-camera.md)
 - [Manage live streams](manage-live-streams.md)
+
+Publishing from the device:
+
+- [Go live from the camera](go-live-from-the-camera.md)
 
 Reference:
 

@@ -5,6 +5,8 @@ import android.content.Context
 import android.database.Cursor
 import android.net.Uri
 import android.provider.OpenableColumns
+import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
@@ -19,7 +21,9 @@ import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
-import net.bunny.api.api.ManageVideosApi
+import net.bunny.api.error.BunnyResult
+import net.bunny.api.video.domain.VideoRepository
+import net.bunny.api.video.domain.model.Video
 import net.bunny.api.error.BunnyError
 import net.bunny.api.upload.model.FileInfo
 import net.bunny.api.upload.model.PauseState
@@ -45,7 +49,7 @@ class DefaultVideoUploaderTest {
     private val createdVideoId = "created-video"
     private val payload = ByteArray(128)
 
-    private val videosApi = mockk<ManageVideosApi>()
+    private val videoRepository = mockk<VideoRepository>()
     private val videoUri = mockk<Uri>(relaxed = true)
 
     /** Records what it was asked to transfer, then replays a scripted event sequence. */
@@ -70,6 +74,12 @@ class DefaultVideoUploaderTest {
             delay(TRANSFER_TICK_MILLIS)
             script(videoId).forEachIndexed { index, event ->
                 if (index > 0) delay(emitDelayMillis)
+                // Both real services check the control between chunks and end the stream
+                // themselves; a fake that ignored it would let a cancelled upload "complete".
+                if (control.isCancelled) {
+                    emit(UploadEvent.Cancelled(videoId))
+                    return@flow
+                }
                 emit(event)
             }
         }
@@ -85,21 +95,10 @@ class DefaultVideoUploaderTest {
         },
     )
 
-    /** Emits its Progress, then stalls before completing, leaving a window in which to attach. */
-    private fun pausingService() = FakeUploadService(
-        supportsResuming = true,
-        emitDelayMillis = STALL_MILLIS,
-        script = { videoId ->
-            listOf(
-                UploadEvent.Progress(50, videoId, PauseState.Uploading),
-                UploadEvent.Completed(videoId),
-            )
-        },
-    )
-
     /**
-     * Transfers, reports progress, and then stalls — the shape of an upload still in flight when
-     * something tears it down from outside.
+     * Transfers, reports progress, then stalls before completing. That gap is the window in which
+     * an upload is genuinely in flight: long enough to attach a second collector, to pause it, or
+     * to have something tear it down from outside.
      */
     private fun stallingService() = FakeUploadService(
         supportsResuming = true,
@@ -129,10 +128,9 @@ class DefaultVideoUploaderTest {
         return context
     }
 
-    private fun stubVideoCreation(guid: String? = createdVideoId) {
-        every { videosApi.videoCreateVideo(any(), any()) } returns mockk(relaxed = true) {
-            every { this@mockk.guid } returns guid
-        }
+    private fun stubVideoCreation(videoId: String = createdVideoId) {
+        coEvery { videoRepository.createVideo(any(), any()) } returns
+            BunnyResult.Ok(Video(id = videoId, videoLibraryId = libraryId, title = "clip.mp4"))
     }
 
     /**
@@ -143,8 +141,56 @@ class DefaultVideoUploaderTest {
         context = context(),
         videoUploadService = service,
         ioDispatcher = StandardTestDispatcher(testScheduler),
-        videosApi = videosApi,
+        videoRepository = videoRepository,
     )
+
+    // region — cancelling
+
+    @Test
+    fun `cancelling an upload deletes the video record it had already created`() = runTest {
+        // The record exists server-side the moment the transfer starts, so a cancel that only
+        // stopped the transfer would leave a 0-byte video in the user's library.
+        stubVideoCreation()
+        coEvery { videoRepository.deleteVideo(libraryId, createdVideoId) } returns
+            BunnyResult.Ok(Unit)
+        val uploader = uploader(stallingService())
+
+        val uploadId = uploader.startUpload(libraryId, videoUri)
+        val events = mutableListOf<UploadEvent>()
+        val collector = launch { uploader.observeUpload(uploadId)!!.toList(events) }
+        advanceTimeBy(TRANSFER_TICK_MILLIS + 1)
+        assertTrue("the transfer should be under way", events.any { it is UploadEvent.Started })
+
+        uploader.cancelUpload(uploadId)
+        advanceUntilIdle()
+        collector.join()
+
+        coVerify { videoRepository.deleteVideo(libraryId, createdVideoId) }
+        assertTrue(events.last() is UploadEvent.Cancelled)
+    }
+
+    @Test
+    fun `a cancel before the record exists still ends the upload`() = runTest {
+        // Cancelling in the window between startUpload returning an id and the create call
+        // answering. The record still comes into existence, so it still has to be cleaned up —
+        // this is the race the check after createVideo exists for.
+        stubVideoCreation()
+        coEvery { videoRepository.deleteVideo(any(), any()) } returns BunnyResult.Ok(Unit)
+        val uploader = uploader(stallingService())
+
+        val uploadId = uploader.startUpload(libraryId, videoUri)
+        val events = mutableListOf<UploadEvent>()
+        val collector = launch { uploader.observeUpload(uploadId)!!.toList(events) }
+
+        uploader.cancelUpload(uploadId)
+        advanceUntilIdle()
+        collector.join()
+
+        coVerify { videoRepository.deleteVideo(libraryId, createdVideoId) }
+        assertEquals(listOf(UploadEvent.Cancelled(createdVideoId)), events)
+    }
+
+    // endregion
 
     // region — starting and observing
 
@@ -154,7 +200,7 @@ class DefaultVideoUploaderTest {
         val uploadId = uploader(completingService()).startUpload(libraryId, videoUri)
 
         assertTrue(uploadId.isNotEmpty())
-        verify(exactly = 0) { videosApi.videoCreateVideo(any(), any()) }
+        coVerify(exactly = 0) { videoRepository.createVideo(any(), any()) }
 
         advanceUntilIdle()
     }
@@ -183,7 +229,7 @@ class DefaultVideoUploaderTest {
     @Test
     fun `an observer attaching mid-transfer starts at the latest event, not at Started`() = runTest {
         stubVideoCreation()
-        val uploader = uploader(pausingService())
+        val uploader = uploader(stallingService())
         val uploadId = uploader.startUpload(libraryId, videoUri)
 
         // Let the upload get past Started and emit its first Progress before anyone attaches —
@@ -277,7 +323,7 @@ class DefaultVideoUploaderTest {
         collector.join()
 
         // The whole point: no second video record for the same file.
-        verify(exactly = 0) { videosApi.videoCreateVideo(any(), any()) }
+        coVerify(exactly = 0) { videoRepository.createVideo(any(), any()) }
         assertEquals(listOf("interrupted-video"), service.transferred)
         assertEquals(UploadEvent.Started(uploadId, "interrupted-video"), events.first())
     }
@@ -300,7 +346,7 @@ class DefaultVideoUploaderTest {
             assertEquals("interrupted-video", failed.videoId)
             // Nothing was sent, and nothing was created.
             assertTrue(service.transferred.isEmpty())
-            verify(exactly = 0) { videosApi.videoCreateVideo(any(), any()) }
+            coVerify(exactly = 0) { videoRepository.createVideo(any(), any()) }
         }
 
     // endregion
@@ -308,9 +354,13 @@ class DefaultVideoUploaderTest {
     // region — failures before the transfer
 
     @Test
-    fun `a video created without a guid fails the upload rather than transferring nothing`() =
+    fun `a video that could not be created fails the upload rather than transferring nothing`() =
         runTest {
-            stubVideoCreation(guid = null)
+            // The repository is what decides a 2xx with no video id is a failure
+            // (DefaultVideoRepositoryTest pins that); here it only has to reach the caller
+            // without any bytes going out.
+            coEvery { videoRepository.createVideo(any(), any()) } returns
+                BunnyResult.Err(BunnyError.Decode("no video id"))
             val service = completingService()
             val uploader = uploader(service)
 

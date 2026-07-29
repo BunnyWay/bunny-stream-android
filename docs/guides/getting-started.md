@@ -64,12 +64,20 @@ view fails at startup. See [Troubleshooting](troubleshooting.md).
 ## 4. Make a call
 
 ```kotlin
-// List the videos in your library (blocking call - run it off the main thread)
-val videos = BunnyStreamApi.getInstance().videosApi.videoList(libraryId = 12345L)
+// List the videos in your library. Repository calls are suspend - call them from a coroutine.
+val result = BunnyStreamApi.getInstance().videoRepository.listVideos(libraryId = 12345L)
+
+result.fold(
+    onOk = { page -> render(page.items) },
+    onErr = { error -> showError(error.message) },
+)
 ```
 
-<!-- TODO before the 4.0.0 release: update the init snippet and accessor style to the
-     final 4.0.0 API. -->
+Every management call answers with a `BunnyResult` rather than throwing — see
+[Handle errors](handle-errors.md).
+
+<!-- TODO before the 4.0.0 release: update the init snippet once the session becomes
+     per-instance (the singleton is the last part of the refactor still to land). -->
 
 ## Next steps
 

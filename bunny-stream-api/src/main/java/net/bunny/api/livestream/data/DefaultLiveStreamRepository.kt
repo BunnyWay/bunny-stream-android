@@ -6,6 +6,7 @@ import kotlinx.coroutines.withContext
 import net.bunny.api.api.ManageLiveStreamsApi
 import net.bunny.api.error.BunnyResult
 import net.bunny.api.error.bunnyCatching
+import net.bunny.api.http.postExpectingSuccess
 import net.bunny.api.livestream.domain.LiveStreamRepository
 import net.bunny.api.livestream.domain.model.LiveStream
 import net.bunny.api.livestream.domain.model.LiveStreamCreateRequest
@@ -20,7 +21,6 @@ import net.bunny.api.settings.toColorOrDefault
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
-import org.openapitools.client.infrastructure.ApiClient
 import org.openapitools.client.infrastructure.ClientError
 import org.openapitools.client.infrastructure.ClientException
 import org.openapitools.client.infrastructure.ResponseType
@@ -30,7 +30,6 @@ import org.openapitools.client.models.LiveStreamModel
 import org.openapitools.client.models.LiveStreamPlayDataModel
 import org.openapitools.client.models.LiveStreamPlayDataModelLiveStream
 import org.openapitools.client.models.PaginationListOfLiveStreamModel
-import org.openapitools.client.models.StatusModel
 import org.openapitools.client.models.ThumbnailListResponseModel
 import org.openapitools.client.models.RtmpOutput as GeneratedRtmpOutput
 // Generated request wrappers — aliased to avoid clashing with the domain
@@ -183,17 +182,18 @@ internal class DefaultLiveStreamRepository(
         bunnyCatching {
             // The generated liveStreamSetThumbnail models the endpoint's optional octet-stream body
             // and throws ("requestBody currently only supports JSON body, byte body and File body")
-            // when called with just the thumbnailUrl query and no body. Issue the POST directly —
-            // same pattern as [uploadLiveStreamThumbnail] — with the URL as a query param and an
-            // empty body, reusing the generated client's base URL, OkHttp client and AccessKey.
-            val url = setThumbnailRequestUrl(liveStreamsApi.baseUrl, libraryId, streamId, thumbnailUrl)
-            val requestBuilder = Request.Builder()
-                .url(url)
-                .post(ByteArray(0).toRequestBody(null))
-                .header("Accept", "application/json")
-            ApiClient.apiKey["AccessKey"]?.let { requestBuilder.header("AccessKey", it) }
-            executeExpectingSuccess(requestBuilder.build(), "Failed to set thumbnail")
-            Unit
+            // when called with just the thumbnailUrl query and no body — see
+            // [net.bunny.api.http.postExpectingSuccess], which the video layer needs for the same
+            // reason.
+            liveStreamsApi.postExpectingSuccess(
+                url = setThumbnailRequestUrl(
+                    liveStreamsApi.baseUrl,
+                    libraryId,
+                    streamId,
+                    thumbnailUrl,
+                ),
+                failureMessage = "Failed to set thumbnail",
+            )
         }
     }
 
@@ -207,25 +207,11 @@ internal class DefaultLiveStreamRepository(
             // The generated client only models the `thumbnailUrl` query variant, so issue the
             // binary upload directly — reusing the same OkHttp client, base URL and AccessKey the
             // generated [ManageLiveStreamsApi] is configured with.
-            val url = "${liveStreamsApi.baseUrl}/library/$libraryId/live/$streamId/thumbnail"
-            val requestBuilder = Request.Builder()
-                .url(url)
-                .post(imageBytes.toRequestBody(contentType.toMediaTypeOrNull()))
-                .header("Accept", "application/json")
-            ApiClient.apiKey["AccessKey"]?.let { requestBuilder.header("AccessKey", it) }
-
-            liveStreamsApi.client.newCall(requestBuilder.build()).execute().use { response ->
-                if (!response.isSuccessful) {
-                    // Mirror the generated client's exception shape so [bunnyCatching] maps it
-                    // through the shared taxonomy.
-                    throw ClientException(
-                        message = response.body?.string()?.takeIf { it.isNotBlank() }
-                            ?: "Thumbnail upload failed",
-                        statusCode = response.code,
-                    )
-                }
-            }
-            Unit
+            liveStreamsApi.postExpectingSuccess(
+                url = "${liveStreamsApi.baseUrl}/library/$libraryId/live/$streamId/thumbnail",
+                body = imageBytes.toRequestBody(contentType.toMediaTypeOrNull()),
+                failureMessage = "Failed to upload thumbnail",
+            )
         }
     }
 
@@ -261,21 +247,6 @@ internal class DefaultLiveStreamRepository(
                 restoreLibraryDefault = restoreLibraryDefault,
             )
             Unit
-        }
-    }
-
-    /**
-     * Executes [request] on the shared OkHttp client and throws a [ClientException] (so
-     * [bunnyCatching] maps it through the shared taxonomy) on any non-2xx response.
-     */
-    private fun executeExpectingSuccess(request: Request, failureMessage: String) {
-        liveStreamsApi.client.newCall(request).execute().use { response ->
-            if (!response.isSuccessful) {
-                throw ClientException(
-                    message = response.body?.string()?.takeIf { it.isNotBlank() } ?: failureMessage,
-                    statusCode = response.code,
-                )
-            }
         }
     }
 
@@ -317,21 +288,6 @@ internal class DefaultLiveStreamRepository(
                     statusCode = 0,
                 )
             }
-        }
-    }
-
-    /**
-     * The Manage Live Streams API returns HTTP 200 with `success=false` when something like a
-     * validation error happens, so a successful HTTP exchange is not the same as a successful
-     * mutation. Throw [ClientException] so [bunnyCatching] can translate it through the shared
-     * taxonomy, keeping the existing error-message vocabulary.
-     */
-    private fun StatusModel.requireSuccess() {
-        if (success != true) {
-            throw ClientException(
-                message = message ?: "Live stream operation failed",
-                statusCode = statusCode ?: 0,
-            )
         }
     }
 

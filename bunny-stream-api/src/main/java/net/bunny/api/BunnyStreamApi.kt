@@ -6,6 +6,8 @@ import kotlinx.coroutines.Dispatchers
 import net.bunny.api.api.ManageCollectionsApi
 import net.bunny.api.api.ManageLiveStreamsApi
 import net.bunny.api.api.ManageVideosApi
+import net.bunny.api.collection.data.DefaultCollectionRepository
+import net.bunny.api.collection.domain.CollectionRepository
 import net.bunny.api.error.BunnyResult
 import net.bunny.api.ktor.initHttpClient
 import net.bunny.api.livestream.data.DefaultLiveStreamRepository
@@ -15,6 +17,8 @@ import net.bunny.api.settings.domain.SettingsRepository
 import net.bunny.api.settings.domain.model.PlayerSettings
 import net.bunny.api.upload.DefaultVideoUploader
 import net.bunny.api.upload.VideoUploader
+import net.bunny.api.video.data.DefaultVideoRepository
+import net.bunny.api.video.domain.VideoRepository
 import net.bunny.api.upload.service.basic.BasicUploaderService
 import net.bunny.api.upload.service.tus.TusUploaderService
 import org.openapitools.client.infrastructure.ApiClient
@@ -34,7 +38,6 @@ class BunnyStreamApi private constructor(
     companion object {
         private const val TUS_PREFS_FILE = "tusPrefs"
         private const val HTTP_LOG_TAG = "BunnyLive/HTTP"
-        private const val HTTP_LOG_MAX_BODY_BYTES = 64L * 1024L
 
         const val baseApi = BuildConfig.BASE_API
 
@@ -137,12 +140,13 @@ class BunnyStreamApi private constructor(
         })
         .build()
 
-    // Shares the User-Agent-carrying client so collections calls are identified too.
-    override val collectionsApi = ManageCollectionsApi(baseApi, okHttpClientWithReferer)
+    // The generated clients are implementation detail now — repositories below are the public
+    // surface. They share the User-Agent-carrying OkHttp client so every call is identified.
+    private val collectionsApi = ManageCollectionsApi(baseApi, okHttpClientWithReferer)
 
-    override val videosApi = ManageVideosApi(baseApi, okHttpClientWithReferer)
+    private val videosApi = ManageVideosApi(baseApi, okHttpClientWithReferer)
 
-    override val liveStreamsApi = ManageLiveStreamsApi(baseApi, okHttpClientWithReferer)
+    private val liveStreamsApi = ManageLiveStreamsApi(baseApi, okHttpClientWithReferer)
 
     private val prefs = context.getSharedPreferences(TUS_PREFS_FILE, Context.MODE_PRIVATE)
 
@@ -159,20 +163,6 @@ class BunnyStreamApi private constructor(
         dispatcher = Dispatchers.IO
     )
 
-    override val videoUploader: VideoUploader = DefaultVideoUploader(
-        context = context,
-        videoUploadService = basicUploaderService,
-        ioDispatcher = Dispatchers.IO,
-        videosApi = videosApi
-    )
-
-    override val tusVideoUploader: VideoUploader = DefaultVideoUploader(
-        context = context,
-        videoUploadService = tusVideoUploaderService,
-        ioDispatcher = Dispatchers.IO,
-        videosApi = videosApi
-    )
-
     /**
      * Stops every in-flight upload and tears down the uploaders' scopes. Called when this instance
      * is replaced by [initialize] or dropped by [release], so an upload can never outlive the SDK
@@ -182,6 +172,30 @@ class BunnyStreamApi private constructor(
         (videoUploader as? DefaultVideoUploader)?.shutdown()
         (tusVideoUploader as? DefaultVideoUploader)?.shutdown()
     }
+
+    override val videoRepository: VideoRepository = DefaultVideoRepository(
+        videosApi = videosApi,
+        coroutineDispatcher = Dispatchers.IO
+    )
+
+    override val videoUploader: VideoUploader = DefaultVideoUploader(
+        context = context,
+        videoUploadService = basicUploaderService,
+        ioDispatcher = Dispatchers.IO,
+        videoRepository = videoRepository,
+    )
+
+    override val tusVideoUploader: VideoUploader = DefaultVideoUploader(
+        context = context,
+        videoUploadService = tusVideoUploaderService,
+        ioDispatcher = Dispatchers.IO,
+        videoRepository = videoRepository,
+    )
+
+    override val collectionRepository: CollectionRepository = DefaultCollectionRepository(
+        collectionsApi = collectionsApi,
+        coroutineDispatcher = Dispatchers.IO
+    )
 
     override val settingsRepository: SettingsRepository = DefaultSettingsRepository(
         httpClient = ktorClient,
@@ -234,6 +248,9 @@ private fun formatHeaders(headers: Headers): String {
     }
 }
 
+/** Bodies larger than this are summarized rather than buffered into a String for the log. */
+private const val HTTP_LOG_MAX_BODY_BYTES = 64L * 1024L
+
 /**
  * Renders a request body for logging. Small textual bodies are returned verbatim; large or binary
  * bodies (image/video uploads) are summarized as `<N bytes type>` so we never buffer a whole file
@@ -242,7 +259,7 @@ private fun formatHeaders(headers: Headers): String {
 private fun describeRequestBody(body: RequestBody?): String? {
     if (body == null) return null
     val contentLength = body.contentLength()
-    return if (body.contentType().isTextual() && contentLength in 1..(64L * 1024L)) {
+    return if (body.contentType().isTextual() && contentLength in 1..HTTP_LOG_MAX_BODY_BYTES) {
         val buffer = Buffer()
         body.writeTo(buffer)
         buffer.readUtf8()

@@ -12,8 +12,10 @@ All notable changes to Bunny Stream Android are documented in this file. The for
 The live streaming release, bundled with an architecture refactor. Existing integrations: see
 [MIGRATING.md](MIGRATING.md).
 
-Unifies asynchronous results and error reporting across the SDK. Every item below is a breaking
-API change; see [MIGRATING.md](MIGRATING.md) for before/after examples.
+Two things change in the public API: how results and failures are reported (one envelope, one
+typed error taxonomy, uploads as a `Flow`), and what the API is made of (domain models instead of
+the OpenAPI generator's output). Every item below is a breaking API change, and nothing that was
+possible in 3.x is gone — see [MIGRATING.md](MIGRATING.md) for before/after examples.
 
 ### Added
 
@@ -33,12 +35,6 @@ API change; see [MIGRATING.md](MIGRATING.md) for before/after examples.
 - Hosted API reference (Dokka) published from CI, plus task-oriented integration guides under
   `docs/guides/`.
 
-### Changed
-
-- `BunnyStreamApi.initialize` now requires a non-null `accessKey`. Passing null never worked
-  (it crashed at runtime); the parameter type now says so.
-- Implementation types that leaked into the public API (player widgets, recording internals)
-  are now `internal` and no longer appear in the API reference.
 - `BunnyResult<T>` — the result envelope returned by every management call: `Ok(value)` or
   `Err(BunnyError)`, with `getOrNull()`, `errorOrNull()`, `map` and `fold(onOk, onErr)`.
 - `BunnyError` — typed error taxonomy (`Auth`, `NotFound`, `Http`, `Network`, `Decode`,
@@ -49,14 +45,27 @@ API change; see [MIGRATING.md](MIGRATING.md) for before/after examples.
 - `VideoUploader.continueUpload(libraryId, videoId, uri)` — picks an interrupted upload up from the
   offset the server already has instead of re-sending the file. Resumable (TUS) uploader only; the
   plain one fails the attempt with `BunnyError.InvalidState` rather than quietly restarting.
-- `BunnyError.InvalidState` — the call succeeded but the resource's state forbids the operation.
-  The one variant whose terminality is explicit, because it genuinely varies: an ended live stream
-  never becomes publishable, while a missing stream key usually appears moments later.
+- `videoRepository` and `collectionRepository` on `BunnyStreamApi` — domain replacements for the
+  generated `videosApi` and `collectionsApi`. Every method of both generated clients has an
+  equivalent: 22 on `VideoRepository`, 5 on `CollectionRepository`, all `suspend` and returning
+  `BunnyResult`.
+- Domain models for the video surface: `Video`, `VideoList`, `VideoPlayData`, `VideoStatistics`,
+  `VideoResolutionsInfo`, `VideoStorageSize`, `VideoCollection`, `VideoCollectionList`, plus
+  `Caption`, `Chapter`, `Moment`, `MetaTag` and `TranscodingMessage`. They carry every field the
+  generated DTOs did.
+- Named enums where the generator emitted numbered ones: `TranscodingSeverity`, `TranscodingIssue`
+  and `VideoCodec` replace `Severity._0..3`, `IssueCodes._0..11` and `EncoderOutputCodec._0..3`.
+  Unknown values from a newer server map to `UNDEFINED` instead of failing to parse.
 
 ### Changed
 
-- `LiveStreamRepository`, `SettingsRepository` and `BunnyStreamApi.fetchPlayerSettings` return
-  `BunnyResult<T>` instead of `Either<String, T>`.
+- `BunnyStreamApi.initialize` now requires a non-null `accessKey`. Passing null never worked
+  (it crashed at runtime); the parameter type now says so.
+- Implementation types that leaked into the public API (player widgets, recording internals)
+  are now `internal` and no longer appear in the API reference.
+- `SettingsRepository.fetchSettings` and `BunnyStreamApi.fetchPlayerSettings` return
+  `BunnyResult<T>` instead of `Either<String, T>`. These were the only two Arrow-typed calls on
+  the 3.x public API; everything added in 4.0.0 uses `BunnyResult` from the start.
 - `VideoUploader.uploadVideo` is replaced by `startUpload(libraryId, uri): String` and
   `observeUpload(uploadId): Flow<UploadEvent>?`. An upload is now an addressable thing rather than a
   call: it runs inside the SDK, keeps going when the screen that started it is destroyed, and is
@@ -64,10 +73,18 @@ API change; see [MIGRATING.md](MIGRATING.md) for before/after examples.
   once, and abandoning a collector no longer stops the transfer. As in 3.x, uploads survive
   navigation but not the process.
 - `PauseState` moved from `net.bunny.api.upload.service` to `net.bunny.api.upload.model`.
-- `RecordingRepository` in the `:recording` module returns `BunnyResult<T>` instead of
-  `Either<String, T>`, completing the migration. Its two client-side preconditions — publishing to
-  an ended stream, and a stream whose key has not been issued — now arrive as
-  `BunnyError.InvalidState` with the correct terminality rather than as indistinguishable strings.
+- `StreamApi` no longer exposes `videosApi` or `collectionsApi`. The generated OpenAPI client is
+  an implementation detail; use the repositories. See
+  [MIGRATING.md](MIGRATING.md) section 4 for the type-by-type mapping.
+- `BunnyPlayer.playVideo` takes the domain `Video` instead of the generated `VideoModel`.
+  `BunnyStreamPlayer.playVideo(videoId)` on the view is unchanged.
+- Video dimensions and framerate read as `null` before transcoding has measured them, where the
+  API reports `0` — a layout no longer computes an aspect ratio of `NaN` from a placeholder.
+- Comma-separated API strings arrive as lists: `availableResolutions`, `outputCodecs` and a
+  collection's `previewVideoIds`.
+- `RecordingRepository` in the `:recording` module is now `internal`. It was public by accident —
+  nothing in the documented API took one or handed one out. Recording goes through
+  `StreamCameraUploadView`; `videoRepository.createVideo` covers the video record it was creating.
 - Arrow is gone from the SDK entirely: no source imports it and the dependency is no longer
   declared in any module, so it cannot reach an integrator's classpath by any route.
 - `UploadService`, its two implementations, `DefaultVideoUploader`, `FileInfo` and `StreamContent`
@@ -95,6 +112,14 @@ API change; see [MIGRATING.md](MIGRATING.md) for before/after examples.
 - The stream for the picked file is closed on every path, including failure and cancellation.
 - Upload metadata is read before the stream is opened, so a file with unreadable metadata no longer
   leaks a file handle.
+- A rejected mutation is reported as a failure. Bunny answers `HTTP 200` with `success = false` for
+  validation errors and wrong-state requests; the video and collection repositories now surface
+  that as a `BunnyError` instead of `Ok`.
+- `setThumbnail` works. The generated client sends `Content-Type: application/octet-stream` with no
+  body for the URL variant and threw before reaching the network, so every call failed.
+- Creating a video that comes back without an id is a failure rather than a `Video` with an empty
+  id. An empty id reached the camera's RTMP ingest URL, which published to nothing and lost the
+  recording without reporting anything.
 
 ### Removed
 

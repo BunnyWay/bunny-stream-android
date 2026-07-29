@@ -5,7 +5,7 @@ package net.bunny.api.error
  * [Err] carrying a typed [BunnyError].
  *
  * ```kotlin
- * when (val result = repo.getLiveStream(streamId)) {
+ * when (val result = repo.getLiveStream(libraryId, streamId)) {
  *     is BunnyResult.Ok -> render(result.value)
  *     is BunnyResult.Err -> if (result.isTerminal) giveUp(result.message) else retryLater()
  * }

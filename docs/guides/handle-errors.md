@@ -4,8 +4,8 @@ How SDK calls fail and what to do about it.
 
 ## Results, not exceptions
 
-Management calls — live streams, settings, player settings — return a result you check rather than
-an exception you catch. That result is `BunnyResult<T>`: either `Ok` with the value, or `Err` with
+Management calls — videos, collections, live streams, player settings — return a result you check
+rather than an exception you catch. That result is `BunnyResult<T>`: either `Ok` with the value, or `Err` with
 a typed error.
 
 ```kotlin
@@ -89,10 +89,10 @@ exception — so a `collect` without a `catch` cannot miss one. The event carrie
 ```kotlin
 uploader.observeUpload(uploadId)?.collect { event ->
     if (event is UploadEvent.Failed) {
-        if (!event.error.isTerminal && event.videoId != null) {
+        val videoId = event.videoId
+        if (!event.error.isTerminal && videoId != null) {
             // Resumable path: continue from the offset the server already has
-            val retryId = tusVideoUploader.continueUpload(libraryId, event.videoId, uri)
-            observe(retryId)
+            observe(tusVideoUploader.continueUpload(libraryId, videoId, uri))
         } else {
             showError(event.error.message)
         }
@@ -112,12 +112,12 @@ The players show their own error states and recover from transient stream proble
 To also log playback errors in your code, register a `PlayerStateListener` and read
 `onPlayerError(message)`.
 
-## What NOT to handle this way
+## One envelope, everywhere
 
-The generated REST clients (`videosApi`, `collectionsApi`, `liveStreamsApi`) still **throw**
-instead of returning a result: `ClientException` for 4xx, `ServerException` for 5xx. Wrap them in
-`try/catch` when you call them directly.
+There is no second error style left to learn. In 3.x the generated REST clients (`videosApi` and
+`collectionsApi`) sat on the public API and **threw** — `ClientException` for 4xx,
+`ServerException` for 5xx — so every call site around them needed its own `try/catch`.
 
-Folding them into the same envelope needs domain models for videos and collections — a later part
-of the 4.0.0 refactor that has not shipped yet. Where a repository exists
-(`liveStreamRepository`, `settingsRepository`), prefer it: those are already converted.
+Those clients are gone from the public surface. Videos and collections now go through
+`videoRepository` and `collectionRepository`, which answer with `BunnyResult` like everything
+else, so the code on this page covers the whole SDK.

@@ -30,6 +30,7 @@ import net.bunny.bunnystreamcameraupload.RecordingDurationListener
 import net.bunny.bunnystreamcameraupload.RecordingStateListener
 import net.bunny.bunnystreamcameraupload.util.ScreenUtil
 import net.bunny.recording.R
+import net.bunny.bunnystreamcameraupload.util.redactSecrets
 
 /**
  * Drives the camera broadcast over one **or two** RTMP ingest outputs via RootEncoder's
@@ -139,9 +140,6 @@ internal class DefaultStreamHandler(
     }
 
     /** Redacts the stream key (last path segment) so URLs are safe to log. */
-    private fun String.redactKey(): String =
-        substringBeforeLast('/') + "/" + substringAfterLast('/').take(4) + "…"
-
     private val width = 1920
     private val height = 1080
     private val fps = 30
@@ -168,7 +166,7 @@ internal class DefaultStreamHandler(
 
     private fun handleStarted(index: Int, url: String) {
         val out = outputs[index]
-        Log.d(TAG, "onConnectionStarted[$index] ${out.endpoint} ${url.redactKey()}")
+        Log.d(TAG, "onConnectionStarted[$index] ${out.endpoint} ${url.redactSecrets()}")
         notify(out.endpoint, IngestEndpointState.CONNECTING)
         recordingStateListener?.onStreamConnected()
     }
@@ -217,7 +215,7 @@ internal class DefaultStreamHandler(
         Log.w(
             TAG,
             "onConnectionFailed[$index] ${out.endpoint} attempt=${out.failures} " +
-                    "reason=\"$reason\" url=${out.url?.redactKey()}"
+                    "reason=\"$reason\" url=${out.url?.redactSecrets()}"
         )
         val c = client(index)
         var toastMsg = openGlView.context.getString(R.string.stream_reconnecting)
@@ -250,7 +248,7 @@ internal class DefaultStreamHandler(
                             R.string.ingest_switched_to_primary
                         },
                     )
-                    Log.w(TAG, "failover[$index] → ${out.endpoint} (${target.redactKey()})")
+                    Log.w(TAG, "failover[$index] → ${out.endpoint} (${target.redactSecrets()})")
                 }
                 c.reTry(ReconnectPolicy.reconnectDelayMs(out.failures), reason, target)
             }
@@ -410,7 +408,12 @@ internal class DefaultStreamHandler(
         for (i in 0 until RTMP_OUTPUTS) {
             client(i).apply {
                 setSocketType(SocketType.KTOR)
-                setLogs(true)
+                // RootEncoder's own logging prints the RTMP publish command verbatim, and the
+                // stream name Bunny requires carries the library access key. That would put a
+                // working credential in logcat on every broadcast, on release builds too. The
+                // connection state we actually need is already logged through the checkers above,
+                // with the key redacted.
+                setLogs(false)
                 // Dual-mode per-output retry budget. Single mode overrides this at start:
                 // RootEncoder's internal counter never resets on success, while our policy counts
                 // failures since the last successful connect — so the internal counter must not
@@ -483,7 +486,7 @@ internal class DefaultStreamHandler(
                         for (i in 0 until RTMP_OUTPUTS) client(i).setReTries(12)
                         outputs[0].apply { url = primary; endpoint = IngestEndpoint.PRIMARY; active = true }
                         outputs[1].apply { url = backup; endpoint = IngestEndpoint.BACKUP; active = true }
-                        Log.d(TAG, "startStream DUAL primary=${primary.redactKey()} + backup=${backup.redactKey()}")
+                        Log.d(TAG, "startStream DUAL primary=${primary.redactSecrets()} + backup=${backup.redactSecrets()}")
                         stream.startStream(MultiType.RTMP, 0, primary)
                         stream.startStream(MultiType.RTMP, 1, backup)
                     } else {
@@ -500,7 +503,7 @@ internal class DefaultStreamHandler(
                             endpoint = IngestEndpoint.PRIMARY
                             active = true
                         }
-                        Log.d(TAG, "startStream SINGLE primary=${primary.redactKey()} hasBackup=${backup != null}")
+                        Log.d(TAG, "startStream SINGLE primary=${primary.redactSecrets()} hasBackup=${backup != null}")
                         stream.startStream(MultiType.RTMP, 0, primary)
                     }
                 }

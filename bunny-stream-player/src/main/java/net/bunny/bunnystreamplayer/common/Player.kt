@@ -19,7 +19,7 @@ import net.bunny.bunnystreamplayer.model.SubtitleInfo
 import net.bunny.bunnystreamplayer.model.Subtitles
 import net.bunny.bunnystreamplayer.model.VideoQuality
 import net.bunny.bunnystreamplayer.model.VideoQualityOptions
-import org.openapitools.client.models.VideoModel
+import net.bunny.api.video.domain.model.Video
 
 /**
  * The playback engine behind [net.bunny.bunnystreamplayer.ui.BunnyStreamPlayer]. One engine
@@ -111,7 +111,7 @@ interface BunnyPlayer {
      * [playerSettings] first; prefer that view's `playVideo(videoId)` unless you are building a
      * fully custom player.
      */
-    fun playVideo(playerView: PlayerView, video: VideoModel, retentionData: Map<Int, Int>, playerSettings: PlayerSettings)
+    fun playVideo(playerView: PlayerView, video: Video, retentionData: Map<Int, Int>, playerSettings: PlayerSettings)
 
     /** Skips 10 seconds forward. */
     fun skipForward()

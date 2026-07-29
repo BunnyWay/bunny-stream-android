@@ -16,16 +16,17 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.transformWhile
 import kotlinx.coroutines.launch
-import net.bunny.api.api.ManageVideosApi
 import net.bunny.api.error.BunnyError
 import net.bunny.api.error.BunnyErrorMapper
 import net.bunny.api.error.BunnyResult
 import net.bunny.api.error.bunnyCatching
+import net.bunny.api.error.map
+import net.bunny.api.video.domain.VideoRepository
+import net.bunny.api.video.domain.model.CreateVideoRequest
 import net.bunny.api.upload.model.FileInfo
 import net.bunny.api.upload.model.UploadEvent
 import net.bunny.api.upload.service.UploadControl
 import net.bunny.api.upload.service.UploadService
-import org.openapitools.client.models.VideoCreateVideoRequest
 import java.io.Closeable
 import java.io.IOException
 import java.io.InputStream
@@ -46,7 +47,7 @@ internal class DefaultVideoUploader(
     private val context: Context,
     private val videoUploadService: UploadService,
     private val ioDispatcher: CoroutineDispatcher,
-    private val videosApi: ManageVideosApi,
+    private val videoRepository: VideoRepository,
 ) : VideoUploader {
 
     private companion object {
@@ -338,30 +339,15 @@ internal class DefaultVideoUploader(
     /**
      * Creates the video record the bytes will be attached to.
      *
-     * A `2xx` with no guid is treated as [BunnyError.Decode]: the call succeeded but the response
-     * did not carry what the contract promises, which is exactly what that variant is for.
+     * Goes through [VideoRepository] rather than the generated client so there is one
+     * implementation of "the create succeeded but carried no video id" — an empty id would reach
+     * the transfer, and further downstream the camera's ingest URL.
      */
-    private suspend fun createVideo(libraryId: Long, title: String): BunnyResult<String> {
-        val created = bunnyCatching {
-            videosApi.videoCreateVideo(
-                libraryId = libraryId,
-                videoCreateVideoRequest = VideoCreateVideoRequest(title = title),
-            ).guid
-        }
-
-        return when (created) {
-            is BunnyResult.Err -> created
-            is BunnyResult.Ok -> created.value
-                ?.takeIf { it.isNotEmpty() }
-                ?.let { BunnyResult.Ok(it) }
-                ?: BunnyResult.Err(
-                    BunnyError.Decode("Video was created but the response carried no video id"),
-                )
-        }
-    }
+    private suspend fun createVideo(libraryId: Long, title: String): BunnyResult<String> =
+        videoRepository.createVideo(libraryId, CreateVideoRequest(title = title)).map { it.id }
 
     private suspend fun deleteVideo(libraryId: Long, videoId: String) {
-        when (val result = bunnyCatching { videosApi.videoDeleteVideo(libraryId, videoId) }) {
+        when (val result = videoRepository.deleteVideo(libraryId, videoId)) {
             is BunnyResult.Err ->
                 Log.w(TAG, "could not delete cancelled video $videoId: ${result.message}")
             is BunnyResult.Ok ->

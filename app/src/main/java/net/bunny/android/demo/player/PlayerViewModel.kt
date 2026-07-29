@@ -15,8 +15,9 @@ import net.bunny.android.demo.library.model.Error
 import net.bunny.android.demo.library.model.Video
 import net.bunny.android.demo.library.model.VideoStatus
 import net.bunny.api.BunnyStreamApi
-import org.openapitools.client.models.VideoModel
-import org.openapitools.client.models.VideoPlayDataModelVideo
+import net.bunny.api.error.BunnyResult
+import net.bunny.api.error.getOrNull
+import net.bunny.api.video.domain.model.Video as SdkVideo
 import java.util.UUID
 import kotlin.time.DurationUnit
 import kotlin.time.toDuration
@@ -83,24 +84,18 @@ class PlayerViewModel : ViewModel() {
 
     private fun fetchVideo(videoId: String, providedLibraryId: Long, silent: Boolean) {
         scope.launch {
-            try {
-                val response =
-                    BunnyStreamApi.getInstance().videosApi.videoGetVideoPlayData(
-                        providedLibraryId,
-                        videoId
-                    ).video?.toVideoModel()!!
+            val result = BunnyStreamApi.getInstance().videoRepository
+                .fetchVideoPlayData(providedLibraryId, videoId)
 
-                val video = response.toVideo()
-                mutableUiState.value = VideoUiState.VideoUiLoaded(video)
-            } catch (e: Exception) {
-                if (silent) {
-                    // Transient poll failure — keep showing the last known state.
-                    Log.w(TAG, "Silent metadata refresh failed: $e")
-                } else {
-                    Log.e(TAG, "Error loading video: ${e.message}")
-                    e.printStackTrace()
-                    mutableErrorState.emit(Error("Error loading video: ${e.message}"))
-                    mutableUiState.value = VideoUiState.VideoUiLoadFailed(e.message)
+            when (result) {
+                is BunnyResult.Err -> handleFetchFailure(result.error.message, silent)
+                is BunnyResult.Ok -> {
+                    val sdkVideo = result.value.video
+                        ?: return@launch handleFetchFailure(
+                            "The response carried no video metadata",
+                            silent,
+                        )
+                    mutableUiState.value = VideoUiState.VideoUiLoaded(sdkVideo.toVideo())
                 }
             }
         }
@@ -116,57 +111,39 @@ class PlayerViewModel : ViewModel() {
         mutableErrorState.emit(null)
     }
 
-    private fun VideoModel.toVideo(): Video {
+    private fun SdkVideo.toVideo(): Video {
         return Video(
-            id = guid ?: UUID.randomUUID().toString(),
-            name = title ?: "N/A",
-            duration = length?.toDuration(DurationUnit.SECONDS).toString(),
-            status = when (status?.value) {
-                null -> VideoStatus.ERROR
+            id = id.ifBlank { UUID.randomUUID().toString() },
+            name = title.ifBlank { "N/A" },
+            duration = lengthSeconds.toDuration(DurationUnit.SECONDS).toString(),
+            status = when (status.value) {
                 0 -> VideoStatus.CREATED
                 1 -> VideoStatus.UPLOADED
                 2 -> VideoStatus.PROCESSING
                 3 -> VideoStatus.TRANSCODING
                 4 -> VideoStatus.FINISHED
-                5 -> VideoStatus.ERROR
                 6 -> VideoStatus.UPLOAD_FAILED
                 else -> VideoStatus.ERROR
             },
-            size = storageSize?.inMb ?: 0.0,
-            viewCount = views?.toString() ?: "N/A",
+            size = storageSizeBytes.inMb ?: 0.0,
+            viewCount = views.toString(),
         )
     }
 
-    fun VideoPlayDataModelVideo.toVideoModel(): VideoModel = VideoModel(
-        videoLibraryId        = this.videoLibraryId,
-        guid                  = this.guid,
-        title                 = this.title,
-        dateUploaded          = this.dateUploaded,
-        views                 = this.views,
-        isPublic              = this.isPublic,
-        length                = this.length,
-        status                = this.status,
-        framerate             = this.framerate,
-        rotation              = this.rotation,
-        width                 = this.width,
-        height                = this.height,
-        availableResolutions  = this.availableResolutions,
-        outputCodecs          = this.outputCodecs,
-        thumbnailCount        = this.thumbnailCount,
-        encodeProgress        = this.encodeProgress,
-        storageSize           = this.storageSize,
-        captions               = this.captions,
-        hasMP4Fallback        = this.hasMP4Fallback,
-        collectionId          = this.collectionId,
-        thumbnailFileName     = this.thumbnailFileName,
-        averageWatchTime      = this.averageWatchTime,
-        totalWatchTime        = this.totalWatchTime,
-        category              = this.category,
-        chapters              = this.chapters,
-        moments               = this.moments,
-        metaTags              = this.metaTags,
-        transcodingMessages   = this.transcodingMessages
-    )
+    /**
+     * A failed fetch is silent while polling — the last known state stays on screen — and put in
+     * front of the user when they were the ones waiting for it. Leaving the non-silent case
+     * unhandled parks the screen on its loading spinner with nothing to retry.
+     */
+    private suspend fun handleFetchFailure(reason: String, silent: Boolean) {
+        if (silent) {
+            Log.w(TAG, "Silent metadata refresh failed: $reason")
+            return
+        }
+        Log.e(TAG, "Error loading video: $reason")
+        mutableErrorState.emit(Error("Error loading video: $reason"))
+        mutableUiState.value = VideoUiState.VideoUiLoadFailed(reason)
+    }
 
     private val Long?.inMb: Double?
         get() = this?.div(1024.0 * 1024.0)
