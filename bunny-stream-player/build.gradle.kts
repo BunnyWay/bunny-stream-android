@@ -1,9 +1,8 @@
 plugins {
     id("com.android.library")
-    id("org.jetbrains.kotlin.android")
     id("kotlin-parcelize")
     id("org.jetbrains.dokka")
-    id("org.jetbrains.kotlin.plugin.compose") version "2.1.20"
+    id("org.jetbrains.kotlin.plugin.compose") version "2.4.10"
 }
 
 android {
@@ -61,36 +60,7 @@ android {
     }
 }
 
-tasks.dokkaGfm {
-    suppressObviousFunctions.set(true)
-    outputDirectory.set(file("docs"))
-    dependsOn("compileDebugKotlin", "compileDebugSources")
 
-    dokkaSourceSets {
-        named("main") {
-            moduleName.set("BunnyStreamPlayer")
-        }
-    }
-}
-
-// API-reference content settings shared by every Dokka output (GFM and HTML).
-tasks.withType<org.jetbrains.dokka.gradle.AbstractDokkaLeafTask> {
-    moduleName.set("BunnyStreamPlayer")
-    suppressObviousFunctions.set(true)
-    // Android variant source sets (debug/release/staging) have no sources of their own but,
-    // left unsuppressed, they break Dokka's source-link merging - only "main" should document.
-    dokkaSourceSets.configureEach {
-        if (name != "main") suppress.set(true)
-        includes.from("Module.md")
-        sourceLink {
-            localDirectory.set(file("src/main/java"))
-            remoteUrl.set(
-                uri("https://github.com/BunnyWay/bunny-stream-android/tree/main/bunny-stream-player/src/main/java").toURL()
-            )
-            remoteLineSuffix.set("#L")
-        }
-    }
-}
 
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
@@ -172,5 +142,24 @@ dependencies {
 kotlin {
     compilerOptions {
         jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
+    }
+}
+
+// API reference content. Dokka 2 runs in v2 mode (see gradle.properties), where every output is
+// configured through this extension rather than per-task.
+dokka {
+    moduleName.set("BunnyStreamPlayer")
+    dokkaSourceSets.configureEach {
+        // Android variant source sets (debug/release/staging) carry no sources of their own but,
+        // left unsuppressed, they break Dokka's source-link merging.
+        if (name != "main") suppress.set(true)
+        includes.from("Module.md")
+        sourceLink {
+            localDirectory.set(file("src/main/java"))
+            remoteUrl.set(
+                uri("https://github.com/BunnyWay/bunny-stream-android/tree/main/bunny-stream-player/src/main/java")
+            )
+            remoteLineSuffix.set("#L")
+        }
     }
 }

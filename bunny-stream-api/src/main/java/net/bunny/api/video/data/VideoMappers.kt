@@ -47,9 +47,7 @@ import org.openapitools.client.models.PaginationListOfVideoModel
 import org.openapitools.client.models.TranscodingMessageModel
 import org.openapitools.client.models.VideoModel
 import org.openapitools.client.models.SmartGenerateFeaturesStatusModel
-import org.openapitools.client.models.VideoModelSmartGenerateFeaturesStatus
 import org.openapitools.client.models.VideoPlayDataModel
-import org.openapitools.client.models.VideoPlayDataModelVideo
 
 /**
  * Generated DTO → domain mapping for the video surface.
@@ -63,9 +61,9 @@ import org.openapitools.client.models.VideoPlayDataModelVideo
  *  * **Comma-separated API strings become lists**, so a caller building a quality picker does not
  *    parse strings.
  *
- * The two DTOs [VideoModel] and [VideoPlayDataModelVideo] are field-for-field identical (the
- * generator emits one per endpoint). Everything non-trivial therefore lives in the shared helpers
- * below, so the two mappers cannot drift apart.
+ * Up to openapi-generator 7.6 the play-data endpoint got its own field-for-field copy of
+ * [VideoModel], which meant two mappers that could drift. 7.24 reuses the one model, so there is
+ * a single mapper again.
  */
 
 // region — shared conversions
@@ -111,11 +109,6 @@ internal fun TranscodingMessageModel.toDomain(): TranscodingMessage = Transcodin
     value = value,
 )
 
-/**
- * The generator emits one copy of this shape per endpoint — [SmartGenerateFeaturesStatusModel] for
- * the listing, [VideoModelSmartGenerateFeaturesStatus] for play data. Same fields, same mapped
- * enums; both are mapped here so the two surfaces cannot drift.
- */
 internal fun SmartGenerateFeaturesStatusModel.toDomain(): SmartGenerateFeatures =
     SmartGenerateFeatures(
         title = title,
@@ -124,60 +117,11 @@ internal fun SmartGenerateFeaturesStatusModel.toDomain(): SmartGenerateFeatures 
         moments = moments,
     )
 
-internal fun VideoModelSmartGenerateFeaturesStatus.toDomain(): SmartGenerateFeatures =
-    SmartGenerateFeatures(
-        title = title,
-        description = description,
-        chapters = chapters,
-        moments = moments,
-    )
+
 
 // endregion
 
 internal fun VideoModel.toDomain(): Video = Video(
-    id = guid.orEmpty(),
-    videoLibraryId = videoLibraryId ?: 0L,
-    title = title.orEmpty(),
-    description = description,
-    collectionId = collectionId?.takeIf { it.isNotBlank() },
-    category = category,
-    dateUploaded = dateUploaded,
-    isPublic = isPublic ?: false,
-    status = status ?: VideoModelStatus.CREATED,
-    lengthSeconds = length ?: 0,
-    width = width?.takeIf { it > 0 },
-    height = height?.takeIf { it > 0 },
-    framerate = framerate?.takeIf { it > 0 },
-    rotation = rotation,
-    availableResolutions = availableResolutions.toCommaSeparatedList(),
-    outputCodecs = outputCodecs.toCommaSeparatedList(),
-    hasMp4Fallback = hasMP4Fallback ?: false,
-    jitEncodingEnabled = jitEncodingEnabled ?: false,
-    storageSizeBytes = storageSize ?: 0L,
-    encodeProgress = encodeProgress ?: 0,
-    hasOriginal = hasOriginal ?: false,
-    originalHash = originalHash,
-    hasHighQualityPreview = hasHighQualityPreview ?: false,
-    thumbnailCount = thumbnailCount ?: 0,
-    thumbnailFileName = thumbnailFileName,
-    thumbnailBlurhash = thumbnailBlurhash,
-    views = views ?: 0L,
-    averageWatchTimeSeconds = averageWatchTime ?: 0L,
-    totalWatchTimeSeconds = totalWatchTime ?: 0L,
-    captions = captions?.map { it.toDomain() }.orEmpty(),
-    chapters = chapters?.map { it.toDomain() }.orEmpty(),
-    moments = moments?.map { it.toDomain() }.orEmpty(),
-    metaTags = metaTags?.map { it.toDomain() }.orEmpty(),
-    transcodingMessages = transcodingMessages?.map { it.toDomain() }.orEmpty(),
-    smartGenerateStatus = smartGenerateStatus,
-    smartGenerateFeatures = smartGenerateFeaturesStatus?.toDomain(),
-)
-
-/**
- * Same mapping as [VideoModel.toDomain]; the play-data endpoint returns its own generated copy of
- * the identical shape.
- */
-internal fun VideoPlayDataModelVideo.toDomain(): Video = Video(
     id = guid.orEmpty(),
     videoLibraryId = videoLibraryId ?: 0L,
     title = title.orEmpty(),

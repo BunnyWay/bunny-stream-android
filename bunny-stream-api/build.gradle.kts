@@ -1,13 +1,11 @@
-import org.jetbrains.dokka.gradle.DokkaTaskPartial
 
 plugins {
     id("com.android.library")
-    id("org.jetbrains.kotlin.android")
     id("io.gitlab.arturbosch.detekt")
     id("org.openapi.generator")
     id("org.jetbrains.kotlin.plugin.serialization")
     id("org.jetbrains.dokka")
-    id("org.jetbrains.kotlin.plugin.compose") version "2.1.20"
+    id("org.jetbrains.kotlin.plugin.compose") version "2.4.10"
 }
 
 android {
@@ -15,7 +13,6 @@ android {
         buildConfig = true
     }
 
-    sourceSets["main"].java.srcDir(layout.buildDirectory.dir("generated/api"))
 
     namespace = "net.bunny.api"
     compileSdk = 36
@@ -218,41 +215,43 @@ tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
     )
 }
 
-tasks.withType<DokkaTaskPartial> {
-    dependsOn(
-        "openApiGenerateAll",
-        // openApiGenerateAll only *finalizes* with fixGeneratedFiles, which does not guarantee it
-        // runs before a task that merely depends on the generator. Compilation reads files that
-        // fixGeneratedFiles removes, so the dependency has to be explicit.
-        "fixGeneratedFiles",
-        "copyGeneratedDocs"
-    )
+// Dokka has to see the generated client too, and in v2 mode the task type is different.
+tasks.matching { it.name.startsWith("dokkaGenerate") }.configureEach {
+    dependsOn("openApiGenerateAll", "fixGeneratedFiles")
 }
 
-// API-reference content settings shared by every Dokka output (GFM and HTML).
 // The generated OpenAPI client (org.openapitools.*) is an implementation detail:
 // its REST surface is already documented by the generated Markdown under ../docs,
 // so it is suppressed here to keep the reference focused on the hand-written API.
-tasks.withType<org.jetbrains.dokka.gradle.AbstractDokkaLeafTask> {
-    moduleName.set("BunnyStreamApi")
-    // Android variant source sets (debug/release/staging) have no sources of their own but,
-    // left unsuppressed, they break Dokka's source-link merging - only "main" should document.
-    dokkaSourceSets.configureEach {
-        if (name != "main") suppress.set(true)
+
+// The generated OpenAPI client lives under build/, so Gradle needs it declared as a task output
+// rather than a bare directory — a source directory inside another task's output is an unreadable
+// input otherwise. This task exposes the generator's result as a DirectoryProperty that AGP can
+// wire a variant's Kotlin sources to.
+abstract class ExposeGeneratedClient : DefaultTask() {
+    @get:InputDirectory abstract val source: DirectoryProperty
+    @get:OutputDirectory abstract val target: DirectoryProperty
+
+    @TaskAction
+    fun sync() {
+        val to = target.get().asFile
+        to.deleteRecursively()
+        source.get().asFile.copyRecursively(to, overwrite = true)
     }
-    dokkaSourceSets.configureEach {
-        includes.from("Module.md")
-        sourceLink {
-            localDirectory.set(file("src/main/java"))
-            remoteUrl.set(
-                uri("https://github.com/BunnyWay/bunny-stream-android/tree/main/bunny-stream-api/src/main/java").toURL()
-            )
-            remoteLineSuffix.set("#L")
-        }
-        perPackageOption {
-            matchingRegex.set("""org\.openapitools.*""")
-            suppress.set(true)
-        }
+}
+
+val exposeGeneratedClient = tasks.register<ExposeGeneratedClient>("exposeGeneratedClient") {
+    dependsOn("openApiGenerateAll", "fixGeneratedFiles")
+    source.set(layout.buildDirectory.dir("generated/api/src/main/kotlin"))
+    target.set(layout.buildDirectory.dir("generated/client"))
+}
+
+androidComponents {
+    onVariants { variant ->
+        variant.sources.kotlin?.addGeneratedSourceDirectory(
+            exposeGeneratedClient,
+            ExposeGeneratedClient::target,
+        )
     }
 }
 
@@ -330,5 +329,28 @@ afterEvaluate {
 kotlin {
     compilerOptions {
         jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
+    }
+}
+
+// API reference content. Dokka 2 runs in v2 mode (see gradle.properties), where every output is
+// configured through this extension rather than per-task.
+dokka {
+    moduleName.set("BunnyStreamApi")
+    dokkaSourceSets.configureEach {
+        // Android variant source sets (debug/release/staging) carry no sources of their own but,
+        // left unsuppressed, they break Dokka's source-link merging.
+        if (name != "main") suppress.set(true)
+        includes.from("Module.md")
+        sourceLink {
+            localDirectory.set(file("src/main/java"))
+            remoteUrl.set(
+                uri("https://github.com/BunnyWay/bunny-stream-android/tree/main/bunny-stream-api/src/main/java")
+            )
+            remoteLineSuffix.set("#L")
+        }
+        perPackageOption {
+            matchingRegex.set("""org\.openapitools.*""")
+            suppress.set(true)
+        }
     }
 }

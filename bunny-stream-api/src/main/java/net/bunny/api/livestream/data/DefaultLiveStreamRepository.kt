@@ -28,7 +28,6 @@ import org.openapitools.client.infrastructure.ServerError
 import org.openapitools.client.infrastructure.ServerException
 import org.openapitools.client.models.LiveStreamModel
 import org.openapitools.client.models.LiveStreamPlayDataModel
-import org.openapitools.client.models.LiveStreamPlayDataModelLiveStream
 import org.openapitools.client.models.PaginationListOfLiveStreamModel
 import org.openapitools.client.models.ThumbnailListResponseModel
 import org.openapitools.client.models.RtmpOutput as GeneratedRtmpOutput
@@ -399,41 +398,6 @@ internal class DefaultLiveStreamRepository(
         backupIngestUrl = ingestEndpoints?.rtmp?.backupIngestUrl,
     ).also { captureCdnBase(it.playbackUrlHls) }
 
-    private fun LiveStreamPlayDataModelLiveStream.toDomain(): LiveStream = LiveStream(
-        id = guid.orEmpty(),
-        videoLibraryId = videoLibraryId ?: 0L,
-        title = title.orEmpty(),
-        description = description,
-        category = category,
-        collectionId = collectionId,
-        isPublic = `public` ?: false,
-        status = status ?: LiveStreamStatus.UNKNOWN,
-        dateCreated = dateCreated.orEmpty(),
-        scheduledStartTime = scheduledStartTime,
-        scheduledEndTime = scheduledEndTime,
-        startedAt = startedAt,
-        endedAt = endedAt,
-        durationSeconds = durationSeconds,
-        streamKey = streamKey,
-        playbackUrlHls = playbackUrlHls,
-        dvrEnabled = dvrEnabled ?: false,
-        dvrWindowSeconds = dvrWindowSeconds,
-        recordVod = recordVod ?: false,
-        availableResolutions = availableResolutions,
-        width = width,
-        height = height,
-        framerate = framerate,
-        ingestRegion = ingestRegion,
-        peakConcurrentViewers = peakConcurrentViewers,
-        totalViewerSeconds = totalViewerSeconds,
-        thumbnailFileName = thumbnailFileName,
-        thumbnailUpdatedAt = thumbnailUpdatedAt,
-        enableCountdown = enableCountdown,
-        rtmpOutputs = rtmpOutputs.orEmpty().map { it.toDomain() },
-        preStreamTrailerVideoId = preStreamTrailerVideoId,
-        primaryIngestUrl = ingestEndpoints?.rtmp?.primaryIngestUrl,
-        backupIngestUrl = ingestEndpoints?.rtmp?.backupIngestUrl,
-    ).also { captureCdnBase(it.playbackUrlHls) }
 
     private fun ThumbnailListResponseModel.toDomain(): LiveStreamThumbnail = LiveStreamThumbnail(
         // The endpoint returns paths relative to the library CDN host; make them absolute so they're
