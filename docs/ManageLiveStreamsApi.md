@@ -2,28 +2,28 @@
 
 All URIs are relative to *https://video.bunnycdn.com*
 
-Method | HTTP request | Description
-------------- | ------------- | -------------
-[**liveStreamCreate**](ManageLiveStreamsApi.md#liveStreamCreate) | **POST** /library/{libraryId}/live | Create new live stream
-[**liveStreamDelete**](ManageLiveStreamsApi.md#liveStreamDelete) | **DELETE** /library/{libraryId}/live/{streamId} | Delete live stream
-[**liveStreamDeleteThumbnail**](ManageLiveStreamsApi.md#liveStreamDeleteThumbnail) | **DELETE** /library/{libraryId}/live/{streamId}/thumbnail | Delete Thumbnail
-[**liveStreamGetBitrateHistory**](ManageLiveStreamsApi.md#liveStreamGetBitrateHistory) | **GET** /library/{libraryId}/live/{streamId}/bitrate-history | 
-[**liveStreamGetByStreamId**](ManageLiveStreamsApi.md#liveStreamGetByStreamId) | **GET** /library/{libraryId}/live/{streamId} | Get live stream by ID
-[**liveStreamGetLatestBitrate**](ManageLiveStreamsApi.md#liveStreamGetLatestBitrate) | **GET** /library/{libraryId}/live/{streamId}/current-bitrate | 
-[**liveStreamGetStreamPlayData**](ManageLiveStreamsApi.md#liveStreamGetStreamPlayData) | **GET** /library/{libraryId}/live/{streamId}/play | Get live stream play data
-[**liveStreamGetStreamStatus**](ManageLiveStreamsApi.md#liveStreamGetStreamStatus) | **GET** /library/{libraryId}/live/{streamId}/status | Get live stream status
-[**liveStreamGetThumbnails**](ManageLiveStreamsApi.md#liveStreamGetThumbnails) | **GET** /library/{libraryId}/live/{streamId}/thumbnails | Get live stream thumbnails
-[**liveStreamList**](ManageLiveStreamsApi.md#liveStreamList) | **GET** /library/{libraryId}/live | List streams
-[**liveStreamRegenerateStreamKey**](ManageLiveStreamsApi.md#liveStreamRegenerateStreamKey) | **PUT** /library/{libraryId}/live/{streamId}/regenerate-key | Regenerate stream key
-[**liveStreamSetThumbnail**](ManageLiveStreamsApi.md#liveStreamSetThumbnail) | **POST** /library/{libraryId}/live/{streamId}/thumbnail | Set Thumbnail
-[**liveStreamStartStream**](ManageLiveStreamsApi.md#liveStreamStartStream) | **PUT** /library/{libraryId}/live/{streamId}/start | Start live stream
-[**liveStreamStopStream**](ManageLiveStreamsApi.md#liveStreamStopStream) | **PUT** /library/{libraryId}/live/{streamId}/stop | Stop live stream
-[**liveStreamUpdate**](ManageLiveStreamsApi.md#liveStreamUpdate) | **PUT** /library/{libraryId}/live/{streamId} | Update live stream
+| Method | HTTP request | Description |
+| ------------- | ------------- | ------------- |
+| [**liveStreamCreate**](ManageLiveStreamsApi.md#liveStreamCreate) | **POST** /library/{libraryId}/live | Create new live stream |
+| [**liveStreamDelete**](ManageLiveStreamsApi.md#liveStreamDelete) | **DELETE** /library/{libraryId}/live/{streamId} | Delete live stream |
+| [**liveStreamDeleteThumbnail**](ManageLiveStreamsApi.md#liveStreamDeleteThumbnail) | **DELETE** /library/{libraryId}/live/{streamId}/thumbnail | Delete Thumbnail |
+| [**liveStreamGetBitrateHistory**](ManageLiveStreamsApi.md#liveStreamGetBitrateHistory) | **GET** /library/{libraryId}/live/{streamId}/bitrate-history |  |
+| [**liveStreamGetByStreamId**](ManageLiveStreamsApi.md#liveStreamGetByStreamId) | **GET** /library/{libraryId}/live/{streamId} | Get live stream by ID |
+| [**liveStreamGetLatestBitrate**](ManageLiveStreamsApi.md#liveStreamGetLatestBitrate) | **GET** /library/{libraryId}/live/{streamId}/current-bitrate |  |
+| [**liveStreamGetStreamPlayData**](ManageLiveStreamsApi.md#liveStreamGetStreamPlayData) | **GET** /library/{libraryId}/live/{streamId}/play | Get live stream play data |
+| [**liveStreamGetStreamStatus**](ManageLiveStreamsApi.md#liveStreamGetStreamStatus) | **GET** /library/{libraryId}/live/{streamId}/status | Get live stream status |
+| [**liveStreamGetThumbnails**](ManageLiveStreamsApi.md#liveStreamGetThumbnails) | **GET** /library/{libraryId}/live/{streamId}/thumbnails | Get live stream thumbnails |
+| [**liveStreamList**](ManageLiveStreamsApi.md#liveStreamList) | **GET** /library/{libraryId}/live | List streams |
+| [**liveStreamRegenerateStreamKey**](ManageLiveStreamsApi.md#liveStreamRegenerateStreamKey) | **PUT** /library/{libraryId}/live/{streamId}/regenerate-key | Regenerate stream key |
+| [**liveStreamSetThumbnail**](ManageLiveStreamsApi.md#liveStreamSetThumbnail) | **POST** /library/{libraryId}/live/{streamId}/thumbnail | Set Thumbnail |
+| [**liveStreamStartStream**](ManageLiveStreamsApi.md#liveStreamStartStream) | **PUT** /library/{libraryId}/live/{streamId}/start | Start live stream |
+| [**liveStreamStopStream**](ManageLiveStreamsApi.md#liveStreamStopStream) | **PUT** /library/{libraryId}/live/{streamId}/stop | Stop live stream |
+| [**liveStreamUpdate**](ManageLiveStreamsApi.md#liveStreamUpdate) | **PUT** /library/{libraryId}/live/{streamId} | Update live stream |
 
 
 <a id="liveStreamCreate"></a>
 # **liveStreamCreate**
-> LiveStreamModel liveStreamCreate(libraryId, liveStreamCreateRequest)
+> LiveStreamModel liveStreamCreate(libraryId, createLiveStreamModel)
 
 Create new live stream
 
@@ -37,9 +37,9 @@ Creates a new live stream object with the specified parameters and returns it
 
 val apiInstance = ManageLiveStreamsApi()
 val libraryId : kotlin.Long = 789 // kotlin.Long | 
-val liveStreamCreateRequest : LiveStreamCreateRequest =  // LiveStreamCreateRequest | 
+val createLiveStreamModel : CreateLiveStreamModel =  // CreateLiveStreamModel | 
 try {
-    val result : LiveStreamModel = apiInstance.liveStreamCreate(libraryId, liveStreamCreateRequest)
+    val result : LiveStreamModel = apiInstance.liveStreamCreate(libraryId, createLiveStreamModel)
     println(result)
 } catch (e: ClientException) {
     println("4xx response calling ManageLiveStreamsApi#liveStreamCreate")
@@ -51,11 +51,10 @@ try {
 ```
 
 ### Parameters
-
-Name | Type | Description  | Notes
-------------- | ------------- | ------------- | -------------
- **libraryId** | **kotlin.Long**|  |
- **liveStreamCreateRequest** | [**LiveStreamCreateRequest**](LiveStreamCreateRequest.md)|  |
+| **libraryId** | **kotlin.Long**|  | |
+| Name | Type | Description  | Notes |
+| ------------- | ------------- | ------------- | ------------- |
+| **createLiveStreamModel** | [**CreateLiveStreamModel**](CreateLiveStreamModel.md)|  | |
 
 ### Return type
 
@@ -103,11 +102,10 @@ try {
 ```
 
 ### Parameters
-
-Name | Type | Description  | Notes
-------------- | ------------- | ------------- | -------------
- **libraryId** | **kotlin.Long**|  |
- **streamId** | **kotlin.String**|  |
+| **libraryId** | **kotlin.Long**|  | |
+| Name | Type | Description  | Notes |
+| ------------- | ------------- | ------------- | ------------- |
+| **streamId** | **kotlin.String**|  | |
 
 ### Return type
 
@@ -155,12 +153,11 @@ try {
 ```
 
 ### Parameters
-
-Name | Type | Description  | Notes
-------------- | ------------- | ------------- | -------------
- **libraryId** | **kotlin.Long**|  |
- **streamId** | **kotlin.String**|  |
- **restoreLibraryDefault** | **kotlin.Boolean**| When true and the library has a default live thumbnail, the stream will be set to use that thumbnail after removal. When false or no library default exists, the stream will have no thumbnail. | [optional] [default to false]
+| **libraryId** | **kotlin.Long**|  | |
+| **streamId** | **kotlin.String**|  | |
+| Name | Type | Description  | Notes |
+| ------------- | ------------- | ------------- | ------------- |
+| **restoreLibraryDefault** | **kotlin.Boolean**| When true and the library has a default live thumbnail, the stream will be set to use that thumbnail after removal. When false or no library default exists, the stream will have no thumbnail. | [optional] [default to false] |
 
 ### Return type
 
@@ -208,13 +205,12 @@ try {
 ```
 
 ### Parameters
-
-Name | Type | Description  | Notes
-------------- | ------------- | ------------- | -------------
- **libraryId** | **kotlin.Long**|  |
- **streamId** | **kotlin.String**|  |
- **startTime** | **kotlin.String**|  | [optional]
- **endTime** | **kotlin.String**|  | [optional]
+| **libraryId** | **kotlin.Long**|  | |
+| **streamId** | **kotlin.String**|  | |
+| **startTime** | **kotlin.String**|  | [optional] |
+| Name | Type | Description  | Notes |
+| ------------- | ------------- | ------------- | ------------- |
+| **endTime** | **kotlin.String**|  | [optional] |
 
 ### Return type
 
@@ -259,11 +255,10 @@ try {
 ```
 
 ### Parameters
-
-Name | Type | Description  | Notes
-------------- | ------------- | ------------- | -------------
- **libraryId** | **kotlin.Long**|  |
- **streamId** | **kotlin.String**|  |
+| **libraryId** | **kotlin.Long**|  | |
+| Name | Type | Description  | Notes |
+| ------------- | ------------- | ------------- | ------------- |
+| **streamId** | **kotlin.String**|  | |
 
 ### Return type
 
@@ -309,11 +304,10 @@ try {
 ```
 
 ### Parameters
-
-Name | Type | Description  | Notes
-------------- | ------------- | ------------- | -------------
- **libraryId** | **kotlin.Long**|  |
- **streamId** | **kotlin.String**|  |
+| **libraryId** | **kotlin.Long**|  | |
+| Name | Type | Description  | Notes |
+| ------------- | ------------- | ------------- | ------------- |
+| **streamId** | **kotlin.String**|  | |
 
 ### Return type
 
@@ -358,13 +352,12 @@ try {
 ```
 
 ### Parameters
-
-Name | Type | Description  | Notes
-------------- | ------------- | ------------- | -------------
- **libraryId** | **kotlin.Long**|  |
- **streamId** | **kotlin.String**|  |
- **token** | **kotlin.String**|  | [optional] [default to &quot;&quot;]
- **expires** | **kotlin.Long**|  | [optional] [default to 0L]
+| **libraryId** | **kotlin.Long**|  | |
+| **streamId** | **kotlin.String**|  | |
+| **token** | **kotlin.String**|  | [optional] [default to &quot;&quot;] |
+| Name | Type | Description  | Notes |
+| ------------- | ------------- | ------------- | ------------- |
+| **expires** | **kotlin.Long**|  | [optional] [default to 0L] |
 
 ### Return type
 
@@ -409,11 +402,10 @@ try {
 ```
 
 ### Parameters
-
-Name | Type | Description  | Notes
-------------- | ------------- | ------------- | -------------
- **libraryId** | **kotlin.Long**|  |
- **streamId** | **kotlin.String**|  |
+| **libraryId** | **kotlin.Long**|  | |
+| Name | Type | Description  | Notes |
+| ------------- | ------------- | ------------- | ------------- |
+| **streamId** | **kotlin.String**|  | |
 
 ### Return type
 
@@ -464,14 +456,13 @@ try {
 ```
 
 ### Parameters
-
-Name | Type | Description  | Notes
-------------- | ------------- | ------------- | -------------
- **libraryId** | **kotlin.Long**|  |
- **streamId** | **kotlin.String**|  |
- **limit** | **kotlin.Int**| The maximum number of thumbnails to return. Default: 5 | [optional] [default to 5]
- **from** | **kotlin.String**| Filter thumbnails created at or after this UTC timestamp | [optional]
- **to** | **kotlin.String**| Filter thumbnails created at or before this UTC timestamp | [optional]
+| **libraryId** | **kotlin.Long**|  | |
+| **streamId** | **kotlin.String**|  | |
+| **limit** | **kotlin.Int**| The maximum number of thumbnails to return. Default: 5 | [optional] [default to 5] |
+| **from** | **kotlin.String**| Filter thumbnails created at or after this UTC timestamp | [optional] |
+| Name | Type | Description  | Notes |
+| ------------- | ------------- | ------------- | ------------- |
+| **to** | **kotlin.String**| Filter thumbnails created at or before this UTC timestamp | [optional] |
 
 ### Return type
 
@@ -523,15 +514,14 @@ try {
 ```
 
 ### Parameters
-
-Name | Type | Description  | Notes
-------------- | ------------- | ------------- | -------------
- **libraryId** | **kotlin.Long**|  |
- **page** | **kotlin.Int**|  | [optional] [default to 1]
- **itemsPerPage** | **kotlin.Int**|  | [optional] [default to 100]
- **search** | **kotlin.String**|  | [optional] [default to &quot;&quot;]
- **orderBy** | **kotlin.String**| The field to order by. Possible values: date, title, status, started, ended, planned | [optional] [default to &quot;date&quot;]
- **collectionId** | **kotlin.String**|  | [optional]
+| **libraryId** | **kotlin.Long**|  | |
+| **page** | **kotlin.Int**|  | [optional] [default to 1] |
+| **itemsPerPage** | **kotlin.Int**|  | [optional] [default to 100] |
+| **search** | **kotlin.String**|  | [optional] [default to &quot;&quot;] |
+| **orderBy** | **kotlin.String**| The field to order by. Possible values: date, title, status, started, ended, planned | [optional] [default to &quot;date&quot;] |
+| Name | Type | Description  | Notes |
+| ------------- | ------------- | ------------- | ------------- |
+| **collectionId** | **kotlin.String**|  | [optional] |
 
 ### Return type
 
@@ -579,11 +569,10 @@ try {
 ```
 
 ### Parameters
-
-Name | Type | Description  | Notes
-------------- | ------------- | ------------- | -------------
- **libraryId** | **kotlin.Long**|  |
- **streamId** | **kotlin.String**|  |
+| **libraryId** | **kotlin.Long**|  | |
+| Name | Type | Description  | Notes |
+| ------------- | ------------- | ------------- | ------------- |
+| **streamId** | **kotlin.String**|  | |
 
 ### Return type
 
@@ -631,13 +620,12 @@ try {
 ```
 
 ### Parameters
-
-Name | Type | Description  | Notes
-------------- | ------------- | ------------- | -------------
- **libraryId** | **kotlin.Long**|  |
- **streamId** | **kotlin.String**|  |
- **thumbnailUrl** | **kotlin.String**|  | [optional]
- **body** | **java.io.File**| Optional thumbnail file to upload | [optional]
+| **libraryId** | **kotlin.Long**|  | |
+| **streamId** | **kotlin.String**|  | |
+| **thumbnailUrl** | **kotlin.String**|  | [optional] |
+| Name | Type | Description  | Notes |
+| ------------- | ------------- | ------------- | ------------- |
+| **body** | **java.io.File**| Optional thumbnail file to upload | [optional] |
 
 ### Return type
 
@@ -685,11 +673,10 @@ try {
 ```
 
 ### Parameters
-
-Name | Type | Description  | Notes
-------------- | ------------- | ------------- | -------------
- **libraryId** | **kotlin.Long**|  |
- **streamId** | **kotlin.String**|  |
+| **libraryId** | **kotlin.Long**|  | |
+| Name | Type | Description  | Notes |
+| ------------- | ------------- | ------------- | ------------- |
+| **streamId** | **kotlin.String**|  | |
 
 ### Return type
 
@@ -737,11 +724,10 @@ try {
 ```
 
 ### Parameters
-
-Name | Type | Description  | Notes
-------------- | ------------- | ------------- | -------------
- **libraryId** | **kotlin.Long**|  |
- **streamId** | **kotlin.String**|  |
+| **libraryId** | **kotlin.Long**|  | |
+| Name | Type | Description  | Notes |
+| ------------- | ------------- | ------------- | ------------- |
+| **streamId** | **kotlin.String**|  | |
 
 ### Return type
 
@@ -761,7 +747,7 @@ Configure AccessKey:
 
 <a id="liveStreamUpdate"></a>
 # **liveStreamUpdate**
-> LiveStreamModel liveStreamUpdate(libraryId, streamId, liveStreamUpdateRequest)
+> LiveStreamModel liveStreamUpdate(libraryId, streamId, updateLiveStreamModel)
 
 Update live stream
 
@@ -776,9 +762,9 @@ Updates the live stream object with the specified parameters and returns it
 val apiInstance = ManageLiveStreamsApi()
 val libraryId : kotlin.Long = 789 // kotlin.Long | 
 val streamId : kotlin.String = streamId_example // kotlin.String | 
-val liveStreamUpdateRequest : LiveStreamUpdateRequest =  // LiveStreamUpdateRequest | 
+val updateLiveStreamModel : UpdateLiveStreamModel =  // UpdateLiveStreamModel | 
 try {
-    val result : LiveStreamModel = apiInstance.liveStreamUpdate(libraryId, streamId, liveStreamUpdateRequest)
+    val result : LiveStreamModel = apiInstance.liveStreamUpdate(libraryId, streamId, updateLiveStreamModel)
     println(result)
 } catch (e: ClientException) {
     println("4xx response calling ManageLiveStreamsApi#liveStreamUpdate")
@@ -790,12 +776,11 @@ try {
 ```
 
 ### Parameters
-
-Name | Type | Description  | Notes
-------------- | ------------- | ------------- | -------------
- **libraryId** | **kotlin.Long**|  |
- **streamId** | **kotlin.String**|  |
- **liveStreamUpdateRequest** | [**LiveStreamUpdateRequest**](LiveStreamUpdateRequest.md)|  |
+| **libraryId** | **kotlin.Long**|  | |
+| **streamId** | **kotlin.String**|  | |
+| Name | Type | Description  | Notes |
+| ------------- | ------------- | ------------- | ------------- |
+| **updateLiveStreamModel** | [**UpdateLiveStreamModel**](UpdateLiveStreamModel.md)|  | |
 
 ### Return type
 

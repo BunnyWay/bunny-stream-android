@@ -177,17 +177,27 @@ specs.forEach {
             "serializationLibrary" to "gson",
         ))
 
-        typeMappings.set(mapOf(
+        // typeMappings names the type; importMappings says where it comes from. Passing a
+        // fully-qualified name to typeMappings alone worked on 7.6.0 but newer generators sanitize
+        // it into a single identifier (net.bunny.api.model.X -> NetbunnyapimodelX), so the import
+        // has to be declared separately.
+        importMappings.set(mapOf(
             "VideoModelStatus" to "net.bunny.api.model.VideoModelStatus",
-            "LiveStreamModelStatus" to "net.bunny.api.model.LiveStreamStatus",
-            "VideoModelSmartGenerateStatus" to "net.bunny.api.model.SmartGenerateStatus",
-            "VideoPlayDataModelPreferredPlaybackSource" to "net.bunny.api.model.VideoPlaybackSource",
+            "LiveStreamStatus" to "net.bunny.api.model.LiveStreamStatus",
+            "SmartGenerateStatus" to "net.bunny.api.model.SmartGenerateStatus",
+            "VideoPlaybackSource" to "net.bunny.api.model.VideoPlaybackSource"
+        ))
+        typeMappings.set(mapOf(
+            "VideoModelStatus" to "VideoModelStatus",
+            "LiveStreamModelStatus" to "LiveStreamStatus",
+            "VideoModelSmartGenerateStatus" to "SmartGenerateStatus",
+            "VideoPlayDataModelPreferredPlaybackSource" to "VideoPlaybackSource",
             // Per-feature smart-generate statuses added in spec v1.5.3 — same oneOf:[$ref enum]
             // shape as the status wrappers above, so redirect them to the shared enum too.
-            "SmartGenerateFeaturesStatusModelTitle" to "net.bunny.api.model.SmartGenerateStatus",
-            "SmartGenerateFeaturesStatusModelDescription" to "net.bunny.api.model.SmartGenerateStatus",
-            "SmartGenerateFeaturesStatusModelChapters" to "net.bunny.api.model.SmartGenerateStatus",
-            "SmartGenerateFeaturesStatusModelMoments" to "net.bunny.api.model.SmartGenerateStatus"
+            "SmartGenerateFeaturesStatusModelTitle" to "SmartGenerateStatus",
+            "SmartGenerateFeaturesStatusModelDescription" to "SmartGenerateStatus",
+            "SmartGenerateFeaturesStatusModelChapters" to "SmartGenerateStatus",
+            "SmartGenerateFeaturesStatusModelMoments" to "SmartGenerateStatus"
         ))
     }
 }
@@ -200,6 +210,10 @@ tasks.register("openApiGenerateAll") {
 tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
     dependsOn(
         "openApiGenerateAll",
+        // openApiGenerateAll only *finalizes* with fixGeneratedFiles, which does not guarantee it
+        // runs before a task that merely depends on the generator. Compilation reads files that
+        // fixGeneratedFiles removes, so the dependency has to be explicit.
+        "fixGeneratedFiles",
         "copyGeneratedDocs"
     )
 }
@@ -207,6 +221,10 @@ tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
 tasks.withType<DokkaTaskPartial> {
     dependsOn(
         "openApiGenerateAll",
+        // openApiGenerateAll only *finalizes* with fixGeneratedFiles, which does not guarantee it
+        // runs before a task that merely depends on the generator. Compilation reads files that
+        // fixGeneratedFiles removes, so the dependency has to be explicit.
+        "fixGeneratedFiles",
         "copyGeneratedDocs"
     )
 }
@@ -253,6 +271,14 @@ tasks.register<Copy>("copyGeneratedDocs") {
 tasks.register("fixGeneratedFiles") {
     doLast {
         val generatedRoot = layout.buildDirectory.dir("generated/api/").get().asFile.absolutePath
+
+        // The generator still emits a model file for every mapped schema, named after the mapped
+        // type — "net.bunny.api.model.LiveStreamStatus.kt", declaring a class whose name contains
+        // dots. That is not valid Kotlin, and nothing needs it: references in the models are fully
+        // qualified and resolve to the hand-written enums.
+        file("$generatedRoot/src/main/kotlin/org/openapitools/client/models")
+            .listFiles { f -> f.name.removeSuffix(".kt").contains('.') }
+            ?.forEach { it.delete() }
         val brokenWrappers = listOf(
             "VideoModelStatus",
             "LiveStreamModelStatus",

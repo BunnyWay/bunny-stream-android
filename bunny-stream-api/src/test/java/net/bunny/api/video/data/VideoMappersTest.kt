@@ -16,6 +16,7 @@ import org.openapitools.client.models.PaginationListOfVideoModel
 import org.openapitools.client.models.Severity
 import org.openapitools.client.models.TranscodingMessageModel
 import net.bunny.api.model.SmartGenerateStatus
+import org.openapitools.client.models.SmartGenerateFeaturesStatusModel
 import org.openapitools.client.models.VideoModelSmartGenerateFeaturesStatus
 import org.openapitools.client.models.VideoModel
 import org.openapitools.client.models.VideoPlayDataModelVideo
@@ -124,7 +125,7 @@ class VideoMappersTest {
             originalHash = "ABC123",
             hasHighQualityPreview = true,
             smartGenerateStatus = SmartGenerateStatus.FINISHED,
-            smartGenerateFeaturesStatus = SMART_GENERATE_FEATURES,
+            smartGenerateFeaturesStatus = SMART_GENERATE_FEATURES_PLAY_DATA,
         )
 
         assertEquals(fromList.toDomain(), fromPlayData.toDomain())
@@ -379,7 +380,15 @@ class VideoMappersTest {
          * The smart-generate fields are the newest on the DTO and the likeliest to be added to one
          * mapper and not the other, so the drift fixture has to carry them.
          */
-        private val SMART_GENERATE_FEATURES = VideoModelSmartGenerateFeaturesStatus(
+        /** The play-data endpoint gets its own copy of this DTO from the generator. */
+        private val SMART_GENERATE_FEATURES_PLAY_DATA = VideoModelSmartGenerateFeaturesStatus(
+            title = SmartGenerateStatus.FINISHED,
+            description = SmartGenerateStatus.IN_PROGRESS,
+            chapters = SmartGenerateStatus.FAILED,
+            moments = SmartGenerateStatus.QUEUED,
+        )
+
+        private val SMART_GENERATE_FEATURES = SmartGenerateFeaturesStatusModel(
             title = SmartGenerateStatus.FINISHED,
             description = SmartGenerateStatus.IN_PROGRESS,
             chapters = SmartGenerateStatus.FAILED,

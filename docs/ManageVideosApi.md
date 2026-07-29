@@ -2,36 +2,36 @@
 
 All URIs are relative to *https://video.bunnycdn.com*
 
-Method | HTTP request | Description
-------------- | ------------- | -------------
-[**videoAddCaption**](ManageVideosApi.md#videoAddCaption) | **POST** /library/{libraryId}/videos/{videoId}/captions/{srclang} | Add Caption
-[**videoCreateVideo**](ManageVideosApi.md#videoCreateVideo) | **POST** /library/{libraryId}/videos | Create Video
-[**videoDeleteCaption**](ManageVideosApi.md#videoDeleteCaption) | **DELETE** /library/{libraryId}/videos/{videoId}/captions/{srclang} | Delete Caption
-[**videoDeleteResolutions**](ManageVideosApi.md#videoDeleteResolutions) | **POST** /library/{libraryId}/videos/{videoId}/resolutions/cleanup | Cleanup unconfigured resolutions
-[**videoDeleteVideo**](ManageVideosApi.md#videoDeleteVideo) | **DELETE** /library/{libraryId}/videos/{videoId} | Delete Video
-[**videoFetchNewVideo**](ManageVideosApi.md#videoFetchNewVideo) | **POST** /library/{libraryId}/videos/fetch | Fetch Video
-[**videoFetchVideo**](ManageVideosApi.md#videoFetchVideo) | **POST** /library/{libraryId}/videos/{videoId}/fetch | Fetch Video
-[**videoGetVideo**](ManageVideosApi.md#videoGetVideo) | **GET** /library/{libraryId}/videos/{videoId} | Get Video
-[**videoGetVideoHeatmap**](ManageVideosApi.md#videoGetVideoHeatmap) | **GET** /library/{libraryId}/videos/{videoId}/heatmap | Get Video Heatmap
-[**videoGetVideoHeatmapData**](ManageVideosApi.md#videoGetVideoHeatmapData) | **GET** /library/{libraryId}/videos/{videoId}/play/heatmap | Get Video heatmap data
-[**videoGetVideoPlayData**](ManageVideosApi.md#videoGetVideoPlayData) | **GET** /library/{libraryId}/videos/{videoId}/play | Get Video play data
-[**videoGetVideoResolutions**](ManageVideosApi.md#videoGetVideoResolutions) | **GET** /library/{libraryId}/videos/{videoId}/resolutions | Video resolutions info
-[**videoGetVideoStatistics**](ManageVideosApi.md#videoGetVideoStatistics) | **GET** /library/{libraryId}/statistics | Get Video Statistics
-[**videoGetVideoStorageSize**](ManageVideosApi.md#videoGetVideoStorageSize) | **GET** /library/{libraryId}/videos/{videoId}/storage | Get video storage size info
-[**videoList**](ManageVideosApi.md#videoList) | **GET** /library/{libraryId}/videos | List Videos
-[**videoReencodeUsingCodec**](ManageVideosApi.md#videoReencodeUsingCodec) | **PUT** /library/{libraryId}/videos/{videoId}/outputs/{outputCodecId} | Add output codec to video
-[**videoReencodeVideo**](ManageVideosApi.md#videoReencodeVideo) | **POST** /library/{libraryId}/videos/{videoId}/reencode | Reencode Video
-[**videoRepackage**](ManageVideosApi.md#videoRepackage) | **POST** /library/{libraryId}/videos/{videoId}/repackage | Repackage Video
-[**videoSetThumbnail**](ManageVideosApi.md#videoSetThumbnail) | **POST** /library/{libraryId}/videos/{videoId}/thumbnail | Set Thumbnail
-[**videoSmartGenerate**](ManageVideosApi.md#videoSmartGenerate) | **POST** /library/{libraryId}/videos/{videoId}/smart | Trigger Smart actions
-[**videoTranscribeVideo**](ManageVideosApi.md#videoTranscribeVideo) | **POST** /library/{libraryId}/videos/{videoId}/transcribe | Transcribe video
-[**videoUpdateVideo**](ManageVideosApi.md#videoUpdateVideo) | **POST** /library/{libraryId}/videos/{videoId} | Update Video
-[**videoUploadVideo**](ManageVideosApi.md#videoUploadVideo) | **PUT** /library/{libraryId}/videos/{videoId} | Upload Video
+| Method | HTTP request | Description |
+| ------------- | ------------- | ------------- |
+| [**videoAddCaption**](ManageVideosApi.md#videoAddCaption) | **POST** /library/{libraryId}/videos/{videoId}/captions/{srclang} | Add Caption |
+| [**videoCreateVideo**](ManageVideosApi.md#videoCreateVideo) | **POST** /library/{libraryId}/videos | Create Video |
+| [**videoDeleteCaption**](ManageVideosApi.md#videoDeleteCaption) | **DELETE** /library/{libraryId}/videos/{videoId}/captions/{srclang} | Delete Caption |
+| [**videoDeleteResolutions**](ManageVideosApi.md#videoDeleteResolutions) | **POST** /library/{libraryId}/videos/{videoId}/resolutions/cleanup | Cleanup unconfigured resolutions |
+| [**videoDeleteVideo**](ManageVideosApi.md#videoDeleteVideo) | **DELETE** /library/{libraryId}/videos/{videoId} | Delete Video |
+| [**videoFetchNewVideo**](ManageVideosApi.md#videoFetchNewVideo) | **POST** /library/{libraryId}/videos/fetch | Fetch Video |
+| [**videoFetchVideo**](ManageVideosApi.md#videoFetchVideo) | **POST** /library/{libraryId}/videos/{videoId}/fetch | Fetch Video |
+| [**videoGetVideo**](ManageVideosApi.md#videoGetVideo) | **GET** /library/{libraryId}/videos/{videoId} | Get Video |
+| [**videoGetVideoHeatmap**](ManageVideosApi.md#videoGetVideoHeatmap) | **GET** /library/{libraryId}/videos/{videoId}/heatmap | Get Video Heatmap |
+| [**videoGetVideoHeatmapData**](ManageVideosApi.md#videoGetVideoHeatmapData) | **GET** /library/{libraryId}/videos/{videoId}/play/heatmap | Get Video heatmap data |
+| [**videoGetVideoPlayData**](ManageVideosApi.md#videoGetVideoPlayData) | **GET** /library/{libraryId}/videos/{videoId}/play | Get Video play data |
+| [**videoGetVideoResolutions**](ManageVideosApi.md#videoGetVideoResolutions) | **GET** /library/{libraryId}/videos/{videoId}/resolutions | Video resolutions info |
+| [**videoGetVideoStatistics**](ManageVideosApi.md#videoGetVideoStatistics) | **GET** /library/{libraryId}/statistics | Get Video Statistics |
+| [**videoGetVideoStorageSize**](ManageVideosApi.md#videoGetVideoStorageSize) | **GET** /library/{libraryId}/videos/{videoId}/storage | Get video storage size info |
+| [**videoList**](ManageVideosApi.md#videoList) | **GET** /library/{libraryId}/videos | List Videos |
+| [**videoReencodeUsingCodec**](ManageVideosApi.md#videoReencodeUsingCodec) | **PUT** /library/{libraryId}/videos/{videoId}/outputs/{outputCodecId} | Add output codec to video |
+| [**videoReencodeVideo**](ManageVideosApi.md#videoReencodeVideo) | **POST** /library/{libraryId}/videos/{videoId}/reencode | Reencode Video |
+| [**videoRepackage**](ManageVideosApi.md#videoRepackage) | **POST** /library/{libraryId}/videos/{videoId}/repackage | Repackage Video |
+| [**videoSetThumbnail**](ManageVideosApi.md#videoSetThumbnail) | **POST** /library/{libraryId}/videos/{videoId}/thumbnail | Set Thumbnail |
+| [**videoSmartGenerate**](ManageVideosApi.md#videoSmartGenerate) | **POST** /library/{libraryId}/videos/{videoId}/smart | Trigger Smart actions |
+| [**videoTranscribeVideo**](ManageVideosApi.md#videoTranscribeVideo) | **POST** /library/{libraryId}/videos/{videoId}/transcribe | Transcribe video |
+| [**videoUpdateVideo**](ManageVideosApi.md#videoUpdateVideo) | **POST** /library/{libraryId}/videos/{videoId} | Update Video |
+| [**videoUploadVideo**](ManageVideosApi.md#videoUploadVideo) | **PUT** /library/{libraryId}/videos/{videoId} | Upload Video |
 
 
 <a id="videoAddCaption"></a>
 # **videoAddCaption**
-> StatusModel videoAddCaption(libraryId, videoId, srclang, videoAddCaptionRequest)
+> StatusModel videoAddCaption(libraryId, videoId, srclang, captionModelAdd)
 
 Add Caption
 
@@ -45,9 +45,9 @@ val apiInstance = ManageVideosApi()
 val libraryId : kotlin.Long = 789 // kotlin.Long | 
 val videoId : kotlin.String = videoId_example // kotlin.String | 
 val srclang : kotlin.String = srclang_example // kotlin.String | 
-val videoAddCaptionRequest : VideoAddCaptionRequest =  // VideoAddCaptionRequest | 
+val captionModelAdd : CaptionModelAdd =  // CaptionModelAdd | 
 try {
-    val result : StatusModel = apiInstance.videoAddCaption(libraryId, videoId, srclang, videoAddCaptionRequest)
+    val result : StatusModel = apiInstance.videoAddCaption(libraryId, videoId, srclang, captionModelAdd)
     println(result)
 } catch (e: ClientException) {
     println("4xx response calling ManageVideosApi#videoAddCaption")
@@ -59,13 +59,12 @@ try {
 ```
 
 ### Parameters
-
-Name | Type | Description  | Notes
-------------- | ------------- | ------------- | -------------
- **libraryId** | **kotlin.Long**|  |
- **videoId** | **kotlin.String**|  |
- **srclang** | **kotlin.String**|  |
- **videoAddCaptionRequest** | [**VideoAddCaptionRequest**](VideoAddCaptionRequest.md)|  |
+| **libraryId** | **kotlin.Long**|  | |
+| **videoId** | **kotlin.String**|  | |
+| **srclang** | **kotlin.String**|  | |
+| Name | Type | Description  | Notes |
+| ------------- | ------------- | ------------- | ------------- |
+| **captionModelAdd** | [**CaptionModelAdd**](CaptionModelAdd.md)|  | |
 
 ### Return type
 
@@ -85,7 +84,7 @@ Configure AccessKey:
 
 <a id="videoCreateVideo"></a>
 # **videoCreateVideo**
-> VideoModel videoCreateVideo(libraryId, videoCreateVideoRequest)
+> VideoModel videoCreateVideo(libraryId, createVideoModel)
 
 Create Video
 
@@ -97,9 +96,9 @@ Create Video
 
 val apiInstance = ManageVideosApi()
 val libraryId : kotlin.Long = 789 // kotlin.Long | 
-val videoCreateVideoRequest : VideoCreateVideoRequest =  // VideoCreateVideoRequest | 
+val createVideoModel : CreateVideoModel =  // CreateVideoModel | 
 try {
-    val result : VideoModel = apiInstance.videoCreateVideo(libraryId, videoCreateVideoRequest)
+    val result : VideoModel = apiInstance.videoCreateVideo(libraryId, createVideoModel)
     println(result)
 } catch (e: ClientException) {
     println("4xx response calling ManageVideosApi#videoCreateVideo")
@@ -111,11 +110,10 @@ try {
 ```
 
 ### Parameters
-
-Name | Type | Description  | Notes
-------------- | ------------- | ------------- | -------------
- **libraryId** | **kotlin.Long**|  |
- **videoCreateVideoRequest** | [**VideoCreateVideoRequest**](VideoCreateVideoRequest.md)|  |
+| **libraryId** | **kotlin.Long**|  | |
+| Name | Type | Description  | Notes |
+| ------------- | ------------- | ------------- | ------------- |
+| **createVideoModel** | [**CreateVideoModel**](CreateVideoModel.md)|  | |
 
 ### Return type
 
@@ -162,12 +160,11 @@ try {
 ```
 
 ### Parameters
-
-Name | Type | Description  | Notes
-------------- | ------------- | ------------- | -------------
- **libraryId** | **kotlin.Long**|  |
- **videoId** | **kotlin.String**|  |
- **srclang** | **kotlin.String**|  |
+| **libraryId** | **kotlin.Long**|  | |
+| **videoId** | **kotlin.String**|  | |
+| Name | Type | Description  | Notes |
+| ------------- | ------------- | ------------- | ------------- |
+| **srclang** | **kotlin.String**|  | |
 
 ### Return type
 
@@ -220,18 +217,17 @@ try {
 ```
 
 ### Parameters
-
-Name | Type | Description  | Notes
-------------- | ------------- | ------------- | -------------
- **libraryId** | **kotlin.Long**|  |
- **videoId** | **kotlin.String**|  |
- **resolutionsToDelete** | **kotlin.String**|  | [optional]
- **deleteNonConfiguredResolutions** | **kotlin.Boolean**|  | [optional] [default to false]
- **allResolutions** | **kotlin.Boolean**|  | [optional] [default to false]
- **deleteOriginal** | **kotlin.Boolean**|  | [optional] [default to false]
- **outputs** | **kotlin.String**| Outputs to clean. Supported values: hls, mp4, all | [optional]
- **deleteMp4Files** | **kotlin.Boolean**|  | [optional] [default to false]
- **dryRun** | **kotlin.Boolean**| If set to true, no actual file manipulation will happen, only informational data will be returned | [optional] [default to false]
+| **libraryId** | **kotlin.Long**|  | |
+| **videoId** | **kotlin.String**|  | |
+| **resolutionsToDelete** | **kotlin.String**|  | [optional] |
+| **deleteNonConfiguredResolutions** | **kotlin.Boolean**|  | [optional] [default to false] |
+| **allResolutions** | **kotlin.Boolean**|  | [optional] [default to false] |
+| **deleteOriginal** | **kotlin.Boolean**|  | [optional] [default to false] |
+| **outputs** | **kotlin.String**| Outputs to clean. Supported values: hls, mp4, all | [optional] |
+| **deleteMp4Files** | **kotlin.Boolean**|  | [optional] [default to false] |
+| Name | Type | Description  | Notes |
+| ------------- | ------------- | ------------- | ------------- |
+| **dryRun** | **kotlin.Boolean**| If set to true, no actual file manipulation will happen, only informational data will be returned | [optional] [default to false] |
 
 ### Return type
 
@@ -277,11 +273,10 @@ try {
 ```
 
 ### Parameters
-
-Name | Type | Description  | Notes
-------------- | ------------- | ------------- | -------------
- **libraryId** | **kotlin.Long**|  |
- **videoId** | **kotlin.String**|  |
+| **libraryId** | **kotlin.Long**|  | |
+| Name | Type | Description  | Notes |
+| ------------- | ------------- | ------------- | ------------- |
+| **videoId** | **kotlin.String**|  | |
 
 ### Return type
 
@@ -301,7 +296,7 @@ Configure AccessKey:
 
 <a id="videoFetchNewVideo"></a>
 # **videoFetchNewVideo**
-> StatusModel videoFetchNewVideo(libraryId, videoFetchNewVideoRequest, collectionId, thumbnailTime)
+> StatusModel videoFetchNewVideo(libraryId, fetchVideoRequest, collectionId, thumbnailTime)
 
 Fetch Video
 
@@ -313,11 +308,11 @@ Fetch Video
 
 val apiInstance = ManageVideosApi()
 val libraryId : kotlin.Long = 789 // kotlin.Long | 
-val videoFetchNewVideoRequest : VideoFetchNewVideoRequest =  // VideoFetchNewVideoRequest | 
+val fetchVideoRequest : FetchVideoRequest =  // FetchVideoRequest | 
 val collectionId : kotlin.String = collectionId_example // kotlin.String | 
 val thumbnailTime : kotlin.Int = 56 // kotlin.Int | (Optional) Video time in ms to extract the main video thumbnail.
 try {
-    val result : StatusModel = apiInstance.videoFetchNewVideo(libraryId, videoFetchNewVideoRequest, collectionId, thumbnailTime)
+    val result : StatusModel = apiInstance.videoFetchNewVideo(libraryId, fetchVideoRequest, collectionId, thumbnailTime)
     println(result)
 } catch (e: ClientException) {
     println("4xx response calling ManageVideosApi#videoFetchNewVideo")
@@ -329,13 +324,12 @@ try {
 ```
 
 ### Parameters
-
-Name | Type | Description  | Notes
-------------- | ------------- | ------------- | -------------
- **libraryId** | **kotlin.Long**|  |
- **videoFetchNewVideoRequest** | [**VideoFetchNewVideoRequest**](VideoFetchNewVideoRequest.md)|  |
- **collectionId** | **kotlin.String**|  | [optional]
- **thumbnailTime** | **kotlin.Int**| (Optional) Video time in ms to extract the main video thumbnail. | [optional]
+| **libraryId** | **kotlin.Long**|  | |
+| **fetchVideoRequest** | [**FetchVideoRequest**](FetchVideoRequest.md)|  | |
+| **collectionId** | **kotlin.String**|  | [optional] |
+| Name | Type | Description  | Notes |
+| ------------- | ------------- | ------------- | ------------- |
+| **thumbnailTime** | **kotlin.Int**| (Optional) Video time in ms to extract the main video thumbnail. | [optional] |
 
 ### Return type
 
@@ -355,7 +349,7 @@ Configure AccessKey:
 
 <a id="videoFetchVideo"></a>
 # **videoFetchVideo**
-> StatusModel videoFetchVideo(libraryId, videoId, videoFetchNewVideoRequest, collectionId, enabledResolutions, lowPriority, thumbnailTime)
+> StatusModel videoFetchVideo(libraryId, videoId, fetchVideoRequest, collectionId, enabledResolutions, lowPriority, thumbnailTime)
 
 Fetch Video
 
@@ -368,13 +362,13 @@ Fetch Video
 val apiInstance = ManageVideosApi()
 val libraryId : kotlin.Long = 789 // kotlin.Long | 
 val videoId : kotlin.String = videoId_example // kotlin.String | 
-val videoFetchNewVideoRequest : VideoFetchNewVideoRequest =  // VideoFetchNewVideoRequest | 
+val fetchVideoRequest : FetchVideoRequest =  // FetchVideoRequest | 
 val collectionId : kotlin.String = collectionId_example // kotlin.String | 
 val enabledResolutions : kotlin.String = enabledResolutions_example // kotlin.String | 
 val lowPriority : kotlin.Boolean = true // kotlin.Boolean | 
 val thumbnailTime : kotlin.Int = 56 // kotlin.Int | (Optional) Video time in ms to extract the main video thumbnail.
 try {
-    val result : StatusModel = apiInstance.videoFetchVideo(libraryId, videoId, videoFetchNewVideoRequest, collectionId, enabledResolutions, lowPriority, thumbnailTime)
+    val result : StatusModel = apiInstance.videoFetchVideo(libraryId, videoId, fetchVideoRequest, collectionId, enabledResolutions, lowPriority, thumbnailTime)
     println(result)
 } catch (e: ClientException) {
     println("4xx response calling ManageVideosApi#videoFetchVideo")
@@ -386,16 +380,15 @@ try {
 ```
 
 ### Parameters
-
-Name | Type | Description  | Notes
-------------- | ------------- | ------------- | -------------
- **libraryId** | **kotlin.Long**|  |
- **videoId** | **kotlin.String**|  |
- **videoFetchNewVideoRequest** | [**VideoFetchNewVideoRequest**](VideoFetchNewVideoRequest.md)|  |
- **collectionId** | **kotlin.String**|  | [optional]
- **enabledResolutions** | **kotlin.String**|  | [optional] [default to &quot;&quot;]
- **lowPriority** | **kotlin.Boolean**|  | [optional] [default to false]
- **thumbnailTime** | **kotlin.Int**| (Optional) Video time in ms to extract the main video thumbnail. | [optional]
+| **libraryId** | **kotlin.Long**|  | |
+| **videoId** | **kotlin.String**|  | |
+| **fetchVideoRequest** | [**FetchVideoRequest**](FetchVideoRequest.md)|  | |
+| **collectionId** | **kotlin.String**|  | [optional] |
+| **enabledResolutions** | **kotlin.String**|  | [optional] [default to &quot;&quot;] |
+| **lowPriority** | **kotlin.Boolean**|  | [optional] [default to false] |
+| Name | Type | Description  | Notes |
+| ------------- | ------------- | ------------- | ------------- |
+| **thumbnailTime** | **kotlin.Int**| (Optional) Video time in ms to extract the main video thumbnail. | [optional] |
 
 ### Return type
 
@@ -441,11 +434,10 @@ try {
 ```
 
 ### Parameters
-
-Name | Type | Description  | Notes
-------------- | ------------- | ------------- | -------------
- **libraryId** | **kotlin.Long**|  |
- **videoId** | **kotlin.String**|  |
+| **libraryId** | **kotlin.Long**|  | |
+| Name | Type | Description  | Notes |
+| ------------- | ------------- | ------------- | ------------- |
+| **videoId** | **kotlin.String**|  | |
 
 ### Return type
 
@@ -493,11 +485,10 @@ try {
 ```
 
 ### Parameters
-
-Name | Type | Description  | Notes
-------------- | ------------- | ------------- | -------------
- **libraryId** | **kotlin.Long**| The ID of the video library. |
- **videoId** | **kotlin.String**| The GUID of the video. |
+| **libraryId** | **kotlin.Long**| The ID of the video library. | |
+| Name | Type | Description  | Notes |
+| ------------- | ------------- | ------------- | ------------- |
+| **videoId** | **kotlin.String**| The GUID of the video. | |
 
 ### Return type
 
@@ -545,13 +536,12 @@ try {
 ```
 
 ### Parameters
-
-Name | Type | Description  | Notes
-------------- | ------------- | ------------- | -------------
- **libraryId** | **kotlin.Long**|  |
- **videoId** | **kotlin.String**|  |
- **token** | **kotlin.String**|  | [optional] [default to &quot;&quot;]
- **expires** | **kotlin.Long**|  | [optional] [default to 0L]
+| **libraryId** | **kotlin.Long**|  | |
+| **videoId** | **kotlin.String**|  | |
+| **token** | **kotlin.String**|  | [optional] [default to &quot;&quot;] |
+| Name | Type | Description  | Notes |
+| ------------- | ------------- | ------------- | ------------- |
+| **expires** | **kotlin.Long**|  | [optional] [default to 0L] |
 
 ### Return type
 
@@ -596,13 +586,12 @@ try {
 ```
 
 ### Parameters
-
-Name | Type | Description  | Notes
-------------- | ------------- | ------------- | -------------
- **libraryId** | **kotlin.Long**|  |
- **videoId** | **kotlin.String**|  |
- **token** | **kotlin.String**|  | [optional] [default to &quot;&quot;]
- **expires** | **kotlin.Long**|  | [optional] [default to 0L]
+| **libraryId** | **kotlin.Long**|  | |
+| **videoId** | **kotlin.String**|  | |
+| **token** | **kotlin.String**|  | [optional] [default to &quot;&quot;] |
+| Name | Type | Description  | Notes |
+| ------------- | ------------- | ------------- | ------------- |
+| **expires** | **kotlin.Long**|  | [optional] [default to 0L] |
 
 ### Return type
 
@@ -645,11 +634,10 @@ try {
 ```
 
 ### Parameters
-
-Name | Type | Description  | Notes
-------------- | ------------- | ------------- | -------------
- **libraryId** | **kotlin.Long**|  |
- **videoId** | **kotlin.String**|  |
+| **libraryId** | **kotlin.Long**|  | |
+| Name | Type | Description  | Notes |
+| ------------- | ------------- | ------------- | ------------- |
+| **videoId** | **kotlin.String**|  | |
 
 ### Return type
 
@@ -700,14 +688,13 @@ try {
 ```
 
 ### Parameters
-
-Name | Type | Description  | Notes
-------------- | ------------- | ------------- | -------------
- **libraryId** | **kotlin.Long**|  |
- **dateFrom** | **kotlin.String**| Optional start of the time range (UTC). If omitted or invalid, the last 30 days are returned. | [optional]
- **dateTo** | **kotlin.String**| Optional end of the time range (UTC). If omitted with a valid start, defaults to now; otherwise the last 30 days are returned. | [optional]
- **hourly** | **kotlin.Boolean**| Optional. If true, returns hourly data; otherwise daily (UTC). Default is daily. | [optional] [default to false]
- **videoGuid** | **kotlin.String**| Optional video GUID to filter results. When omitted, returns library-level aggregates. | [optional]
+| **libraryId** | **kotlin.Long**|  | |
+| **dateFrom** | **kotlin.String**| Optional start of the time range (UTC). If omitted or invalid, the last 30 days are returned. | [optional] |
+| **dateTo** | **kotlin.String**| Optional end of the time range (UTC). If omitted with a valid start, defaults to now; otherwise the last 30 days are returned. | [optional] |
+| **hourly** | **kotlin.Boolean**| Optional. If true, returns hourly data; otherwise daily (UTC). Default is daily. | [optional] [default to false] |
+| Name | Type | Description  | Notes |
+| ------------- | ------------- | ------------- | ------------- |
+| **videoGuid** | **kotlin.String**| Optional video GUID to filter results. When omitted, returns library-level aggregates. | [optional] |
 
 ### Return type
 
@@ -753,11 +740,10 @@ try {
 ```
 
 ### Parameters
-
-Name | Type | Description  | Notes
-------------- | ------------- | ------------- | -------------
- **libraryId** | **kotlin.Long**|  |
- **videoId** | **kotlin.String**|  |
+| **libraryId** | **kotlin.Long**|  | |
+| Name | Type | Description  | Notes |
+| ------------- | ------------- | ------------- | ------------- |
+| **videoId** | **kotlin.String**|  | |
 
 ### Return type
 
@@ -807,15 +793,14 @@ try {
 ```
 
 ### Parameters
-
-Name | Type | Description  | Notes
-------------- | ------------- | ------------- | -------------
- **libraryId** | **kotlin.Long**|  |
- **page** | **kotlin.Int**|  | [optional] [default to 1]
- **itemsPerPage** | **kotlin.Int**|  | [optional] [default to 100]
- **search** | **kotlin.String**|  | [optional] [default to &quot;&quot;]
- **collection** | **kotlin.String**|  | [optional] [default to &quot;&quot;]
- **orderBy** | **kotlin.String**|  | [optional] [default to &quot;date&quot;]
+| **libraryId** | **kotlin.Long**|  | |
+| **page** | **kotlin.Int**|  | [optional] [default to 1] |
+| **itemsPerPage** | **kotlin.Int**|  | [optional] [default to 100] |
+| **search** | **kotlin.String**|  | [optional] [default to &quot;&quot;] |
+| **collection** | **kotlin.String**|  | [optional] [default to &quot;&quot;] |
+| Name | Type | Description  | Notes |
+| ------------- | ------------- | ------------- | ------------- |
+| **orderBy** | **kotlin.String**|  | [optional] [default to &quot;date&quot;] |
 
 ### Return type
 
@@ -862,12 +847,11 @@ try {
 ```
 
 ### Parameters
-
-Name | Type | Description  | Notes
-------------- | ------------- | ------------- | -------------
- **libraryId** | **kotlin.Long**|  |
- **videoId** | **kotlin.String**|  |
- **outputCodecId** | [**EncoderOutputCodec**](.md)|  | [enum: 0, 1, 2, 3]
+| **libraryId** | **kotlin.Long**|  | |
+| **videoId** | **kotlin.String**|  | |
+| Name | Type | Description  | Notes |
+| ------------- | ------------- | ------------- | ------------- |
+| **outputCodecId** | [**EncoderOutputCodec**](.md)|  | [enum: 0, 1, 2, 3] |
 
 ### Return type
 
@@ -913,11 +897,10 @@ try {
 ```
 
 ### Parameters
-
-Name | Type | Description  | Notes
-------------- | ------------- | ------------- | -------------
- **libraryId** | **kotlin.Long**|  |
- **videoId** | **kotlin.String**|  |
+| **libraryId** | **kotlin.Long**|  | |
+| Name | Type | Description  | Notes |
+| ------------- | ------------- | ------------- | ------------- |
+| **videoId** | **kotlin.String**|  | |
 
 ### Return type
 
@@ -964,12 +947,11 @@ try {
 ```
 
 ### Parameters
-
-Name | Type | Description  | Notes
-------------- | ------------- | ------------- | -------------
- **libraryId** | **kotlin.Long**|  |
- **videoId** | **kotlin.String**|  |
- **keepOriginalFiles** | **kotlin.Boolean**| Marks whether previous file versions should be kept in storage, allows for faster repackage later on. Default is true. | [optional] [default to true]
+| **libraryId** | **kotlin.Long**|  | |
+| **videoId** | **kotlin.String**|  | |
+| Name | Type | Description  | Notes |
+| ------------- | ------------- | ------------- | ------------- |
+| **keepOriginalFiles** | **kotlin.Boolean**| Marks whether previous file versions should be kept in storage, allows for faster repackage later on. Default is true. | [optional] [default to true] |
 
 ### Return type
 
@@ -1017,13 +999,12 @@ try {
 ```
 
 ### Parameters
-
-Name | Type | Description  | Notes
-------------- | ------------- | ------------- | -------------
- **libraryId** | **kotlin.Long**|  |
- **videoId** | **kotlin.String**|  |
- **thumbnailUrl** | **kotlin.String**|  | [optional]
- **body** | **java.io.File**| Optional thumbnail file to upload | [optional]
+| **libraryId** | **kotlin.Long**|  | |
+| **videoId** | **kotlin.String**|  | |
+| **thumbnailUrl** | **kotlin.String**|  | [optional] |
+| Name | Type | Description  | Notes |
+| ------------- | ------------- | ------------- | ------------- |
+| **body** | **java.io.File**| Optional thumbnail file to upload | [optional] |
 
 ### Return type
 
@@ -1043,7 +1024,7 @@ Configure AccessKey:
 
 <a id="videoSmartGenerate"></a>
 # **videoSmartGenerate**
-> StatusModel videoSmartGenerate(libraryId, videoId, videoSmartGenerateRequest)
+> StatusModel videoSmartGenerate(libraryId, videoId, smartGenerateModel)
 
 Trigger Smart actions
 
@@ -1056,9 +1037,9 @@ Trigger Smart actions
 val apiInstance = ManageVideosApi()
 val libraryId : kotlin.Long = 789 // kotlin.Long | 
 val videoId : kotlin.String = videoId_example // kotlin.String | 
-val videoSmartGenerateRequest : VideoSmartGenerateRequest =  // VideoSmartGenerateRequest | 
+val smartGenerateModel : SmartGenerateModel =  // SmartGenerateModel | 
 try {
-    val result : StatusModel = apiInstance.videoSmartGenerate(libraryId, videoId, videoSmartGenerateRequest)
+    val result : StatusModel = apiInstance.videoSmartGenerate(libraryId, videoId, smartGenerateModel)
     println(result)
 } catch (e: ClientException) {
     println("4xx response calling ManageVideosApi#videoSmartGenerate")
@@ -1070,12 +1051,11 @@ try {
 ```
 
 ### Parameters
-
-Name | Type | Description  | Notes
-------------- | ------------- | ------------- | -------------
- **libraryId** | **kotlin.Long**|  |
- **videoId** | **kotlin.String**|  |
- **videoSmartGenerateRequest** | [**VideoSmartGenerateRequest**](VideoSmartGenerateRequest.md)|  |
+| **libraryId** | **kotlin.Long**|  | |
+| **videoId** | **kotlin.String**|  | |
+| Name | Type | Description  | Notes |
+| ------------- | ------------- | ------------- | ------------- |
+| **smartGenerateModel** | [**SmartGenerateModel**](SmartGenerateModel.md)|  | |
 
 ### Return type
 
@@ -1095,7 +1075,7 @@ Configure AccessKey:
 
 <a id="videoTranscribeVideo"></a>
 # **videoTranscribeVideo**
-> StatusModel videoTranscribeVideo(libraryId, videoId, force, videoTranscribeVideoRequest)
+> StatusModel videoTranscribeVideo(libraryId, videoId, force, transcribeSettings)
 
 Transcribe video
 
@@ -1109,9 +1089,9 @@ val apiInstance = ManageVideosApi()
 val libraryId : kotlin.Long = 789 // kotlin.Long | 
 val videoId : kotlin.String = videoId_example // kotlin.String | 
 val force : kotlin.Boolean = true // kotlin.Boolean | 
-val videoTranscribeVideoRequest : VideoTranscribeVideoRequest =  // VideoTranscribeVideoRequest | Used to override video library transcription settings, null by default
+val transcribeSettings : TranscribeSettings =  // TranscribeSettings | Used to override video library transcription settings, null by default
 try {
-    val result : StatusModel = apiInstance.videoTranscribeVideo(libraryId, videoId, force, videoTranscribeVideoRequest)
+    val result : StatusModel = apiInstance.videoTranscribeVideo(libraryId, videoId, force, transcribeSettings)
     println(result)
 } catch (e: ClientException) {
     println("4xx response calling ManageVideosApi#videoTranscribeVideo")
@@ -1123,13 +1103,12 @@ try {
 ```
 
 ### Parameters
-
-Name | Type | Description  | Notes
-------------- | ------------- | ------------- | -------------
- **libraryId** | **kotlin.Long**|  |
- **videoId** | **kotlin.String**|  |
- **force** | **kotlin.Boolean**|  | [optional] [default to false]
- **videoTranscribeVideoRequest** | [**VideoTranscribeVideoRequest**](VideoTranscribeVideoRequest.md)| Used to override video library transcription settings, null by default | [optional]
+| **libraryId** | **kotlin.Long**|  | |
+| **videoId** | **kotlin.String**|  | |
+| **force** | **kotlin.Boolean**|  | [optional] [default to false] |
+| Name | Type | Description  | Notes |
+| ------------- | ------------- | ------------- | ------------- |
+| **transcribeSettings** | [**TranscribeSettings**](TranscribeSettings.md)| Used to override video library transcription settings, null by default | [optional] |
 
 ### Return type
 
@@ -1149,7 +1128,7 @@ Configure AccessKey:
 
 <a id="videoUpdateVideo"></a>
 # **videoUpdateVideo**
-> StatusModel videoUpdateVideo(libraryId, videoId, videoUpdateVideoRequest)
+> StatusModel videoUpdateVideo(libraryId, videoId, updateVideoModel)
 
 Update Video
 
@@ -1162,9 +1141,9 @@ Update Video
 val apiInstance = ManageVideosApi()
 val libraryId : kotlin.Long = 789 // kotlin.Long | 
 val videoId : kotlin.String = videoId_example // kotlin.String | 
-val videoUpdateVideoRequest : VideoUpdateVideoRequest =  // VideoUpdateVideoRequest | 
+val updateVideoModel : UpdateVideoModel =  // UpdateVideoModel | 
 try {
-    val result : StatusModel = apiInstance.videoUpdateVideo(libraryId, videoId, videoUpdateVideoRequest)
+    val result : StatusModel = apiInstance.videoUpdateVideo(libraryId, videoId, updateVideoModel)
     println(result)
 } catch (e: ClientException) {
     println("4xx response calling ManageVideosApi#videoUpdateVideo")
@@ -1176,12 +1155,11 @@ try {
 ```
 
 ### Parameters
-
-Name | Type | Description  | Notes
-------------- | ------------- | ------------- | -------------
- **libraryId** | **kotlin.Long**|  |
- **videoId** | **kotlin.String**|  |
- **videoUpdateVideoRequest** | [**VideoUpdateVideoRequest**](VideoUpdateVideoRequest.md)|  |
+| **libraryId** | **kotlin.Long**|  | |
+| **videoId** | **kotlin.String**|  | |
+| Name | Type | Description  | Notes |
+| ------------- | ------------- | ------------- | ------------- |
+| **updateVideoModel** | [**UpdateVideoModel**](UpdateVideoModel.md)|  | |
 
 ### Return type
 
@@ -1238,22 +1216,21 @@ try {
 ```
 
 ### Parameters
-
-Name | Type | Description  | Notes
-------------- | ------------- | ------------- | -------------
- **libraryId** | **kotlin.Long**|  |
- **videoId** | **kotlin.String**|  |
- **body** | **java.io.File**| Video file to upload |
- **jitEnabled** | **kotlin.Boolean**| Marks whether JIT encoding should be enabled for this video (works only when Premium Encoding is enabled), overrides library settings | [optional]
- **enabledResolutions** | **kotlin.String**| Comma separated list of resolutions enabled for encoding, available options: 240p, 360p, 480p, 720p, 1080p, 1440p, 2160p | [optional] [default to &quot;&quot;]
- **enabledOutputCodecs** | **kotlin.String**| List of codecs that will be used to encode the file (overrides library settings). Available values: x264, vp9 | [optional] [default to &quot;&quot;]
- **transcribeEnabled** | **kotlin.Boolean**| Setting this to true will enable transcription on this video. Enabling this will incur transcription charges | [optional]
- **transcribeLanguages** | **kotlin.String**| Comma separated list of languages that will be used as target languages, use ISO 639-1 language codes. | [optional]
- **sourceLanguage** | **kotlin.String**| Language spoken in the video, use ISO 639-1 language codes. | [optional]
- **generateTitle** | **kotlin.Boolean**| Whether video title should be generated from transcription. | [optional]
- **generateDescription** | **kotlin.Boolean**| Whether video description should be generated from transcription. | [optional]
- **generateChapters** | **kotlin.Boolean**| Whether video chapters should be generated from transcription. | [optional]
- **generateMoments** | **kotlin.Boolean**| Whether video moments should be generated from transcription. | [optional]
+| **libraryId** | **kotlin.Long**|  | |
+| **videoId** | **kotlin.String**|  | |
+| **body** | **java.io.File**| Video file to upload | |
+| **jitEnabled** | **kotlin.Boolean**| Marks whether JIT encoding should be enabled for this video (works only when Premium Encoding is enabled), overrides library settings | [optional] |
+| **enabledResolutions** | **kotlin.String**| Comma separated list of resolutions enabled for encoding, available options: 240p, 360p, 480p, 720p, 1080p, 1440p, 2160p | [optional] [default to &quot;&quot;] |
+| **enabledOutputCodecs** | **kotlin.String**| List of codecs that will be used to encode the file (overrides library settings). Available values: x264, vp9 | [optional] [default to &quot;&quot;] |
+| **transcribeEnabled** | **kotlin.Boolean**| Setting this to true will enable transcription on this video. Enabling this will incur transcription charges | [optional] |
+| **transcribeLanguages** | **kotlin.String**| Comma separated list of languages that will be used as target languages, use ISO 639-1 language codes. | [optional] |
+| **sourceLanguage** | **kotlin.String**| Language spoken in the video, use ISO 639-1 language codes. | [optional] |
+| **generateTitle** | **kotlin.Boolean**| Whether video title should be generated from transcription. | [optional] |
+| **generateDescription** | **kotlin.Boolean**| Whether video description should be generated from transcription. | [optional] |
+| **generateChapters** | **kotlin.Boolean**| Whether video chapters should be generated from transcription. | [optional] |
+| Name | Type | Description  | Notes |
+| ------------- | ------------- | ------------- | ------------- |
+| **generateMoments** | **kotlin.Boolean**| Whether video moments should be generated from transcription. | [optional] |
 
 ### Return type
 

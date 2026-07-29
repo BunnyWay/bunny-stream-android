@@ -30,22 +30,23 @@ import net.bunny.api.video.domain.model.VideoPlayData
 import org.openapitools.client.models.CaptionModel
 import org.openapitools.client.models.CodecRenditionSizeModel
 import org.openapitools.client.models.ResolutionReference as GeneratedResolutionReference
-import org.openapitools.client.models.StatusModelOfVideoResolutionsInfoModelAllOfData
-import org.openapitools.client.models.StatusModelOfVideoStorageSizeModelAllOfData
+import org.openapitools.client.models.VideoResolutionsInfoModel
+import org.openapitools.client.models.VideoStorageSizeModel
 import org.openapitools.client.models.StorageObjectModel
-import org.openapitools.client.models.VideoAddCaptionRequest
-import org.openapitools.client.models.VideoCreateVideoRequest
-import org.openapitools.client.models.VideoFetchNewVideoRequest
-import org.openapitools.client.models.VideoSmartGenerateRequest
+import org.openapitools.client.models.CaptionModelAdd
+import org.openapitools.client.models.CreateVideoModel
+import org.openapitools.client.models.FetchVideoRequest as GeneratedFetchVideoRequest
+import org.openapitools.client.models.SmartGenerateModel
 import org.openapitools.client.models.VideoStatisticsModel
-import org.openapitools.client.models.VideoTranscribeVideoRequest
-import org.openapitools.client.models.VideoUpdateVideoRequest
+import org.openapitools.client.models.TranscribeSettings
+import org.openapitools.client.models.UpdateVideoModel
 import org.openapitools.client.models.ChapterModel
 import org.openapitools.client.models.MetaTagModel
 import org.openapitools.client.models.MomentModel
 import org.openapitools.client.models.PaginationListOfVideoModel
 import org.openapitools.client.models.TranscodingMessageModel
 import org.openapitools.client.models.VideoModel
+import org.openapitools.client.models.SmartGenerateFeaturesStatusModel
 import org.openapitools.client.models.VideoModelSmartGenerateFeaturesStatus
 import org.openapitools.client.models.VideoPlayDataModel
 import org.openapitools.client.models.VideoPlayDataModelVideo
@@ -109,6 +110,19 @@ internal fun TranscodingMessageModel.toDomain(): TranscodingMessage = Transcodin
     message = message,
     value = value,
 )
+
+/**
+ * The generator emits one copy of this shape per endpoint — [SmartGenerateFeaturesStatusModel] for
+ * the listing, [VideoModelSmartGenerateFeaturesStatus] for play data. Same fields, same mapped
+ * enums; both are mapped here so the two surfaces cannot drift.
+ */
+internal fun SmartGenerateFeaturesStatusModel.toDomain(): SmartGenerateFeatures =
+    SmartGenerateFeatures(
+        title = title,
+        description = description,
+        chapters = chapters,
+        moments = moments,
+    )
 
 internal fun VideoModelSmartGenerateFeaturesStatus.toDomain(): SmartGenerateFeatures =
     SmartGenerateFeatures(
@@ -210,7 +224,7 @@ internal fun VideoStatisticsModel.toDomain(): VideoStatistics = VideoStatistics(
     engagementScore = engagementScore ?: 0,
 )
 
-internal fun StatusModelOfVideoStorageSizeModelAllOfData.toDomain(): VideoStorageSize =
+internal fun VideoStorageSizeModel.toDomain(): VideoStorageSize =
     VideoStorageSize(
         encoded = encoded.orEmpty().mapValues { (_, rendition) -> rendition.toDomain() },
         thumbnailsBytes = thumbnails ?: 0L,
@@ -227,7 +241,7 @@ internal fun CodecRenditionSizeModel.toDomain(): CodecRenditionSize = CodecRendi
     sizeBytes = propertySize ?: 0L,
 )
 
-internal fun StatusModelOfVideoResolutionsInfoModelAllOfData.toDomain(): VideoResolutionsInfo =
+internal fun VideoResolutionsInfoModel.toDomain(): VideoResolutionsInfo =
     VideoResolutionsInfo(
         videoId = videoId.orEmpty(),
         videoLibraryId = videoLibraryId ?: 0L,
@@ -266,13 +280,13 @@ internal fun StorageObjectModel.toDomain(): StorageObject = StorageObject(
 
 // region — domain → generated (request bodies)
 
-internal fun CreateVideoRequest.toGenerated(): VideoCreateVideoRequest = VideoCreateVideoRequest(
+internal fun CreateVideoRequest.toGenerated(): CreateVideoModel = CreateVideoModel(
     title = title,
     collectionId = collectionId,
     thumbnailTime = thumbnailTime,
 )
 
-internal fun UpdateVideoRequest.toGenerated(): VideoUpdateVideoRequest = VideoUpdateVideoRequest(
+internal fun UpdateVideoRequest.toGenerated(): UpdateVideoModel = UpdateVideoModel(
     title = title,
     collectionId = collectionId,
     chapters = chapters?.map { ChapterModel(title = it.title, start = it.startSeconds, end = it.endSeconds) },
@@ -280,20 +294,20 @@ internal fun UpdateVideoRequest.toGenerated(): VideoUpdateVideoRequest = VideoUp
     metaTags = metaTags?.map { MetaTagModel(property = it.property, value = it.value) },
 )
 
-internal fun AddCaptionRequest.toGenerated(): VideoAddCaptionRequest = VideoAddCaptionRequest(
+internal fun AddCaptionRequest.toGenerated(): CaptionModelAdd = CaptionModelAdd(
     srclang = languageCode,
     label = label,
     captionsFile = captionsFileBase64,
 )
 
-internal fun FetchVideoRequest.toGenerated(): VideoFetchNewVideoRequest = VideoFetchNewVideoRequest(
+internal fun FetchVideoRequest.toGenerated(): GeneratedFetchVideoRequest = GeneratedFetchVideoRequest(
     url = url,
     headers = headers,
     title = title,
 )
 
-internal fun SmartGenerateRequest.toGenerated(): VideoSmartGenerateRequest =
-    VideoSmartGenerateRequest(
+internal fun SmartGenerateRequest.toGenerated(): SmartGenerateModel =
+    SmartGenerateModel(
         generateTitle = generateTitle,
         generateDescription = generateDescription,
         generateChapters = generateChapters,
@@ -301,8 +315,8 @@ internal fun SmartGenerateRequest.toGenerated(): VideoSmartGenerateRequest =
         sourceLanguage = sourceLanguage,
     )
 
-internal fun TranscribeVideoRequest.toGenerated(): VideoTranscribeVideoRequest =
-    VideoTranscribeVideoRequest(
+internal fun TranscribeVideoRequest.toGenerated(): TranscribeSettings =
+    TranscribeSettings(
         targetLanguages = targetLanguages,
         generateTitle = generateTitle,
         generateDescription = generateDescription,

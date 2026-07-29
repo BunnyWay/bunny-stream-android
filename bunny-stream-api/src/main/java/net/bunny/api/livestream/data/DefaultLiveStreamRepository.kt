@@ -34,8 +34,8 @@ import org.openapitools.client.models.ThumbnailListResponseModel
 import org.openapitools.client.models.RtmpOutput as GeneratedRtmpOutput
 // Generated request wrappers — aliased to avoid clashing with the domain
 // [LiveStreamCreateRequest] above.
-import org.openapitools.client.models.LiveStreamCreateRequest as GeneratedLiveStreamCreateRequest
-import org.openapitools.client.models.LiveStreamUpdateRequest as GeneratedLiveStreamUpdateRequest
+import org.openapitools.client.models.CreateLiveStreamModel as GeneratedLiveStreamCreateRequest
+import org.openapitools.client.models.UpdateLiveStreamModel as GeneratedLiveStreamUpdateRequest
 
 /**
  * Default [LiveStreamRepository] backed by the generated [ManageLiveStreamsApi].
@@ -134,7 +134,7 @@ internal class DefaultLiveStreamRepository(
         bunnyCatching {
             liveStreamsApi.liveStreamCreate(
                 libraryId = libraryId,
-                liveStreamCreateRequest = request.toCreateDto(),
+                createLiveStreamModel = request.toCreateDto(),
             ).toDomain()
         }
     }
@@ -150,7 +150,7 @@ internal class DefaultLiveStreamRepository(
             liveStreamsApi.liveStreamUpdate(
                 libraryId = libraryId,
                 streamId = streamId,
-                liveStreamUpdateRequest = request.toUpdateDto(),
+                updateLiveStreamModel = request.toUpdateDto(),
             )
             Unit
         }

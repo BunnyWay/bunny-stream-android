@@ -2,9 +2,9 @@
 
 All URIs are relative to *https://video.bunnycdn.com*
 
-Method | HTTP request | Description
-------------- | ------------- | -------------
-[**oEmbedGetOEmbed**](OEmbedApi.md#oEmbedGetOEmbed) | **GET** /OEmbed | 
+| Method | HTTP request | Description |
+| ------------- | ------------- | ------------- |
+| [**oEmbedGetOEmbed**](OEmbedApi.md#oEmbedGetOEmbed) | **GET** /OEmbed |  |
 
 
 <a id="oEmbedGetOEmbed"></a>
@@ -38,14 +38,13 @@ try {
 ```
 
 ### Parameters
-
-Name | Type | Description  | Notes
-------------- | ------------- | ------------- | -------------
- **url** | **kotlin.String**|  | [optional]
- **maxWidth** | **kotlin.Int**|  | [optional]
- **maxHeight** | **kotlin.Int**|  | [optional]
- **token** | **kotlin.String**|  | [optional] [default to &quot;&quot;]
- **expires** | **kotlin.Long**|  | [optional] [default to 0L]
+| **url** | **kotlin.String**|  | [optional] |
+| **maxWidth** | **kotlin.Int**|  | [optional] |
+| **maxHeight** | **kotlin.Int**|  | [optional] |
+| **token** | **kotlin.String**|  | [optional] [default to &quot;&quot;] |
+| Name | Type | Description  | Notes |
+| ------------- | ------------- | ------------- | ------------- |
+| **expires** | **kotlin.Long**|  | [optional] [default to 0L] |
 
 ### Return type
 

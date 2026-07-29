@@ -1,5 +1,5 @@
 
-# VideoPlaybackSource
+# net.bunny.api.model.VideoPlaybackSource
 
 ## Enum
 

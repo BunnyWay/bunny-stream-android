@@ -2,9 +2,9 @@
 
 All URIs are relative to *https://video.bunnycdn.com*
 
-Method | HTTP request | Description
-------------- | ------------- | -------------
-[**libraryStatus**](LibraryApi.md#libraryStatus) | **GET** /library/{libraryId} | 
+| Method | HTTP request | Description |
+| ------------- | ------------- | ------------- |
+| [**libraryStatus**](LibraryApi.md#libraryStatus) | **GET** /library/{libraryId} |  |
 
 
 <a id="libraryStatus"></a>
@@ -34,10 +34,9 @@ try {
 ```
 
 ### Parameters
-
-Name | Type | Description  | Notes
-------------- | ------------- | ------------- | -------------
- **libraryId** | **kotlin.Long**|  |
+| Name | Type | Description  | Notes |
+| ------------- | ------------- | ------------- | ------------- |
+| **libraryId** | **kotlin.Long**|  | |
 
 ### Return type
 

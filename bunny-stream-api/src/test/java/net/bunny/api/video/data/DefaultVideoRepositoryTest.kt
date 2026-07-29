@@ -24,12 +24,12 @@ import org.openapitools.client.models.EncoderOutputCodec
 import org.openapitools.client.models.PaginationListOfVideoModel
 import org.openapitools.client.models.StatusModel
 import org.openapitools.client.models.StatusModelOfVideoStorageSizeModel
-import org.openapitools.client.models.StatusModelOfVideoStorageSizeModelAllOfData
-import org.openapitools.client.models.VideoAddCaptionRequest
-import org.openapitools.client.models.VideoCreateVideoRequest
+import org.openapitools.client.models.VideoStorageSizeModel
+import org.openapitools.client.models.CaptionModelAdd
+import org.openapitools.client.models.CreateVideoModel
 import org.openapitools.client.models.VideoHeatmapModel
 import org.openapitools.client.models.VideoModel
-import org.openapitools.client.models.VideoUpdateVideoRequest
+import org.openapitools.client.models.UpdateVideoModel
 
 /**
  * Tests for [DefaultVideoRepository] — the layer that replaced reaching into the generated
@@ -178,7 +178,7 @@ class DefaultVideoRepositoryTest {
         every { api.videoGetVideoStorageSize(LIBRARY_ID, VIDEO_ID) } returns
             StatusModelOfVideoStorageSizeModel(
                 success = true,
-                data = StatusModelOfVideoStorageSizeModelAllOfData(
+                data = VideoStorageSizeModel(
                     thumbnails = 1_024L,
                     originals = 8_192L,
                     calculatedAt = "2026-07-01T00:00:00Z",
@@ -197,7 +197,7 @@ class DefaultVideoRepositoryTest {
 
     @Test
     fun `createVideo forwards every field of the domain request`() = runTest(dispatcher) {
-        val sent = slot<VideoCreateVideoRequest>()
+        val sent = slot<CreateVideoModel>()
         every { api.videoCreateVideo(eq(LIBRARY_ID), capture(sent)) } returns
             VideoModel(guid = "new-video", title = "Clip")
 
@@ -227,7 +227,7 @@ class DefaultVideoRepositoryTest {
 
     @Test
     fun `updateVideo carries chapters across the domain boundary`() = runTest(dispatcher) {
-        val sent = slot<VideoUpdateVideoRequest>()
+        val sent = slot<UpdateVideoModel>()
         every { api.videoUpdateVideo(eq(LIBRARY_ID), eq(VIDEO_ID), capture(sent)) } returns
             StatusModel(success = true)
 
@@ -252,7 +252,7 @@ class DefaultVideoRepositoryTest {
         runTest(dispatcher) {
             // The endpoint takes srclang twice — as a path/query parameter and inside the body.
             // Sending them out of step would attach the track to the wrong language.
-            val sent = slot<VideoAddCaptionRequest>()
+            val sent = slot<CaptionModelAdd>()
             every {
                 api.videoAddCaption(eq(LIBRARY_ID), eq(VIDEO_ID), eq("pl"), capture(sent))
             } returns StatusModel(success = true, statusCode = 200)

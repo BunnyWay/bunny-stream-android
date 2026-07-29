@@ -16,7 +16,7 @@ plugins {
 
     // OpenAPI Generator (Never versions mess up markdown table generation)
     // https://openapi-generator.tech
-    id("org.openapi.generator") version "7.6.0" apply false
+    id("org.openapi.generator") version "7.24.0" apply false
 
     // Documentation
     // https://kotlin.github.io/dokka

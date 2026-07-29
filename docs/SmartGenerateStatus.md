@@ -1,5 +1,5 @@
 
-# SmartGenerateStatus
+# net.bunny.api.model.SmartGenerateStatus
 
 ## Enum
 

@@ -207,7 +207,7 @@ internal class DefaultVideoRepository(
         bunnyCatching {
             videosApi.videoFetchNewVideo(
                 libraryId = libraryId,
-                videoFetchNewVideoRequest = request.toGenerated(),
+                fetchVideoRequest = request.toGenerated(),
                 collectionId = collectionId,
                 thumbnailTime = thumbnailTime,
             ).requireSuccess()
@@ -227,7 +227,7 @@ internal class DefaultVideoRepository(
             videosApi.videoFetchVideo(
                 libraryId = libraryId,
                 videoId = videoId,
-                videoFetchNewVideoRequest = request.toGenerated(),
+                fetchVideoRequest = request.toGenerated(),
                 collectionId = collectionId,
                 enabledResolutions = enabledResolutions?.joinToString(",").orEmpty(),
                 lowPriority = lowPriority,
@@ -250,7 +250,7 @@ internal class DefaultVideoRepository(
                 libraryId = libraryId,
                 videoId = videoId,
                 srclang = request.languageCode,
-                videoAddCaptionRequest = request.toGenerated(),
+                captionModelAdd = request.toGenerated(),
             ).requireSuccess()
         }
     }
@@ -343,7 +343,7 @@ internal class DefaultVideoRepository(
                 libraryId = libraryId,
                 videoId = videoId,
                 force = force,
-                videoTranscribeVideoRequest = request.toGenerated(),
+                transcribeSettings = request.toGenerated(),
             ).requireSuccess()
         }
     }
