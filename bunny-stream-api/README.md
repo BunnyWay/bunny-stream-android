@@ -29,8 +29,9 @@ out of source control.
 Everything is reachable from `BunnyStreamApi.getInstance()`:
 
 ```kotlin
-// Videos and collections (blocking calls - run them off the main thread)
-val videos = BunnyStreamApi.getInstance().videosApi.videoList(libraryId = 12345L)
+// Videos and collections - suspend calls returning BunnyResult
+val videos = BunnyStreamApi.getInstance().videoRepository.listVideos(libraryId = 12345L)
+val collections = BunnyStreamApi.getInstance().collectionRepository.listCollections(libraryId = 12345L)
 
 // Uploads (TUS, with pause and resume) - addressed by the id startUpload returns
 val uploader = BunnyStreamApi.getInstance().tusVideoUploader
@@ -44,6 +45,7 @@ val created = repo.createLiveStream(libraryId, LiveStreamCreateRequest(title = "
 
 Step-by-step flows with prerequisites and gotchas:
 
+- [Manage videos and collections](../docs/guides/manage-videos.md)
 - [Upload videos](../docs/guides/upload-videos.md)
 - [Manage live streams](../docs/guides/manage-live-streams.md)
 - [Handle errors](../docs/guides/handle-errors.md)
@@ -52,9 +54,9 @@ Step-by-step flows with prerequisites and gotchas:
 ## Reference
 
 - [API reference](https://bunnyway.github.io/bunny-stream-android/api/) (generated from the source)
-- Generated REST endpoint docs: [Videos](../docs/ManageVideosApi.md),
-  [Collections](../docs/ManageCollectionsApi.md),
-  [Live streams](../docs/ManageLiveStreamsApi.md)
+- [Bunny Stream REST API](https://docs.bunny.net/reference/api-overview) for the endpoints behind
+  the repositories. The generated client that calls them is internal from 4.0.0 on; the endpoint
+  docs under `docs/` describe it and are not the integration surface.
 
 ## License
 

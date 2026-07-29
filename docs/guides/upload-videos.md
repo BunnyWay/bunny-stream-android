@@ -89,9 +89,10 @@ has instead of re-sending the file. It needs the `videoId` and the same `Uri`, s
 alongside the upload id:
 
 ```kotlin
-is UploadEvent.Failed -> if (!event.error.isTerminal && event.videoId != null) {
-    val retryId = uploader.continueUpload(libraryId, event.videoId, videoUri)
-    observe(retryId)
+is UploadEvent.Failed -> event.videoId?.let { videoId ->
+    if (!event.error.isTerminal) {
+        observe(uploader.continueUpload(libraryId, videoId, videoUri))
+    }
 }
 ```
 

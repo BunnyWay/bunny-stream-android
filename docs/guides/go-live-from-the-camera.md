@@ -122,6 +122,5 @@ binding.cameraUpload.hideDefaultControls = true
 - Broadcasting from the emulator works (virtual camera), but test on a device for real encoder
   performance.
 - The SDK does not ask for permissions; that flow stays in your app (step 2).
-
 Working example: `GoLiveActivity` (live) and `RecordingActivity` (record to VOD) in the
 [demo app](https://github.com/BunnyWay/bunny-stream-android/blob/main/app/README.md).

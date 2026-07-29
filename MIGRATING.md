@@ -1,14 +1,23 @@
 # Migrating to 4.0.0
 
-4.0.0 unifies how the SDK reports asynchronous results and failures. Before it, the public API
-answered in three different shapes — Arrow's `Either<String, T>` from repositories, callbacks from
-uploads, and raw generated types elsewhere — and an error was a bare `String`, so telling a `401`
-apart from a lost connection meant matching on message text.
+4.0.0 changes two things about the SDK's public API, and both were long overdue.
 
-After this release there is one result envelope, one error taxonomy, and uploads are a `Flow`.
+**How results and failures are reported.** 3.x answered in three different shapes — Arrow's
+`Either<String, T>` from repositories, callbacks from uploads, and raw generated types elsewhere —
+and an error was a bare `String`, so telling a `401` apart from a lost connection meant matching on
+message text. There is now one result envelope, one error taxonomy, and uploads are a `Flow`.
 
-Every change below is source-breaking. None of it is behavioural guesswork on your side: the
-compiler points at each call site, and the fixes are mechanical.
+**What the API is made of.** 3.x handed you the OpenAPI generator's output: `videosApi` and
+`collectionsApi` returned types from `org.openapitools.client.models`, which made Bunny's API spec
+your compile-time dependency. Those are replaced by repositories speaking domain models, so a
+change to our spec can no longer break your build.
+
+Every change below is source-breaking, and **nothing you could do in 3.x is gone** — every method
+and every field has an equivalent. The compiler points at each call site, and the fixes are
+mechanical.
+
+Sections 1–3 cover results and errors, section 4 the generated REST types, sections 5–7 the
+upload API.
 
 ---
 
@@ -56,29 +65,17 @@ when (val result = repository.fetchSettings(libraryId, videoId)) {
 
 Helpers: `getOrNull()`, `errorOrNull()`, `map { }`, `fold(onOk, onErr)`.
 
-### `:recording` — `RecordingRepository`
+### `:recording` — `RecordingRepository` is now internal
 
-If you drive the camera broadcaster yourself rather than through `StreamCameraUploadView`, all five
-`RecordingRepository` methods changed shape the same way:
+`net.bunny.bunnystreamcameraupload.domain.RecordingRepository` and its implementation are
+`internal` in 4.0.0. It was public by accident: nothing in the documented API ever took one or
+handed one out, and its single 3.x method (`prepareRecording`) exists to serve
+`StreamCameraUploadView`, which is the supported way to record.
 
-```kotlin
-// Before
-recordingRepository.prepareRecording(libraryId).fold(
-    ifLeft = { message -> showError(message) },
-    ifRight = { rtmpUrl -> publish(rtmpUrl) },
-)
-
-// After
-recordingRepository.prepareRecording(libraryId).fold(
-    onOk = { rtmpUrl -> publish(rtmpUrl) },
-    onErr = { error -> showError(error.message) },
-)
-```
-
-Two failures this repository decides itself — publishing to a live stream that has already ended,
-and one whose stream key has not been issued yet — now arrive as `BunnyError.InvalidState` with the
-terminality they actually have, instead of two indistinguishable strings. Branch on
-`error.isTerminal` to tell "create a new stream" from "try again in a moment".
+If you called it directly, `StreamCameraUploadView` covers recording to a new video and
+broadcasting to an existing live stream (see
+[Go live from the camera](docs/guides/go-live-from-the-camera.md)). For anything it does not
+cover, `videoRepository.createVideo` gives you the same video record the repository was creating.
 
 ### Arrow is no longer on your compile classpath
 
@@ -167,8 +164,9 @@ viewModelScope.launch {
 
 The event sequence is ordered and finite: one `Started`, then zero or more `Progress`, then exactly
 one terminal event (`Completed`, `Cancelled` or `Failed`), after which the flow completes. The
-single exception is a failure before the transfer could start — an unreadable file, or the video
-record could not be created — which emits `Failed` alone.
+sequence is shorter when nothing ever got underway: a failure before the transfer could start — an
+unreadable file, or the video record could not be created — emits `Failed` alone, and a cancel
+that lands during that same window emits `Cancelled` alone.
 
 Failures arrive as a `Failed` **value**, not a thrown exception, so a `collect` without a `catch`
 cannot miss one.
@@ -219,9 +217,10 @@ up from the offset the server already has instead of re-sending the file:
 val uploadId = tusVideoUploader.startUpload(libraryId, uri)
 
 // …and later, on a transient failure, the same uploader continues it:
-is UploadEvent.Failed -> if (!event.error.isTerminal && event.videoId != null) {
-    val retryId = tusVideoUploader.continueUpload(libraryId, event.videoId, uri)
-    observe(retryId)
+is UploadEvent.Failed -> event.videoId?.let { videoId ->
+    if (!event.error.isTerminal) {
+        observe(tusVideoUploader.continueUpload(libraryId, videoId, uri))
+    }
 }
 ```
 
@@ -234,7 +233,92 @@ It needs the `videoId` and the same content URI, so persist both alongside the u
 
 ---
 
-## 4. Types that moved or disappeared
+## 4. The generated REST clients are gone from the public API
+
+3.x handed you the OpenAPI generator's output directly: `videosApi` and `collectionsApi` on
+`BunnyStreamApi`, returning types from `org.openapitools.client.models`. That made Bunny's API
+spec your compile-time dependency — a renamed field on our side broke your build without anyone
+touching your code.
+
+4.0.0 replaces them with repositories that speak domain models:
+
+```kotlin
+// 3.x — generated client, blocking, throws on failure
+val response = BunnyStreamApi.getInstance().videosApi.videoList(libraryId)
+val videos = response.items.orEmpty()
+
+// 4.0.0 — repository, suspend, BunnyResult
+BunnyStreamApi.getInstance().videoRepository.listVideos(libraryId).fold(
+    onOk = { page -> render(page.items) },
+    onErr = { error -> showError(error.message) },
+)
+```
+
+**No capability was dropped.** 22 of the 23 `videosApi` methods and all 5 `collectionsApi` methods
+have a repository equivalent, and the domain models carry every field the generated ones did. The
+23rd, `videoUploadVideo`, is the upload endpoint — `videoUploader` / `tusVideoUploader` have always
+been the way to reach it, and they still are.
+
+| 3.x | 4.0.0 |
+|---|---|
+| `StreamApi.videosApi` | `StreamApi.videoRepository` |
+| `StreamApi.collectionsApi` | `StreamApi.collectionRepository` |
+| `org.openapitools.client.models.VideoModel` | `net.bunny.api.video.domain.model.Video` |
+| `VideoPlayDataModel` | `VideoPlayData` |
+| `PaginationListOfVideoModel` | `VideoList` |
+| `CollectionModel` | `VideoCollection` — prefixed so it does not clash with `kotlin.collections.Collection` |
+| `PaginationListOfCollectionModel` | `VideoCollectionList` |
+| `VideoHeatmapModel` | plain `Map<String, Int>` — the wrapper carried nothing else |
+| `CaptionModel`, `ChapterModel`, `MomentModel`, `MetaTagModel` | `Caption`, `Chapter`, `Moment`, `MetaTag` |
+| `TranscodingMessageModel` + `Severity` + `IssueCodes` | `TranscodingMessage` + `TranscodingSeverity` + `TranscodingIssue` |
+| `EncoderOutputCodec` | `VideoCodec` |
+| request DTOs (`VideoCreateVideoRequest`, …) | `CreateVideoRequest`, `UpdateVideoRequest`, `AddCaptionRequest`, `FetchVideoRequest`, `SmartGenerateRequest`, `TranscribeVideoRequest` |
+
+Field renames worth knowing, all of them making the meaning explicit:
+
+| generated | domain |
+|---|---|
+| `guid` | `id` |
+| `length` | `lengthSeconds` |
+| `storageSize` | `storageSizeBytes` |
+| `averageWatchTime` / `totalWatchTime` | `averageWatchTimeSeconds` / `totalWatchTimeSeconds` |
+| `srclang` | `languageCode` |
+| `start` / `end` (chapter) | `startSeconds` / `endSeconds` |
+| `timestamp` (moment) | `timestampSeconds` |
+| `availableResolutions: String` | `availableResolutions: List<String>` — split for you |
+| `outputCodecs: String` | `outputCodecs: List<String>` — split for you |
+| `hasMP4Fallback` | `hasMp4Fallback` |
+| `smartGenerateFeaturesStatus` | `smartGenerateFeatures` |
+| `totalSize` (collection) | `totalSizeBytes` |
+| `length` (storage object) | `lengthBytes` |
+
+Two behavioural differences the compiler will not point at:
+
+- **Enums are named.** The generator emitted `Severity._2` and `IssueCodes._4`, with the meaning
+  only in a doc comment. These are now `TranscodingSeverity.WARNING` and
+  `TranscodingIssue.INVALID_FRAMERATE`. An unknown value from a newer server maps to `UNDEFINED`
+  instead of failing to parse.
+- **`0` no longer masquerades as data.** The API reports `width = 0`, `height = 0`,
+  `framerate = 0.0` for a video that has not finished transcoding. The domain model reports `null`,
+  so a layout does not compute an aspect ratio of `NaN`.
+
+### The player takes a domain video
+
+`BunnyPlayer.playVideo` — the entry point for building a custom player — takes the domain type now:
+
+```kotlin
+// 3.x
+fun playVideo(playerView: PlayerView, video: VideoModel, retentionData: Map<Int, Int>, playerSettings: PlayerSettings)
+
+// 4.0.0
+fun playVideo(playerView: PlayerView, video: Video, retentionData: Map<Int, Int>, playerSettings: PlayerSettings)
+```
+
+`BunnyStreamPlayer.playVideo(videoId)` on the view is unchanged and remains the normal path.
+
+---
+
+## 5. Types that moved or disappeared
 
 | 3.x | 4.0.0 |
 |---|---|
@@ -246,7 +330,7 @@ It needs the `videoId` and the same content URI, so persist both alongside the u
 | `net.bunny.api.upload.service.UploadService` and both implementations | now `internal` |
 | `net.bunny.api.upload.DefaultVideoUploader` | now `internal` — reach it via `BunnyStreamApi.getInstance().videoUploader` |
 | `net.bunny.api.upload.model.FileInfo`, `StreamContent` | now `internal` |
-| `net.bunny.api.upload.model.HttpStatusCodes` | removed — unused |
+| `net.bunny.api.upload.model.HttpStatusCodes` | removed — the status codes it named are now read by the error mapper |
 
 `UploadError` maps onto the new taxonomy like this:
 
@@ -261,7 +345,7 @@ It needs the `videoId` and the same content URI, so persist both alongside the u
 
 ---
 
-## 5. Fixes that come with the change
+## 6. Fixes that come with the change
 
 Behaviour that was wrong before and is worth knowing about, because it may look like a new bug:
 
@@ -288,7 +372,7 @@ Behaviour that was wrong before and is worth knowing about, because it may look 
 
 ---
 
-## 6. What an upload still does not survive
+## 7. What an upload still does not survive
 
 Uploads survive navigation. They do not survive the process: if the app is killed or swiped away,
 the transfer stops, because the SDK's scope goes with it.
