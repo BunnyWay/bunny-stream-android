@@ -50,6 +50,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import net.bunny.api.error.fold
+import net.bunny.api.error.getOrNull
 import net.bunny.android.demo.App
 import net.bunny.android.demo.R
 import net.bunny.android.demo.ui.AppState
@@ -222,18 +223,13 @@ class TrailerPickerViewModel : ViewModel() {
         mutableState.value = State.Loading
         viewModelScope.launch {
             try {
-                val response = withContext(Dispatchers.IO) {
-                    App.di.streamSdk.videosApi.videoList(
-                        libraryId = libraryId,
-                        page = null,
-                        itemsPerPage = null,
-                        search = null,
-                        collection = null,
-                        orderBy = null,
-                    )
+                val page = App.di.streamSdk.videoRepository.listVideos(libraryId).getOrNull()
+                if (page == null) {
+                    mutableState.value = State.Failed("Could not load the video library")
+                    return@launch
                 }
-                val videos = response.items.orEmpty().mapNotNull { model ->
-                    model.guid?.let { TrailerVideo(it, model.title ?: "Untitled", null) }
+                val videos = page.items.map { video ->
+                    TrailerVideo(video.id, video.title.ifBlank { "Untitled" }, null)
                 }
                 mutableState.value = State.Loaded(videos)
                 enrichThumbnails(videos)

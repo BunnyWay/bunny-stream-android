@@ -378,14 +378,14 @@ class LiveStreamEditorViewModel : ViewModel() {
         Log.d(TAG, "deleteTrailer videoId=${current.videoId}")
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val result = App.di.streamSdk.videosApi.videoDeleteVideo(libraryId, current.videoId)
-                if (result.success == true) {
-                    mutableUiState.update { it.copy(trailer = TrailerState.None) }
-                } else {
-                    mutableUiState.update {
-                        it.copy(error = "Couldn't delete trailer: ${result.statusCode} ${result.message}")
-                    }
-                }
+                App.di.streamSdk.videoRepository.deleteVideo(libraryId, current.videoId).fold(
+                    onOk = { mutableUiState.update { it.copy(trailer = TrailerState.None) } },
+                    onErr = { error ->
+                        mutableUiState.update {
+                            it.copy(error = "Couldn't delete trailer: ${error.message}")
+                        }
+                    },
+                )
             } catch (e: Exception) {
                 Log.e(TAG, "deleteTrailer error", e)
                 mutableUiState.update { it.copy(error = "Error deleting trailer: ${e.message}") }

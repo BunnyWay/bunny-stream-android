@@ -115,7 +115,7 @@ class DefaultLiveStreamRepositoryTest {
 
     // region — getLiveStream: BunnyResult error vocabulary
 
-    @Test fun `getLiveStream returns Right on 2xx`() = runTest(dispatcher) {
+    @Test fun `getLiveStream answers with the stream on 2xx`() = runTest(dispatcher) {
         every { api.liveStreamGetByStreamId(LIBRARY_ID, STREAM_ID) } returns liveStreamModel(
             guid = STREAM_ID,
         )
@@ -405,7 +405,7 @@ class DefaultLiveStreamRepositoryTest {
             assertEquals("trailer", dto.preStreamTrailerVideoId)
         }
 
-    @Test fun `updateLiveStream maps 400 ClientException to Left`() =
+    @Test fun `updateLiveStream maps a 400 ClientException to a typed error`() =
         runTest(dispatcher) {
             // The official preview API uses PUT and signals validation failures with a 400
             // (the HTTP-200-with-success=false quirk no longer applies to this endpoint).
@@ -421,7 +421,7 @@ class DefaultLiveStreamRepositoryTest {
             assertTrue("Expected Err for HTTP 400", result is BunnyResult.Err)
         }
 
-    @Test fun `updateLiveStream returns Right(Unit) and discards the echoed model`() =
+    @Test fun `updateLiveStream answers with Unit and discards the echoed model`() =
         runTest(dispatcher) {
             every {
                 api.liveStreamUpdate(LIBRARY_ID, STREAM_ID, any())
@@ -455,7 +455,7 @@ class DefaultLiveStreamRepositoryTest {
         verify(exactly = 1) { api.liveStreamStopStream(LIBRARY_ID, STREAM_ID) }
     }
 
-    @Test fun `deleteLiveStream returns Right(Unit) and discards the echoed model`() =
+    @Test fun `deleteLiveStream answers with Unit and discards the echoed model`() =
         runTest(dispatcher) {
             // The repo uses the *WithHttpInfo variant — the plain liveStreamDelete() NPEs casting
             // the empty 2xx body to a non-null model — and treats any 2xx as success.
@@ -516,13 +516,13 @@ class DefaultLiveStreamRepositoryTest {
 
         val result = repo.listLiveStreams(LIBRARY_ID, page = 1, itemsPerPage = 10)
 
-        assertTrue("404 must map to Right(empty list)", result is BunnyResult.Ok)
+        assertTrue("404 must map to a value(empty list)", result is BunnyResult.Ok)
         val list = (result as BunnyResult.Ok).value
         assertEquals(0L, list.totalItems)
         assertTrue(list.items.isEmpty())
     }
 
-    @Test fun `listLiveStreams keeps non-404 client errors as Left`() = runTest(dispatcher) {
+    @Test fun `listLiveStreams keeps non-404 client errors as errors`() = runTest(dispatcher) {
         every {
             api.liveStreamList(LIBRARY_ID, null, null, null, null, null)
         } throws ClientException(message = "nope", statusCode = 401)

@@ -178,7 +178,6 @@ fun LiveStreamEditorRoute(
             onWatch = {
                 appState.navController.navigateToLiveStreamPlayer(
                     streamId = created.id,
-                    fallbackHlsUrl = created.playbackUrlHls,
                     title = created.title,
                 )
             },

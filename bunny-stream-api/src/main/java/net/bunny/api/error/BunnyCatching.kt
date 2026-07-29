@@ -6,7 +6,7 @@ import kotlin.coroutines.cancellation.CancellationException
  * Runs [block] and wraps its outcome in a [BunnyResult]: the value in [BunnyResult.Ok], or any
  * thrown exception mapped through [BunnyErrorMapper] into [BunnyResult.Err].
  *
- * This is the entry point the repositories move to as they migrate off `Either<String, T>`:
+ * Every repository call in the SDK goes through it, so a caller sees one error shape:
  *
  * ```kotlin
  * override suspend fun getLiveStream(libraryId: Long, streamId: String): BunnyResult<LiveStream> =

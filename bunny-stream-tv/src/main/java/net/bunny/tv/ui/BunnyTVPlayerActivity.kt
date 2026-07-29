@@ -37,8 +37,8 @@ import net.bunny.tv.R
 import net.bunny.tv.navigation.TVKeyEventHandler
 import net.bunny.tv.ui.controls.TVPlayerControlsView
 import net.bunny.tv.ui.dialogs.TVSettingsDialog
-import org.openapitools.client.models.VideoModel
-import org.openapitools.client.models.VideoPlayDataModelVideo
+import net.bunny.api.error.getOrNull
+import net.bunny.api.video.domain.model.Video
 import kotlin.coroutines.cancellation.CancellationException
 
 open class BunnyTVPlayerActivity : AppCompatActivity() {
@@ -53,7 +53,7 @@ open class BunnyTVPlayerActivity : AppCompatActivity() {
     private var bunnyPlayer: BunnyPlayer? = null
     private var videoId: String? = null
     private var libraryId: Long? = null
-    private var currentVideo: VideoModel? = null
+    private var currentVideo: Video? = null
     private var isResumeDialogShowing = false
     private var isVideoInitialized = false
     private var token: String? = null
@@ -227,13 +227,10 @@ open class BunnyTVPlayerActivity : AppCompatActivity() {
                 Log.d(TAG, "loadVideo - Fetching video data from API")
                 withTimeout(30000) { // 30 second timeout
                     // Your existing load logic
-                    val videoPlayData = withContext(Dispatchers.IO) {
-                        BunnyStreamApi.getInstance().videosApi.videoGetVideoPlayData(
-                            libraryId, videoId, token, expires
-                        )
-                    }
-
-                    val video = videoPlayData.video?.toVideoModel()
+                    val video = BunnyStreamApi.getInstance().videoRepository
+                        .fetchVideoPlayData(libraryId, videoId, token, expires)
+                        .getOrNull()
+                        ?.video
 
                     if (video == null) {
                         Log.e(TAG, "loadVideo - Video data is null")
@@ -291,7 +288,7 @@ open class BunnyTVPlayerActivity : AppCompatActivity() {
     }
 
     // FIXED: Ensure all player operations happen on main thread
-    private fun initializeVideo(video: VideoModel, playerSettings: PlayerSettings) {
+    private fun initializeVideo(video: Video, playerSettings: PlayerSettings) {
         Log.d(TAG, "initializeVideo - Initializing video: ${video.title}")
 
         if (isVideoInitialized) {
@@ -349,8 +346,8 @@ open class BunnyTVPlayerActivity : AppCompatActivity() {
 
             // Create metadata map for the player
             val videoMetadata = mapOf<String, Any>(
-                "title" to (video.title ?: ""),
-                "duration" to (video.length ?: 0),
+                "title" to video.title,
+                "duration" to video.lengthSeconds,
                 "videoId" to videoId!!,
                 "libraryId" to libraryId!!
             )
@@ -646,37 +643,6 @@ open class BunnyTVPlayerActivity : AppCompatActivity() {
         }
     }
 
-    // Extension function to convert VideoPlayDataModelVideo to VideoModel
-    private fun VideoPlayDataModelVideo.toVideoModel(): VideoModel = VideoModel(
-        videoLibraryId = this.videoLibraryId,
-        guid = this.guid,
-        title = this.title,
-        dateUploaded = this.dateUploaded,
-        views = this.views,
-        isPublic = this.isPublic,
-        length = this.length,
-        status = this.status,
-        framerate = this.framerate,
-        rotation = this.rotation,
-        width = this.width,
-        height = this.height,
-        availableResolutions = this.availableResolutions,
-        outputCodecs = this.outputCodecs,
-        thumbnailCount = this.thumbnailCount,
-        encodeProgress = this.encodeProgress,
-        storageSize = this.storageSize,
-        captions = this.captions,
-        hasMP4Fallback = this.hasMP4Fallback,
-        collectionId = this.collectionId,
-        thumbnailFileName = this.thumbnailFileName,
-        averageWatchTime = this.averageWatchTime,
-        totalWatchTime = this.totalWatchTime,
-        category = this.category,
-        chapters = this.chapters,
-        moments = this.moments,
-        metaTags = this.metaTags,
-        transcodingMessages = this.transcodingMessages
-    )
 
     override fun onResume() {
         super.onResume()

@@ -29,7 +29,9 @@ import net.bunny.api.BunnyStreamApi
 import net.bunny.api.upload.VideoUploader
 import net.bunny.api.upload.model.PauseState
 import net.bunny.api.upload.model.UploadEvent
-import org.openapitools.client.models.VideoModel
+import net.bunny.api.error.BunnyResult
+import net.bunny.api.error.getOrNull
+import net.bunny.api.video.domain.model.Video as SdkVideo
 import java.util.UUID
 import kotlin.time.DurationUnit
 import kotlin.time.toDuration
@@ -118,15 +120,10 @@ class LibraryViewModel : ViewModel() {
     private fun fetchLibrary(silent: Boolean) {
         scope.launch {
             try {
-                val response = App.di.streamSdk.videosApi.videoList(
-                    libraryId = libraryId,
-                    page = null,
-                    itemsPerPage = null,
-                    search = null,
-                    collection = null,
-                    orderBy = null
-                )
-                val loadedVideos = response.items?.map { it.toVideo() } ?: listOf()
+                val page = App.di.streamSdk.videoRepository.listVideos(libraryId)
+                    .getOrNull()
+                    ?: return@launch handleFetchFailure(silent)
+                val loadedVideos = page.items.map { it.toVideo() }
                 if (silent && mutableUiState.value == VideoListUiState.VideoListUiLoading) {
                     // A full (user-triggered) reload is in flight — let its result win
                     // instead of clobbering the loading state with a possibly older list.
@@ -150,8 +147,7 @@ class LibraryViewModel : ViewModel() {
                     // lifecycle-gated tick will try again while the screen is visible.
                     Log.w(TAG, "Silent refresh failed: $e")
                 } else {
-                    Log.w(TAG, "Failed to fetch videos")
-                    e.printStackTrace()
+                    Log.w(TAG, "Failed to fetch videos", e)
                     mutableErrorState.emit(Error(e.message ?: e.toString()))
                 }
             }
@@ -342,21 +338,20 @@ class LibraryViewModel : ViewModel() {
         Log.d(TAG, "onDeleteVideo video=$video")
         scope.launch {
             try {
-                val result = App.di.streamSdk.videosApi.videoDeleteVideo(libraryId, video.id)
+                val result = App.di.streamSdk.videoRepository.deleteVideo(libraryId, video.id)
 
-                if (result.success == true) {
+                if (result is BunnyResult.Ok) {
                     Log.d(TAG, "Video deleted")
                     val loadedVideos =
                         (mutableUiState.value as? VideoListUiState.VideoListUiLoaded)?.videos
                             ?: emptyList()
                     notifyVideosUpdated(loadedVideos - video)
-                } else {
-                    Log.e(TAG, "Couldn't delete video: $result")
-                    mutableErrorState.emit(Error("${result.statusCode} ${result.message}"))
+                } else if (result is BunnyResult.Err) {
+                    Log.e(TAG, "Couldn't delete video: ${result.message}")
+                    mutableErrorState.emit(Error(result.message))
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "Error deleting video: ${e.message}")
-                e.printStackTrace()
+                Log.e(TAG, "Error deleting video", e)
                 mutableErrorState.emit(Error("Error deleting video: ${e.message}"))
             }
         }
@@ -376,25 +371,33 @@ class LibraryViewModel : ViewModel() {
         super.onCleared()
     }
 
-    private fun VideoModel.toVideo(): Video {
+    private fun SdkVideo.toVideo(): Video {
         return Video(
-            id = guid ?: UUID.randomUUID().toString(),
-            name = title ?: "N/A",
-            duration = length?.toDuration(DurationUnit.SECONDS).toString(),
-            status = when (status?.value) {
-                null -> VideoStatus.ERROR
+            id = id.ifBlank { UUID.randomUUID().toString() },
+            name = title.ifBlank { "N/A" },
+            duration = lengthSeconds.toDuration(DurationUnit.SECONDS).toString(),
+            status = when (status.value) {
                 0 -> VideoStatus.CREATED
                 1 -> VideoStatus.UPLOADED
                 2 -> VideoStatus.PROCESSING
                 3 -> VideoStatus.TRANSCODING
                 4 -> VideoStatus.FINISHED
-                5 -> VideoStatus.ERROR
                 6 -> VideoStatus.UPLOAD_FAILED
                 else -> VideoStatus.ERROR
             },
-            size = storageSize?.inMb ?: 0.0,
-            viewCount = views?.toString() ?: "N/A",
+            size = storageSizeBytes.inMb ?: 0.0,
+            viewCount = views.toString(),
         )
+    }
+
+    /** A failed listing is silent while polling and surfaced when the user asked for it. */
+    private suspend fun handleFetchFailure(silent: Boolean) {
+        if (silent) {
+            Log.w(TAG, "Silent refresh failed")
+        } else {
+            Log.w(TAG, "Failed to fetch videos")
+            mutableErrorState.emit(Error("Could not load the video library"))
+        }
     }
 
     private val Long?.inMb: Double?

@@ -37,7 +37,8 @@ data class LiveStreamPlayData(
     val rememberPlayerPosition: Boolean,
     val enableCompactControls: Boolean,
 ) {
-    // Derived control flags — matches PlayerSettings so consumers can reuse the same UI logic
+    // Derived from the dashboard `controls` string, named as in PlayerSettings and VideoPlayData
+    // so consumers can reuse the same UI logic
     // "rewind,fast-forward,play-large,captions,current-time,duration,fullscreen,mute,pip,play,progress,settings,volume"
     val subtitlesEnabled = controls.contains("captions")
     val rewindEnabled = controls.contains("rewind")

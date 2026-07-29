@@ -122,10 +122,16 @@ public sealed class BunnyError {
     }
 
     /**
-     * The call succeeded, but the resource is in a state that forbids what was asked. Raised
-     * where the SDK checks a precondition itself rather than letting the server reject it — for
-     * example publishing to a live stream that has already ended, or one whose stream key has not
-     * been issued yet.
+     * The SDK refused the call itself, because something about the current state forbids it. No
+     * request was made, so there is no HTTP status to report.
+     *
+     * Two kinds of thing arrive this way:
+     *
+     *  * **The resource is in the wrong state** — publishing to a live stream that has already
+     *    ended, or one whose stream key has not been issued yet.
+     *  * **The SDK or the object being used is** — continuing a resumable upload on the plain
+     *    uploader, which records no offset; using an upload after `release()`; an upload that was
+     *    torn down before it finished.
      *
      * Terminality is explicit here because it genuinely varies and cannot be derived: an ended
      * stream never becomes publishable again, while a stream key that has not appeared yet

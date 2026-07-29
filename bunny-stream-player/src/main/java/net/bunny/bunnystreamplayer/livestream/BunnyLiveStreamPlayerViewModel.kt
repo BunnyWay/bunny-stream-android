@@ -333,18 +333,20 @@ public open class BunnyLiveStreamPlayerViewModel internal constructor(
         viewModelScope.launch {
             try {
                 Log.d(TAG, "fetching trailer play-data — videoId=$trailerVideoId")
-                val url = withContext(ioDispatcher) {
-                    val playData = BunnyStreamApi.getInstance().videosApi.videoGetVideoPlayData(
-                        libraryId,
-                        trailerVideoId,
-                        token,
-                        expires,
+                val url = BunnyStreamApi.getInstance().videoRepository
+                    .fetchVideoPlayData(libraryId, trailerVideoId, token, expires)
+                    .fold(
+                        // Bunny's video play-data returns a similar shape to live play-data —
+                        // videoPlaylistUrl first, fallbackUrl second. Treat blanks as "no URL".
+                        onOk = { playData ->
+                            playData.videoPlaylistUrl?.takeIf { it.isNotBlank() }
+                                ?: playData.fallbackUrl?.takeIf { it.isNotBlank() }
+                        },
+                        onErr = { error ->
+                            Log.w(TAG, "trailer play-data failed: ${error.message}")
+                            null
+                        },
                     )
-                    // Bunny's video play-data returns a similar shape to live play-data —
-                    // videoPlaylistUrl first, fallbackUrl second. Treat blanks as "no URL".
-                    playData.videoPlaylistUrl?.takeIf { it.isNotBlank() }
-                        ?: playData.fallbackUrl?.takeIf { it.isNotBlank() }
-                }
                 if (url.isNullOrBlank()) {
                     Log.w(TAG, "trailer play-data returned no playable URL — skipping trailer")
                 } else {

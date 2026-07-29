@@ -62,17 +62,12 @@ private const val PLAYBACK_TOKEN_TTL_SECONDS = 3600L
  * To keep the player and the metadata panel in sync we obtain the SDK ViewModel directly here
  * and pass the same instance into [BunnyLiveStreamPlayer]. That way the metadata cards read the
  * `liveStream` flow the polling loop is already updating — no second fetch.
- *
- * @param fallbackHlsUrl historical param kept for source compatibility with existing call sites;
- *                       no longer used (the SDK resolves URLs through play-data and the
- *                       list-endpoint URL was always lower priority). Safe to drop in a follow-up.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LiveStreamPlayerRoute(
     appState: AppState,
     streamId: String,
-    @Suppress("UNUSED_PARAMETER") fallbackHlsUrl: String?,
     title: String?,
     modifier: Modifier = Modifier,
     viewModel: BunnyLiveStreamPlayerViewModel = viewModel(),

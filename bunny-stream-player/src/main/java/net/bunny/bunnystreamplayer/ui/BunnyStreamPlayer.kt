@@ -38,8 +38,8 @@ import net.bunny.bunnystreamplayer.model.getSanitizedRetentionData
 import net.bunny.bunnystreamplayer.ui.fullscreen.FullScreenPlayerActivity
 import net.bunny.bunnystreamplayer.ui.widget.BunnyPlayerView
 import net.bunny.player.databinding.ViewBunnyVideoPlayerBinding
-import org.openapitools.client.models.VideoModel
-import org.openapitools.client.models.VideoPlayDataModelVideo
+import net.bunny.api.error.getOrNull
+import net.bunny.api.video.domain.model.Video
 
 
 /**
@@ -455,14 +455,9 @@ class BunnyStreamPlayer @JvmOverloads constructor(
 
         loadVideoJob?.cancel()
 
-        // Synthetic VideoModel — the engine only reads guid/title/library id/captions for the
-        // happy path. Everything else can be null and the engine treats them as missing.
-        val video = VideoModel(
-            videoLibraryId = libraryId,
-            guid = streamId,
-            title = videoTitle,
-            captions = emptyList(),
-        )
+        // Synthetic Video — the engine only reads id/title/library id/captions for the happy
+        // path; the rest stays at its empty defaults and the engine treats them as missing.
+        val video = Video(id = streamId, videoLibraryId = libraryId, title = videoTitle)
 
         // Compact mode is a view-level layout concern (not part of PlayerSettings), so forward the
         // dashboard's flag straight to the player view before building the settings.
@@ -527,22 +522,15 @@ class BunnyStreamPlayer @JvmOverloads constructor(
         pendingJob = {
             scope!!.launch {
 
-                val video: VideoModel
-
-                try {
-                    video = withContext(Dispatchers.IO) {
-                        BunnyStreamApi.getInstance().videosApi.videoGetVideoPlayData(
-                            providedLibraryId,
-                            videoId,
-                            token,
-                            expires
-                        ).video?.toVideoModel()!!
-                    }
-                    Log.d(TAG, "video=$video")
-                } catch (e: Exception) {
-                    Log.w(TAG, "Error fetching video: $e")
+                val video = BunnyStreamApi.getInstance().videoRepository
+                    .fetchVideoPlayData(providedLibraryId, videoId, token, expires)
+                    .getOrNull()
+                    ?.video
+                if (video == null) {
+                    Log.w(TAG, "Error fetching video $videoId — no play data")
                     return@launch
                 }
+                Log.d(TAG, "video=$video")
 
                 val settings = BunnyStreamApi.getInstance()
                     .fetchPlayerSettings(providedLibraryId, videoId, token, expires)
@@ -691,7 +679,7 @@ class BunnyStreamPlayer @JvmOverloads constructor(
         progressListenerJob = null
     }
 
-    private suspend fun initializeVideo(video: VideoModel, playerSettings: PlayerSettings) {
+    private suspend fun initializeVideo(video: Video, playerSettings: PlayerSettings) {
         // A fresh load invalidates any error from the previous source — without this, a
         // late-arriving error from the torn-down player (e.g. the stale live URL during the
         // live→VOD hand-off) stays painted over working playback.
@@ -702,13 +690,11 @@ class BunnyStreamPlayer @JvmOverloads constructor(
 
         if (playerSettings.showHeatmap) {
             try {
-                val retentionDataResponse = withContext(Dispatchers.IO) {
-                    BunnyStreamApi.getInstance().videosApi.videoGetVideoHeatmap(
-                        video.videoLibraryId!!,
-                        video.guid!!
-                    )
-                }
-                retentionData = retentionDataResponse.getSanitizedRetentionData()
+                retentionData = BunnyStreamApi.getInstance().videoRepository
+                    .fetchVideoHeatmap(video.videoLibraryId, video.id)
+                    .getOrNull()
+                    .orEmpty()
+                    .getSanitizedRetentionData()
             } catch (e: Exception) {
                 Log.w(TAG, "Error fetching video heatmap")
             }
@@ -783,34 +769,4 @@ class BunnyStreamPlayer @JvmOverloads constructor(
     }
 
 
-    fun VideoPlayDataModelVideo.toVideoModel(): VideoModel = VideoModel(
-        videoLibraryId = this.videoLibraryId,
-        guid = this.guid,
-        title = this.title,
-        dateUploaded = this.dateUploaded,
-        views = this.views,
-        isPublic = this.isPublic,
-        length = this.length,
-        status = this.status,
-        framerate = this.framerate,
-        rotation = this.rotation,
-        width = this.width,
-        height = this.height,
-        availableResolutions = this.availableResolutions,
-        outputCodecs = this.outputCodecs,
-        thumbnailCount = this.thumbnailCount,
-        encodeProgress = this.encodeProgress,
-        storageSize = this.storageSize,
-        captions = this.captions,
-        hasMP4Fallback = this.hasMP4Fallback,
-        collectionId = this.collectionId,
-        thumbnailFileName = this.thumbnailFileName,
-        averageWatchTime = this.averageWatchTime,
-        totalWatchTime = this.totalWatchTime,
-        category = this.category,
-        chapters = this.chapters,
-        moments = this.moments,
-        metaTags = this.metaTags,
-        transcodingMessages = this.transcodingMessages
-    )
 }
