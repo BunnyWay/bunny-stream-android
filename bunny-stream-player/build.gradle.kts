@@ -7,7 +7,7 @@ plugins {
 
 android {
     namespace = "net.bunny.player"
-    compileSdk = 36
+    compileSdk = 37
 
     defaultConfig {
         minSdk = 26
@@ -71,9 +71,9 @@ dependencies {
     implementation("com.google.code.gson:gson:2.14.0")
     // AndroidX and Material
     // https://developer.android.com/jetpack/androidx/releases/core
-    implementation("androidx.core:core-ktx:1.15.0")
+    implementation("androidx.core:core-ktx:1.19.0")
     // https://developer.android.com/jetpack/androidx/releases/appcompat
-    implementation("androidx.appcompat:appcompat:1.7.0")
+    implementation("androidx.appcompat:appcompat:1.7.1")
     // https://github.com/material-components/material-components-android
     implementation("com.google.android.material:material:1.14.0")
 
@@ -97,9 +97,9 @@ dependencies {
 
     // AndroidX Lifecycle
     // https://developer.android.com/jetpack/androidx/releases/lifecycle
-    implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.7")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.10.0")
     // https://developer.android.com/jetpack/androidx/releases/lifecycle
-    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
+    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.10.0")
 
     // Testing Dependencies
     // https://junit.org/junit4/
@@ -107,9 +107,9 @@ dependencies {
     // Virtual-time + TestDispatcher for [BunnyLiveStreamPlayerViewModel] polling-rule tests.
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.6.4")
     // https://developer.android.com/jetpack/androidx/releases/test
-    androidTestImplementation("androidx.test.ext:junit:1.2.1")
+    androidTestImplementation("androidx.test.ext:junit:1.3.0")
     // https://developer.android.com/jetpack/androidx/releases/test#espresso
-    androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")
+    androidTestImplementation("androidx.test.espresso:espresso-core:3.7.0")
 
     // Glide for Image Loading
     // https://github.com/bumptech/glide
@@ -134,9 +134,9 @@ dependencies {
     implementation("androidx.compose.animation:animation")
     implementation("androidx.compose.ui:ui-viewbinding")
     // collectAsStateWithLifecycle + LocalLifecycleOwner Compose interop.
-    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.10.0")
     // viewModel() composable factory used by BunnyLiveStreamPlayer to obtain its VM.
-    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.10.0")
 }
 
 kotlin {
