@@ -128,10 +128,10 @@ dependencies {
 
     // Ktor
     // https://ktor.io
-    implementation("io.ktor:ktor-client-okhttp:3.1.2")
-    implementation("io.ktor:ktor-client-content-negotiation:3.1.2")
-    implementation("io.ktor:ktor-serialization-kotlinx-json:3.1.2")
-    implementation("io.ktor:ktor-client-logging-jvm:3.1.2")
+    implementation("io.ktor:ktor-client-okhttp:3.5.0")
+    implementation("io.ktor:ktor-client-content-negotiation:3.5.0")
+    implementation("io.ktor:ktor-serialization-kotlinx-json:3.5.0")
+    implementation("io.ktor:ktor-client-logging-jvm:3.5.0")
 
 
     // Tus client libraries (update to newer patch versions if available)
