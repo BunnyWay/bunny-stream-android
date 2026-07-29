@@ -79,8 +79,8 @@ dependencies {
 
     // Tus client libraries (update to newer patch versions if available)
     // https://github.com/pedroSG94/RootEncoder
-    implementation("com.github.pedroSG94.RootEncoder:library:2.6.6")
-    implementation("com.github.pedroSG94.RootEncoder:extra-sources:2.6.6")
+    implementation("com.github.pedroSG94.RootEncoder:library:2.7.2")
+    implementation("com.github.pedroSG94.RootEncoder:extra-sources:2.7.2")
 }
 
 kotlin {
