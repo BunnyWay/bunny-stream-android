@@ -58,7 +58,7 @@ possible in 3.x is gone — see [MIGRATING.md](MIGRATING.md) for before/after ex
   Unknown values from a newer server map to `UNDEFINED` instead of failing to parse.
 
 ### Changed
-- **Build requirements moved.** `compileSdk` 36 or higher, Kotlin 2.4 or newer, and core library
+- **Build requirements moved.** `compileSdk` 36 or higher, Kotlin 2.3 or newer, and core library
   desugaring enabled for `net.bunny:player`. `minSdk` stays at 26 and JDK stays at 17, so device
   reach is unchanged. See [MIGRATING.md](MIGRATING.md) section 0; all three are enforced by the
   build, not just documented.
