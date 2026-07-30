@@ -4,9 +4,29 @@ Set up the SDK and make your first call. Takes about five minutes.
 
 ## Requirements
 
-- Android 8.0 (API 26) or newer
-- `compileSdk` 35, JDK 17
+- Android 8.0 (API 26) or newer on the device
+- `compileSdk` 36 or higher, JDK 17
+- Kotlin 2.4 or newer
+- Core library desugaring enabled, if you use `net.bunny:player`
 - A Bunny Stream video library and its API key (Bunny dashboard: Stream > your library > API)
+
+The last three are enforced by the build rather than documented politely. A `compileSdk` below 36
+fails with `checkAarMetadata`; an older Kotlin cannot read the SDK's metadata and reports the
+binary version as incompatible; and without desugaring the player's media3 dependency is rejected.
+Desugaring looks like this:
+
+```kotlin
+// build.gradle.kts
+android {
+    compileOptions {
+        isCoreLibraryDesugaringEnabled = true
+    }
+}
+
+dependencies {
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
+}
+```
 
 ## 1. Add the dependencies
 

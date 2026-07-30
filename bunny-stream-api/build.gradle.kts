@@ -15,7 +15,7 @@ android {
 
 
     namespace = "net.bunny.api"
-    compileSdk = 37
+    compileSdk = 36
 
     defaultConfig {
         minSdk = 26
@@ -85,7 +85,7 @@ android {
 dependencies {
     // AndroidX and Material
     // https://developer.android.com/jetpack/androidx/releases/core
-    implementation("androidx.core:core-ktx:1.19.0")
+    implementation("androidx.core:core-ktx:1.18.0")
     // https://developer.android.com/jetpack/androidx/releases/appcompat
     implementation("androidx.appcompat:appcompat:1.7.1")
     // https://github.com/material-components/material-components-android

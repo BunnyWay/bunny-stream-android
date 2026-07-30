@@ -45,8 +45,11 @@ play videos, play live streams, and broadcast live from the camera.
 
 ## Requirements
 
-- Android 8.0 (API level 26) or newer
-- `compileSdk` 35, JDK 17
+- Android 8.0 (API level 26) or newer on the device
+- `compileSdk` 36 or higher, JDK 17
+- Kotlin 2.4 or newer
+- Core library desugaring enabled, if you use `net.bunny:player` - see
+  [Getting started](docs/guides/getting-started.md#requirements)
 - A [Bunny Stream](https://bunny.net/stream/) video library
 
 ## Installation

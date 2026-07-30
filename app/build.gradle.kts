@@ -31,14 +31,14 @@ val demoTokenAuthKey: String =
 
 android {
     namespace = "net.bunny.android.demo"
-    compileSdk = 37
+    compileSdk = 36
 
     viewBinding.enable = true
 
     defaultConfig {
         applicationId = "net.bunny.android.demo"
         minSdk = 26
-        targetSdk = 35  // ← Also update targetSdk to 35 for consistency
+        targetSdk = 36
         versionCode = 12
         versionName = "1.16"
 
@@ -104,7 +104,7 @@ dependencies {
     implementation("androidx.leanback:leanback:1.2.0")
 
     // AndroidX Core and Lifecycle
-    implementation("androidx.core:core-ktx:1.19.0")
+    implementation("androidx.core:core-ktx:1.18.0")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.10.0")
 
     // AndroidX Activity
