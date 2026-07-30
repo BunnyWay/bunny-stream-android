@@ -58,6 +58,32 @@ dependencies {
 either - that stays your decision, and Google Play's requirement for it is unrelated to this
 release.
 
+### Transitive dependencies you may share with us
+
+Every dependency of this SDK is `implementation`, so none of them reach your compile classpath and
+none of our types expose them. They do take part in Gradle's version resolution, though, which
+picks the highest version across the whole app. If you use any of these directly, you will be
+moved up:
+
+| | 3.3.0 | 4.0.0 |
+|---|---|---|
+| media3 | 1.2.1 / 1.6.0 | **1.10.1** |
+| ktor | 3.1.2 | 3.5.0 |
+| gson | 2.8.9 | 2.14.0 |
+| kotlinx-coroutines | 1.7.3 | 1.11.0 |
+| kaml | 0.74.0 | 0.104.0 |
+| androidx.core | 1.12.0 | 1.18.0 |
+| RootEncoder | 2.6.6 | 2.7.2 |
+
+media3 is the one to look at first: if your app drives ExoPlayer itself, its API moved across
+eight minor releases. kaml is second, being pre-1.0, where minor versions break.
+
+Arrow is **removed**, not upgraded. If your code imported `arrow.core.Either` only to read an SDK
+result it can go; if you used Arrow for your own reasons, declare it yourself.
+
+Nothing changed in the merged manifest - no new permissions, no new features, and `minSdk` stays at
+26, so the devices you reach are the same.
+
 ---
 
 ## 1. Management calls return `BunnyResult<T>` instead of `Either<String, T>`
