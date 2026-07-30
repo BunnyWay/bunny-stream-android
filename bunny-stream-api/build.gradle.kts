@@ -98,7 +98,7 @@ dependencies {
     // tests. The generated APIs are final classes; mockk handles those without extra config.
     testImplementation("io.mockk:mockk:1.13.13")
     // Virtual-time + TestDispatcher for the repository's withContext(coroutineDispatcher) path.
-    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.6.4")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.11.0")
     // MockEngine — drives BasicUploaderService's upload Flow through real Ktor machinery
     // (progress callbacks, status handling) without a server. Version tracks the ktor client below.
     testImplementation("io.ktor:ktor-client-mock:3.1.2")
@@ -140,7 +140,7 @@ dependencies {
     // https://github.com/tus/tus-android-client
     implementation("io.tus.android.client:tus-android-client:0.1.12")
     implementation("com.google.code.gson:gson:2.14.0")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.6.4")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")
 
 }
 

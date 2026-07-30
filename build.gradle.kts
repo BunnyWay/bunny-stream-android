@@ -19,7 +19,7 @@ plugins {
 
     // Documentation
     // https://kotlin.github.io/dokka
-    id("org.jetbrains.dokka") version "2.0.0"
+    id("org.jetbrains.dokka") version "2.2.0"
 
     // Maven publishing
     // https://github.com/vanniktech/gradle-maven-publish-plugin

@@ -67,7 +67,7 @@ dependencies {
     // Project Module
     // https://docs.gradle.org/current/userguide/java_plugin.html#sec:project_dependencies
     implementation(project(":api"))
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.6.4")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")
     implementation("com.google.code.gson:gson:2.14.0")
     // AndroidX and Material
     // https://developer.android.com/jetpack/androidx/releases/core
@@ -105,7 +105,7 @@ dependencies {
     // https://junit.org/junit4/
     testImplementation("junit:junit:4.13.2")
     // Virtual-time + TestDispatcher for [BunnyLiveStreamPlayerViewModel] polling-rule tests.
-    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.6.4")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.11.0")
     // https://developer.android.com/jetpack/androidx/releases/test
     androidTestImplementation("androidx.test.ext:junit:1.3.0")
     // https://developer.android.com/jetpack/androidx/releases/test#espresso
