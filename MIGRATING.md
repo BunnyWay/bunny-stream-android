@@ -29,14 +29,14 @@ could miss.
 | | 3.x | 4.0.0 |
 |---|---|---|
 | `compileSdk` | 35 | **36** or higher |
-| Kotlin | 2.1 | **2.3** or newer |
+| Kotlin | 2.1 | **2.1** or newer, unchanged in practice |
 | Core library desugaring | not needed | **required** for `net.bunny:player` |
 | `minSdk` | 26 | 26, unchanged |
 | JDK | 17 | 17, unchanged |
 
-`compileSdk` below 36 fails in `checkAarMetadata`, naming the dependency that demands it. The SDK
-is built with Kotlin 2.4.10, and a compiler reads metadata one version ahead, so 2.3 is the floor -
-measured, not assumed. On 2.2 and below the classes cannot be read at all, so there is no
+`compileSdk` below 36 fails in `checkAarMetadata`, naming the dependency that demands it. The SDK is
+built with Kotlin 2.2.20, and a compiler reads metadata one version ahead, so 2.1 is the floor -
+measured, not assumed. On 2.0 and below the classes cannot be read at all, so there is no
 partial-use path. Without desugaring, the player's media3 dependency is rejected outright:
 
 ```kotlin

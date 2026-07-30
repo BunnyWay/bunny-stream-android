@@ -2,7 +2,7 @@ plugins {
     id("com.android.library")
     id("kotlin-parcelize")
     id("org.jetbrains.dokka")
-    id("org.jetbrains.kotlin.plugin.compose") version "2.4.10"
+    id("org.jetbrains.kotlin.plugin.compose") version "2.2.20"
 }
 
 android {
