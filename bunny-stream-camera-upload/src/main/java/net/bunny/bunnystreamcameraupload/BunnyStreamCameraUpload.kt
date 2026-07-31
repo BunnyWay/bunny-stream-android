@@ -15,6 +15,7 @@ import androidx.core.content.res.use
 import androidx.core.view.isVisible
 import kotlinx.coroutines.Dispatchers
 import net.bunny.api.BunnyStreamApi
+import net.bunny.api.StreamApi
 import net.bunny.bunnystreamcameraupload.data.DefaultRecordingRepository
 import net.bunny.bunnystreamcameraupload.domain.DefaultStreamHandler
 import net.bunny.bunnystreamcameraupload.domain.RecordingRepository
@@ -55,13 +56,17 @@ class BunnyStreamCameraUpload @JvmOverloads constructor(
 
     private val binding = RecordingViewBinding.inflate(LayoutInflater.from(context), this)
 
-    private val streamRepository: RecordingRepository = DefaultRecordingRepository(Dispatchers.IO)
+    override var bunny: StreamApi? = null
+
+    private val streamRepository: RecordingRepository = DefaultRecordingRepository(
+        coroutineDispatcher = Dispatchers.IO,
+        // Resolved per call, so assigning [bunny] after the view is built still takes effect.
+        sdk = { bunny ?: BunnyStreamApi.getInstance() },
+    )
     private val streamHandler: StreamHandler = DefaultStreamHandler(
         streamRepository = streamRepository,
         coroutineDispatcher = Dispatchers.IO
     )
-
-    private val libraryId = BunnyStreamApi.libraryId
 
     override var hideDefaultControls: Boolean = false
         set(value) {
@@ -154,6 +159,16 @@ class BunnyStreamCameraUpload @JvmOverloads constructor(
 
         binding.startStop.setOnClickListener {
             if (!streamHandler.isStreaming()) {
+                // Resolved here rather than when the view is built. A view inflated from XML is
+                // constructed with its layout, which can happen before the SDK is initialised;
+                // reading the library id then used to freeze "no library yet" into the view for
+                // its whole life, and every recording afterwards went nowhere without an error.
+                if (bunny == null && !BunnyStreamApi.isInitialized()) {
+                    Log.e(TAG, "Unable to start, call BunnyStreamApi.initialize(...) first")
+                    return@setOnClickListener
+                }
+                val libraryId = (bunny ?: BunnyStreamApi.getInstance()).libraryId
+
                 val streamId = liveStreamId
                 if (streamId != null) {
                     streamHandler.startLiveStreaming(libraryId, streamId, liveIngestEndpoint)

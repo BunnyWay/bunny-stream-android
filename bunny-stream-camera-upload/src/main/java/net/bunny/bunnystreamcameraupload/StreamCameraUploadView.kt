@@ -1,6 +1,7 @@
 package net.bunny.bunnystreamcameraupload
 
 import android.view.View
+import net.bunny.api.StreamApi
 
 /**
  * Contract of the camera capture view, [BunnyStreamCameraUpload]. The same view covers two cases:
@@ -17,6 +18,15 @@ import android.view.View
  * [hideDefaultControls] to true to drive it from your own UI through the methods below.
  */
 interface StreamCameraUploadView {
+    /**
+     * The SDK instance this view records into. Leave it null to use the one
+     * `BunnyStreamApi.initialize(...)` registered.
+     *
+     * Set it when your app addresses more than one library and this view belongs to a specific
+     * one. It is read when a recording starts, so assign it any time before that.
+     */
+    var bunny: StreamApi?
+
     /**
      * Hides default controls, if you plan to use your own
      */
