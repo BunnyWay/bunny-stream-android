@@ -23,11 +23,10 @@ import org.openapitools.client.models.IngestEndpoints
 import org.openapitools.client.models.IngestEndpointsRtmp
 import org.openapitools.client.models.LiveStreamModel
 import org.openapitools.client.models.LiveStreamPlayDataModel
-import org.openapitools.client.models.LiveStreamPlayDataModelLiveStream
 import org.openapitools.client.models.LiveStreamStatusModel
 import org.openapitools.client.models.PaginationListOfLiveStreamModel
 import org.openapitools.client.models.RtmpOutput as GeneratedRtmpOutput
-import org.openapitools.client.models.LiveStreamCreateRequest as GeneratedLiveStreamCreateRequest
+import org.openapitools.client.models.CreateLiveStreamModel as GeneratedLiveStreamCreateRequest
 import java.net.URI
 
 /**
@@ -301,7 +300,7 @@ class DefaultLiveStreamRepositoryTest {
             every {
                 api.liveStreamGetStreamPlayData(LIBRARY_ID, STREAM_ID, null, null)
             } returns LiveStreamPlayDataModel(
-                liveStream = LiveStreamPlayDataModelLiveStream(
+                liveStream = LiveStreamModel(
                     guid = STREAM_ID,
                     title = "Embedded",
                     status = LiveStreamStatus.RUNNING,

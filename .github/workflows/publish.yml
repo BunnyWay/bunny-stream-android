@@ -17,11 +17,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       # Check out your repo
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       # Set up JDK 17 (Temurin distribution)
       - name: Setup JDK
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: 17
@@ -37,18 +37,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       # Re-checkout code (always required at start of a job)
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       # Setup Java again, import GPG key for signing
       - name: Setup Java, OSSRH creds & import GPG key
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: 17
 
       # Setup Android SDK so Gradle can build Android modules
       - name: Setup Android SDK
-        uses: android-actions/setup-android@v2
+        uses: android-actions/setup-android@v4
 
       - name: Derive VERSION from Git tag
         run: |

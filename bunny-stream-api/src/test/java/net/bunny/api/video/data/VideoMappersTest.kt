@@ -15,10 +15,7 @@ import org.openapitools.client.models.MomentModel
 import org.openapitools.client.models.PaginationListOfVideoModel
 import org.openapitools.client.models.Severity
 import org.openapitools.client.models.TranscodingMessageModel
-import net.bunny.api.model.SmartGenerateStatus
-import org.openapitools.client.models.VideoModelSmartGenerateFeaturesStatus
 import org.openapitools.client.models.VideoModel
-import org.openapitools.client.models.VideoPlayDataModelVideo
 
 /**
  * The domain mapping is where the SDK stops handing integrators the generator's output, so these
@@ -30,114 +27,10 @@ class VideoMappersTest {
 
     // region — the two DTOs must not drift apart
 
-    @Test
-    fun `both video DTOs map to the same domain video`() {
-        // VideoModel and VideoPlayDataModelVideo are field-for-field identical copies the
-        // generator emits per endpoint, and the mappers are written out separately. If someone
-        // edits one and forgets the other, playback metadata silently disagrees with the library
-        // listing — this is the test that catches it.
-        val fromList = VideoModel(
-            videoLibraryId = 42L,
-            guid = "video-guid",
-            title = "Clip",
-            description = "A description",
-            dateUploaded = "2026-07-01T10:00:00",
-            views = 17L,
-            isPublic = true,
-            length = 120,
-            status = VideoModelStatus.FINISHED,
-            framerate = 29.97,
-            rotation = 90,
-            width = 1920,
-            height = 1080,
-            availableResolutions = "240p,360p,720p",
-            outputCodecs = "x264",
-            thumbnailCount = 6,
-            encodeProgress = 100,
-            storageSize = 4_016_825L,
-            captions = listOf(CaptionModel(srclang = "en", label = "English", version = 1)),
-            hasMP4Fallback = true,
-            collectionId = "collection-guid",
-            thumbnailFileName = "thumbnail.jpg",
-            thumbnailBlurhash = "WnDkAUae",
-            averageWatchTime = 30L,
-            totalWatchTime = 510L,
-            category = "unknown",
-            chapters = listOf(ChapterModel(title = "Intro", start = 0, end = 15)),
-            moments = listOf(MomentModel(label = "Goal", timestamp = 42)),
-            metaTags = listOf(MetaTagModel(property = "k", value = "v")),
-            transcodingMessages = listOf(
-                TranscodingMessageModel(
-                    timeStamp = "00:00:12",
-                    level = Severity._2,
-                    issueCode = IssueCodes._4,
-                    message = "Invalid framerate",
-                ),
-            ),
-            jitEncodingEnabled = false,
-            hasOriginal = true,
-            originalHash = "ABC123",
-            hasHighQualityPreview = true,
-            smartGenerateStatus = SmartGenerateStatus.FINISHED,
-            smartGenerateFeaturesStatus = SMART_GENERATE_FEATURES,
-        )
-        val fromPlayData = VideoPlayDataModelVideo(
-            videoLibraryId = 42L,
-            guid = "video-guid",
-            title = "Clip",
-            description = "A description",
-            dateUploaded = "2026-07-01T10:00:00",
-            views = 17L,
-            isPublic = true,
-            length = 120,
-            status = VideoModelStatus.FINISHED,
-            framerate = 29.97,
-            rotation = 90,
-            width = 1920,
-            height = 1080,
-            availableResolutions = "240p,360p,720p",
-            outputCodecs = "x264",
-            thumbnailCount = 6,
-            encodeProgress = 100,
-            storageSize = 4_016_825L,
-            captions = listOf(CaptionModel(srclang = "en", label = "English", version = 1)),
-            hasMP4Fallback = true,
-            collectionId = "collection-guid",
-            thumbnailFileName = "thumbnail.jpg",
-            thumbnailBlurhash = "WnDkAUae",
-            averageWatchTime = 30L,
-            totalWatchTime = 510L,
-            category = "unknown",
-            chapters = listOf(ChapterModel(title = "Intro", start = 0, end = 15)),
-            moments = listOf(MomentModel(label = "Goal", timestamp = 42)),
-            metaTags = listOf(MetaTagModel(property = "k", value = "v")),
-            transcodingMessages = listOf(
-                TranscodingMessageModel(
-                    timeStamp = "00:00:12",
-                    level = Severity._2,
-                    issueCode = IssueCodes._4,
-                    message = "Invalid framerate",
-                ),
-            ),
-            jitEncodingEnabled = false,
-            hasOriginal = true,
-            originalHash = "ABC123",
-            hasHighQualityPreview = true,
-            smartGenerateStatus = SmartGenerateStatus.FINISHED,
-            smartGenerateFeaturesStatus = SMART_GENERATE_FEATURES,
-        )
+    // The drift test that used to live here compared VideoModel.toDomain() against
+    // VideoPlayDataModelVideo.toDomain(). openapi-generator 7.24 reuses VideoModel for play
+    // data instead of emitting a second copy, so there is one mapper and nothing to drift.
 
-        assertEquals(fromList.toDomain(), fromPlayData.toDomain())
-    }
-
-    @Test
-    fun `both video DTOs agree on an empty payload too`() {
-        assertEquals(VideoModel().toDomain(), VideoPlayDataModelVideo().toDomain())
-    }
-
-    // endregion
-
-    // region — every field survives the mapping
 
     @Test
     fun `a fully populated video keeps every value`() {
@@ -373,17 +266,4 @@ class VideoMappersTest {
     }
 
     // endregion
-
-    private companion object {
-        /**
-         * The smart-generate fields are the newest on the DTO and the likeliest to be added to one
-         * mapper and not the other, so the drift fixture has to carry them.
-         */
-        private val SMART_GENERATE_FEATURES = VideoModelSmartGenerateFeaturesStatus(
-            title = SmartGenerateStatus.FINISHED,
-            description = SmartGenerateStatus.IN_PROGRESS,
-            chapters = SmartGenerateStatus.FAILED,
-            moments = SmartGenerateStatus.QUEUED,
-        )
-    }
 }

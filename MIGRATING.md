@@ -16,8 +16,73 @@ Every change below is source-breaking, and **nothing you could do in 3.x is gone
 and every field has an equivalent. The compiler points at each call site, and the fixes are
 mechanical.
 
-Sections 1–3 cover results and errors, section 4 the generated REST types, sections 5–7 the
-upload API.
+Before any of that, section 0 covers what has to change in your build file. Sections 1–3 cover
+results and errors, section 4 the generated REST types, sections 5–7 the upload API.
+
+---
+
+## 0. Build requirements
+
+Three of these are enforced by the build, so they surface as errors rather than as anything you
+could miss.
+
+| | 3.x | 4.0.0 |
+|---|---|---|
+| `compileSdk` | 35 | **36** or higher |
+| Kotlin | 2.1 | **2.1** or newer, unchanged in practice |
+| Core library desugaring | not needed | **required** for `net.bunny:player` |
+| `minSdk` | 26 | 26, unchanged |
+| JDK | 17 | 17, unchanged |
+
+`compileSdk` below 36 fails in `checkAarMetadata`, naming the dependency that demands it. The SDK is
+built with Kotlin 2.2.20, and a compiler reads metadata one version ahead, so 2.1 is the floor -
+measured, not assumed. On 2.0 and below the classes cannot be read at all, so there is no
+partial-use path. Without desugaring, the player's media3 dependency is rejected outright:
+
+```kotlin
+// build.gradle.kts
+android {
+    compileSdk = 36
+
+    compileOptions {
+        isCoreLibraryDesugaringEnabled = true
+    }
+}
+
+dependencies {
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
+}
+```
+
+`minSdk` stays at 26, so the devices you reach do not change. Nothing here affects `targetSdk`
+either - that stays your decision, and Google Play's requirement for it is unrelated to this
+release.
+
+### Transitive dependencies you may share with us
+
+Every dependency of this SDK is `implementation`, so none of them reach your compile classpath and
+none of our types expose them. They do take part in Gradle's version resolution, though, which
+picks the highest version across the whole app. If you use any of these directly, you will be
+moved up:
+
+| | 3.3.0 | 4.0.0 |
+|---|---|---|
+| media3 | 1.2.1 / 1.6.0 | **1.10.1** |
+| ktor | 3.1.2 | 3.5.0 |
+| gson | 2.8.9 | 2.14.0 |
+| kotlinx-coroutines | 1.7.3 | 1.11.0 |
+| kaml | 0.74.0 | 0.104.0 |
+| androidx.core | 1.12.0 | 1.18.0 |
+| RootEncoder | 2.6.6 | 2.7.2 |
+
+media3 is the one to look at first: if your app drives ExoPlayer itself, its API moved across
+eight minor releases. kaml is second, being pre-1.0, where minor versions break.
+
+Arrow is **removed**, not upgraded. If your code imported `arrow.core.Either` only to read an SDK
+result it can go; if you used Arrow for your own reasons, declare it yourself.
+
+Nothing changed in the merged manifest - no new permissions, no new features, and `minSdk` stays at
+26, so the devices you reach are the same.
 
 ---
 

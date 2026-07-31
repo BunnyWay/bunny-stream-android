@@ -30,25 +30,24 @@ import net.bunny.api.video.domain.model.VideoPlayData
 import org.openapitools.client.models.CaptionModel
 import org.openapitools.client.models.CodecRenditionSizeModel
 import org.openapitools.client.models.ResolutionReference as GeneratedResolutionReference
-import org.openapitools.client.models.StatusModelOfVideoResolutionsInfoModelAllOfData
-import org.openapitools.client.models.StatusModelOfVideoStorageSizeModelAllOfData
+import org.openapitools.client.models.VideoResolutionsInfoModel
+import org.openapitools.client.models.VideoStorageSizeModel
 import org.openapitools.client.models.StorageObjectModel
-import org.openapitools.client.models.VideoAddCaptionRequest
-import org.openapitools.client.models.VideoCreateVideoRequest
-import org.openapitools.client.models.VideoFetchNewVideoRequest
-import org.openapitools.client.models.VideoSmartGenerateRequest
+import org.openapitools.client.models.CaptionModelAdd
+import org.openapitools.client.models.CreateVideoModel
+import org.openapitools.client.models.FetchVideoRequest as GeneratedFetchVideoRequest
+import org.openapitools.client.models.SmartGenerateModel
 import org.openapitools.client.models.VideoStatisticsModel
-import org.openapitools.client.models.VideoTranscribeVideoRequest
-import org.openapitools.client.models.VideoUpdateVideoRequest
+import org.openapitools.client.models.TranscribeSettings
+import org.openapitools.client.models.UpdateVideoModel
 import org.openapitools.client.models.ChapterModel
 import org.openapitools.client.models.MetaTagModel
 import org.openapitools.client.models.MomentModel
 import org.openapitools.client.models.PaginationListOfVideoModel
 import org.openapitools.client.models.TranscodingMessageModel
 import org.openapitools.client.models.VideoModel
-import org.openapitools.client.models.VideoModelSmartGenerateFeaturesStatus
+import org.openapitools.client.models.SmartGenerateFeaturesStatusModel
 import org.openapitools.client.models.VideoPlayDataModel
-import org.openapitools.client.models.VideoPlayDataModelVideo
 
 /**
  * Generated DTO → domain mapping for the video surface.
@@ -62,9 +61,9 @@ import org.openapitools.client.models.VideoPlayDataModelVideo
  *  * **Comma-separated API strings become lists**, so a caller building a quality picker does not
  *    parse strings.
  *
- * The two DTOs [VideoModel] and [VideoPlayDataModelVideo] are field-for-field identical (the
- * generator emits one per endpoint). Everything non-trivial therefore lives in the shared helpers
- * below, so the two mappers cannot drift apart.
+ * Up to openapi-generator 7.6 the play-data endpoint got its own field-for-field copy of
+ * [VideoModel], which meant two mappers that could drift. 7.24 reuses the one model, so there is
+ * a single mapper again.
  */
 
 // region — shared conversions
@@ -110,7 +109,7 @@ internal fun TranscodingMessageModel.toDomain(): TranscodingMessage = Transcodin
     value = value,
 )
 
-internal fun VideoModelSmartGenerateFeaturesStatus.toDomain(): SmartGenerateFeatures =
+internal fun SmartGenerateFeaturesStatusModel.toDomain(): SmartGenerateFeatures =
     SmartGenerateFeatures(
         title = title,
         description = description,
@@ -118,52 +117,11 @@ internal fun VideoModelSmartGenerateFeaturesStatus.toDomain(): SmartGenerateFeat
         moments = moments,
     )
 
+
+
 // endregion
 
 internal fun VideoModel.toDomain(): Video = Video(
-    id = guid.orEmpty(),
-    videoLibraryId = videoLibraryId ?: 0L,
-    title = title.orEmpty(),
-    description = description,
-    collectionId = collectionId?.takeIf { it.isNotBlank() },
-    category = category,
-    dateUploaded = dateUploaded,
-    isPublic = isPublic ?: false,
-    status = status ?: VideoModelStatus.CREATED,
-    lengthSeconds = length ?: 0,
-    width = width?.takeIf { it > 0 },
-    height = height?.takeIf { it > 0 },
-    framerate = framerate?.takeIf { it > 0 },
-    rotation = rotation,
-    availableResolutions = availableResolutions.toCommaSeparatedList(),
-    outputCodecs = outputCodecs.toCommaSeparatedList(),
-    hasMp4Fallback = hasMP4Fallback ?: false,
-    jitEncodingEnabled = jitEncodingEnabled ?: false,
-    storageSizeBytes = storageSize ?: 0L,
-    encodeProgress = encodeProgress ?: 0,
-    hasOriginal = hasOriginal ?: false,
-    originalHash = originalHash,
-    hasHighQualityPreview = hasHighQualityPreview ?: false,
-    thumbnailCount = thumbnailCount ?: 0,
-    thumbnailFileName = thumbnailFileName,
-    thumbnailBlurhash = thumbnailBlurhash,
-    views = views ?: 0L,
-    averageWatchTimeSeconds = averageWatchTime ?: 0L,
-    totalWatchTimeSeconds = totalWatchTime ?: 0L,
-    captions = captions?.map { it.toDomain() }.orEmpty(),
-    chapters = chapters?.map { it.toDomain() }.orEmpty(),
-    moments = moments?.map { it.toDomain() }.orEmpty(),
-    metaTags = metaTags?.map { it.toDomain() }.orEmpty(),
-    transcodingMessages = transcodingMessages?.map { it.toDomain() }.orEmpty(),
-    smartGenerateStatus = smartGenerateStatus,
-    smartGenerateFeatures = smartGenerateFeaturesStatus?.toDomain(),
-)
-
-/**
- * Same mapping as [VideoModel.toDomain]; the play-data endpoint returns its own generated copy of
- * the identical shape.
- */
-internal fun VideoPlayDataModelVideo.toDomain(): Video = Video(
     id = guid.orEmpty(),
     videoLibraryId = videoLibraryId ?: 0L,
     title = title.orEmpty(),
@@ -210,7 +168,7 @@ internal fun VideoStatisticsModel.toDomain(): VideoStatistics = VideoStatistics(
     engagementScore = engagementScore ?: 0,
 )
 
-internal fun StatusModelOfVideoStorageSizeModelAllOfData.toDomain(): VideoStorageSize =
+internal fun VideoStorageSizeModel.toDomain(): VideoStorageSize =
     VideoStorageSize(
         encoded = encoded.orEmpty().mapValues { (_, rendition) -> rendition.toDomain() },
         thumbnailsBytes = thumbnails ?: 0L,
@@ -227,7 +185,7 @@ internal fun CodecRenditionSizeModel.toDomain(): CodecRenditionSize = CodecRendi
     sizeBytes = propertySize ?: 0L,
 )
 
-internal fun StatusModelOfVideoResolutionsInfoModelAllOfData.toDomain(): VideoResolutionsInfo =
+internal fun VideoResolutionsInfoModel.toDomain(): VideoResolutionsInfo =
     VideoResolutionsInfo(
         videoId = videoId.orEmpty(),
         videoLibraryId = videoLibraryId ?: 0L,
@@ -266,13 +224,13 @@ internal fun StorageObjectModel.toDomain(): StorageObject = StorageObject(
 
 // region — domain → generated (request bodies)
 
-internal fun CreateVideoRequest.toGenerated(): VideoCreateVideoRequest = VideoCreateVideoRequest(
+internal fun CreateVideoRequest.toGenerated(): CreateVideoModel = CreateVideoModel(
     title = title,
     collectionId = collectionId,
     thumbnailTime = thumbnailTime,
 )
 
-internal fun UpdateVideoRequest.toGenerated(): VideoUpdateVideoRequest = VideoUpdateVideoRequest(
+internal fun UpdateVideoRequest.toGenerated(): UpdateVideoModel = UpdateVideoModel(
     title = title,
     collectionId = collectionId,
     chapters = chapters?.map { ChapterModel(title = it.title, start = it.startSeconds, end = it.endSeconds) },
@@ -280,20 +238,20 @@ internal fun UpdateVideoRequest.toGenerated(): VideoUpdateVideoRequest = VideoUp
     metaTags = metaTags?.map { MetaTagModel(property = it.property, value = it.value) },
 )
 
-internal fun AddCaptionRequest.toGenerated(): VideoAddCaptionRequest = VideoAddCaptionRequest(
+internal fun AddCaptionRequest.toGenerated(): CaptionModelAdd = CaptionModelAdd(
     srclang = languageCode,
     label = label,
     captionsFile = captionsFileBase64,
 )
 
-internal fun FetchVideoRequest.toGenerated(): VideoFetchNewVideoRequest = VideoFetchNewVideoRequest(
+internal fun FetchVideoRequest.toGenerated(): GeneratedFetchVideoRequest = GeneratedFetchVideoRequest(
     url = url,
     headers = headers,
     title = title,
 )
 
-internal fun SmartGenerateRequest.toGenerated(): VideoSmartGenerateRequest =
-    VideoSmartGenerateRequest(
+internal fun SmartGenerateRequest.toGenerated(): SmartGenerateModel =
+    SmartGenerateModel(
         generateTitle = generateTitle,
         generateDescription = generateDescription,
         generateChapters = generateChapters,
@@ -301,8 +259,8 @@ internal fun SmartGenerateRequest.toGenerated(): VideoSmartGenerateRequest =
         sourceLanguage = sourceLanguage,
     )
 
-internal fun TranscribeVideoRequest.toGenerated(): VideoTranscribeVideoRequest =
-    VideoTranscribeVideoRequest(
+internal fun TranscribeVideoRequest.toGenerated(): TranscribeSettings =
+    TranscribeSettings(
         targetLanguages = targetLanguages,
         generateTitle = generateTitle,
         generateDescription = generateDescription,

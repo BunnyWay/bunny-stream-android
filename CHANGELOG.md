@@ -58,6 +58,13 @@ possible in 3.x is gone — see [MIGRATING.md](MIGRATING.md) for before/after ex
   Unknown values from a newer server map to `UNDEFINED` instead of failing to parse.
 
 ### Changed
+- **Build requirements moved.** `compileSdk` 36 or higher, Kotlin 2.1 or newer, and core library
+  desugaring enabled for `net.bunny:player`. `minSdk` stays at 26 and JDK stays at 17, so device
+  reach is unchanged. See [MIGRATING.md](MIGRATING.md) section 0; all three are enforced by the
+  build, not just documented.
+- The toolchain moved with them: Gradle 9.5, Android Gradle plugin 9.3.1, Kotlin 2.2.20,
+  openapi-generator 7.24.0, Dokka 2 in v2 mode. androidx, media3 1.10.1, ktor 3.5.0, RootEncoder
+  2.7.2, gson and the TUS clients came up to current at the same time.
 
 - `BunnyStreamApi.initialize` now requires a non-null `accessKey`. Passing null never worked
   (it crashed at runtime); the parameter type now says so.

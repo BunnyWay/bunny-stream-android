@@ -9,7 +9,7 @@ import net.bunny.api.collection.domain.model.VideoCollectionList
 import net.bunny.api.error.BunnyResult
 import net.bunny.api.error.bunnyCatching
 import net.bunny.api.error.requireSuccess
-import org.openapitools.client.models.CollectionUpdateCollectionRequest
+import org.openapitools.client.models.UpdateCollectionModel
 
 /**
  * Adapts the generated [ManageCollectionsApi] into the domain surface, on the same pattern as
@@ -58,7 +58,7 @@ internal class DefaultCollectionRepository(
         bunnyCatching {
             collectionsApi.collectionCreateCollection(
                 libraryId = libraryId,
-                collectionUpdateCollectionRequest = CollectionUpdateCollectionRequest(name = name),
+                updateCollectionModel = UpdateCollectionModel(name = name),
             ).toDomain()
         }
     }
@@ -72,7 +72,7 @@ internal class DefaultCollectionRepository(
             collectionsApi.collectionUpdateCollection(
                 libraryId = libraryId,
                 collectionId = collectionId,
-                collectionUpdateCollectionRequest = CollectionUpdateCollectionRequest(name = name),
+                updateCollectionModel = UpdateCollectionModel(name = name),
             ).requireSuccess()
         }
     }

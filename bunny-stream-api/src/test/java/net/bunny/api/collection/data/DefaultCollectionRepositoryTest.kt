@@ -15,7 +15,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.openapitools.client.infrastructure.ClientException
 import org.openapitools.client.models.CollectionModel
-import org.openapitools.client.models.CollectionUpdateCollectionRequest
+import org.openapitools.client.models.UpdateCollectionModel
 import org.openapitools.client.models.PaginationListOfCollectionModel
 import org.openapitools.client.models.StatusModel
 
@@ -88,7 +88,7 @@ class DefaultCollectionRepositoryTest {
     @Test
     fun `createCollection sends the name and returns the created collection`() =
         runTest(dispatcher) {
-            val sent = slot<CollectionUpdateCollectionRequest>()
+            val sent = slot<UpdateCollectionModel>()
             every { api.collectionCreateCollection(eq(LIBRARY_ID), capture(sent)) } returns
                 CollectionModel(guid = "new-c", name = "Archive")
 
@@ -100,7 +100,7 @@ class DefaultCollectionRepositoryTest {
 
     @Test
     fun `updateCollection sends the new name`() = runTest(dispatcher) {
-        val sent = slot<CollectionUpdateCollectionRequest>()
+        val sent = slot<UpdateCollectionModel>()
         every {
             api.collectionUpdateCollection(eq(LIBRARY_ID), eq(COLLECTION_ID), capture(sent))
         } returns StatusModel(success = true)
