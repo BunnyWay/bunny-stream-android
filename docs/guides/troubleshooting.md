@@ -8,6 +8,19 @@ The failure modes integrators actually hit, with fixes.
 (`Unable to play video, initialize the player first...`) and renders nothing. Initialize in
 `Application.onCreate`, see [Getting started](getting-started.md).
 
+## `IllegalStateException: BunnyStreamApi has no default instance`
+
+Something reached `getInstance()` before `initialize` ran. Usually the SDK is initialised from a
+screen rather than `Application.onCreate`, or credentials arrive from the network and a screen
+opens first. Either initialise earlier, guard with `isInitialized()`, or create an instance with
+`BunnyStreamApi.create(...)` and hand it to the view through its `bunny` property.
+
+## `IllegalArgumentException: accessKey must not be blank`
+
+`initialize` is being called with placeholder credentials — commonly an empty key read from
+preferences before the user has entered one, or a `libraryId` of `0`. The SDK rejects these instead
+of accepting them and failing later with a `401`. Call `initialize` once you have real values.
+
 ## Images come back as HTTP 403
 
 Your library has "Block direct URL file access" enabled and your own image loader does not send
