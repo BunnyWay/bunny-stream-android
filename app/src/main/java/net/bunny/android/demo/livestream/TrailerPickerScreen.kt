@@ -209,7 +209,7 @@ class TrailerPickerViewModel : ViewModel() {
     }
 
     private val libraryId: Long
-        get() = BunnyStreamApi.libraryId
+        get() = App.di.libraryId
 
     private val mutableState = MutableStateFlow<State>(State.Loading)
     val state = mutableState.asStateFlow()

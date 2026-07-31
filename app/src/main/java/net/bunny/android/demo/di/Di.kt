@@ -21,15 +21,38 @@ class Di(val context: Context) {
     val dualPublishPreferences = DualPublishPreferences(dualPublishPrefs)
 
     init {
-        BunnyStreamApi.initialize(context, localPrefs.accessKey, localPrefs.libraryId)
+        // Release builds ship without demo credentials and the settings screen starts empty, so
+        // there is nothing to initialise with until the user enters a key. The SDK rejects blank
+        // credentials rather than pretending to be configured, and every screen already checks
+        // BunnyStreamApi.isInitialized() before it calls anything.
+        if (hasCredentials) {
+            BunnyStreamApi.initialize(context, localPrefs.accessKey, localPrefs.libraryId)
+        }
     }
+
+    /** True once the user (or a debug build's `local.properties`) has supplied a key and library. */
+    val hasCredentials: Boolean
+        get() = localPrefs.accessKey.isNotBlank() && localPrefs.libraryId > 0
 
     // Uploaders are reached straight off the SDK (streamSdk.videoUploader /
     // streamSdk.tusVideoUploader). Before 4.0.0 a demo-side wrapper existed to hold the single
     // UploadListener every screen had to share; the upload Flow made both the wrapper and that
     // shared mutable listener unnecessary.
-    var streamSdk: StreamApi = BunnyStreamApi.getInstance()
-        private set
+    //
+    // Resolved on each use rather than held: re-entering credentials replaces the SDK's default
+    // instance, and a cached handle would keep pointing at the released one.
+    val streamSdk: StreamApi
+        get() = BunnyStreamApi.getInstance()
+
+    /**
+     * The configured library, or `-1` when the SDK has no instance yet.
+     *
+     * The library id lives on the instance now, so there is nothing to read before one exists.
+     * Screens use this to decide whether to load at all, which they have to do before touching
+     * [streamSdk] anyway.
+     */
+    val libraryId: Long
+        get() = if (BunnyStreamApi.isInitialized()) streamSdk.libraryId else -1L
 
     /**
      * The upload currently in flight, if any.
@@ -55,8 +78,11 @@ class Di(val context: Context) {
         // gives each one a terminal event first, so any screen still observing is told.
         activeUpload = null
         activeTrailerUpload = null
-        BunnyStreamApi.initialize(context, accessKey, libraryId)
-        streamSdk = BunnyStreamApi.getInstance()
+        if (hasCredentials) {
+            BunnyStreamApi.initialize(context, accessKey, libraryId)
+        } else {
+            BunnyStreamApi.release()
+        }
     }
 }
 

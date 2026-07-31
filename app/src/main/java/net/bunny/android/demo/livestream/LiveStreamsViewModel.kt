@@ -36,7 +36,7 @@ class LiveStreamsViewModel : ViewModel() {
     val errorState = mutableErrorState.asSharedFlow()
 
     private val libraryId: Long
-        get() = BunnyStreamApi.libraryId
+        get() = App.di.libraryId
 
     private val repository
         get() = App.di.streamSdk.liveStreamRepository
