@@ -2,7 +2,10 @@ package net.bunny.bunnystreamplayer.livestream
 
 import android.util.Log
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -15,6 +18,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import net.bunny.api.BunnyStreamApi
+import net.bunny.api.StreamApi
 import net.bunny.api.error.BunnyError
 import net.bunny.api.error.BunnyResult
 import net.bunny.api.error.fold
@@ -49,18 +53,35 @@ import net.bunny.api.model.LiveStreamStatus
  * in the composable. This keeps it unit-testable on the JVM with a fake [LiveStreamRepository].
  */
 public open class BunnyLiveStreamPlayerViewModel internal constructor(
-    private val repository: LiveStreamRepository,
+    private val repositoryProvider: () -> LiveStreamRepository,
     private val ioDispatcher: CoroutineDispatcher,
     private val nowEpochMs: () -> Long,
     private val pollIntervalMs: Long,
 ) : ViewModel() {
 
+    internal constructor(
+        repository: LiveStreamRepository,
+        ioDispatcher: CoroutineDispatcher,
+        nowEpochMs: () -> Long,
+        pollIntervalMs: Long,
+    ) : this({ repository }, ioDispatcher, nowEpochMs, pollIntervalMs)
+
     public constructor() : this(
-        repository = BunnyStreamApi.getInstance().liveStreamRepository,
+        repositoryProvider = { BunnyStreamApi.getInstance().liveStreamRepository },
         ioDispatcher = Dispatchers.IO,
         nowEpochMs = { System.currentTimeMillis() },
         pollIntervalMs = DEFAULT_POLL_INTERVAL_MS,
     )
+
+    /**
+     * Resolved on first use rather than at construction.
+     *
+     * Compose builds this view model during composition, which can run before the host app has
+     * initialised the SDK. Reaching for the instance in the constructor turned that ordering into
+     * a crash the app had no chance to catch; now [start] reports it through [terminalError] and
+     * the player shows a message instead.
+     */
+    private val repository: LiveStreamRepository by lazy(repositoryProvider)
 
     private val mutableState = MutableStateFlow<LiveStreamPlayerState>(LiveStreamPlayerState.Loading)
     public val state: StateFlow<LiveStreamPlayerState> = mutableState.asStateFlow()
@@ -145,6 +166,19 @@ public open class BunnyLiveStreamPlayerViewModel internal constructor(
             return
         }
         started = true
+
+        // First touch of the SDK instance. If the host never initialised it, say so here rather
+        // than letting the failure escape from whatever coroutine happens to reach it first.
+        val unavailable = runCatching { repository }.exceptionOrNull()
+        if (unavailable != null) {
+            Log.e(TAG, "cannot start — the SDK has no instance", unavailable)
+            terminated = true
+            mutableTerminalError.value =
+                "The Bunny SDK is not initialised. Call BunnyStreamApi.initialize(...) before " +
+                    "showing the player."
+            return
+        }
+
         this.libraryId = libraryId
         this.streamId = streamId
         this.token = token
@@ -457,5 +491,24 @@ public open class BunnyLiveStreamPlayerViewModel internal constructor(
 
         /** Production poll interval, matched to the web player. Don't lower without sign-off. */
         public const val DEFAULT_POLL_INTERVAL_MS: Long = 5_000L
+
+        /**
+         * Builds a view model bound to [bunny], or to the default instance when it is null.
+         *
+         * [BunnyLiveStreamPlayer] uses this so an app addressing more than one library can point
+         * the player at the right one. The instance is resolved when the stream starts, not here.
+         */
+        internal fun factory(bunny: StreamApi?): ViewModelProvider.Factory = viewModelFactory {
+            initializer {
+                BunnyLiveStreamPlayerViewModel(
+                    repositoryProvider = {
+                        (bunny ?: BunnyStreamApi.getInstance()).liveStreamRepository
+                    },
+                    ioDispatcher = Dispatchers.IO,
+                    nowEpochMs = { System.currentTimeMillis() },
+                    pollIntervalMs = DEFAULT_POLL_INTERVAL_MS,
+                )
+            }
+        }
     }
 }

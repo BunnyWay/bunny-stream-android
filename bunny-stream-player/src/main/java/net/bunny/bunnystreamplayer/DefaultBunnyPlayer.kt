@@ -583,8 +583,9 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
                 .build()
         }
 
-        // Build MediaItem with DRM config (CENC)
-        val drmLicenseUri = "${BunnyStreamApi.baseApi}/WidevineLicense/" +
+        // Build MediaItem with DRM config (CENC). The host comes from the instance's config, so a
+        // library pointed at another deployment licenses against that one too.
+        val drmLicenseUri = "${BunnyStreamApi.getInstance().config.baseApi}/WidevineLicense/" +
                 "${video.videoLibraryId}/${video.id}?contentId=${video.id}"
 
         // Title + artwork shown by the Chromecast receiver and the cast/notification UI (the

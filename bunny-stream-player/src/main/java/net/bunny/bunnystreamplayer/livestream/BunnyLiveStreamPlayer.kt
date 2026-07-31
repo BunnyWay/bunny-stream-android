@@ -65,6 +65,7 @@ import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.ui.PlayerView
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.model.GlideUrl
+import net.bunny.api.StreamApi
 import net.bunny.api.BunnyCdn
 import net.bunny.api.livestream.domain.model.LiveStreamPlayData
 import net.bunny.player.R
@@ -105,7 +106,10 @@ public fun BunnyLiveStreamPlayer(
     expires: Long? = null,
     modifier: Modifier = Modifier,
     onVideoSizeChanged: ((width: Int, height: Int) -> Unit)? = null,
-    viewModel: BunnyLiveStreamPlayerViewModel = viewModel(),
+    bunny: StreamApi? = null,
+    viewModel: BunnyLiveStreamPlayerViewModel = viewModel(
+        factory = BunnyLiveStreamPlayerViewModel.factory(bunny),
+    ),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val terminalError by viewModel.terminalError.collectAsStateWithLifecycle()
