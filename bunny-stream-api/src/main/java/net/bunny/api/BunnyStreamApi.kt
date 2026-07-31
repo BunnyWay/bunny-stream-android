@@ -32,57 +32,98 @@ import okio.Buffer
 
 class BunnyStreamApi private constructor(
     context: Context,
-    accessKey: String,
+    override val config: BunnyStreamConfig,
 ) : StreamApi {
 
     companion object {
-        private const val TUS_PREFS_FILE = "tusPrefs"
+        private const val TUS_PREFS_PREFIX = "tusPrefs"
         private const val HTTP_LOG_TAG = "BunnyLive/HTTP"
 
-        const val baseApi = BuildConfig.BASE_API
-
-        var libraryId: Long = -1
-            private set
-
         @Volatile
-        private var instance: StreamApi? = null
+        private var defaultInstance: BunnyStreamApi? = null
 
         /**
-         * Initialises the SDK singleton. [accessKey] is the library API key and is required —
-         * every SDK feature (REST, uploads, live streaming) authenticates with it.
+         * Creates an SDK instance for one library and hands it back to you.
+         *
+         * The instance owns its own credentials, uploads and HTTP client, so several can be live
+         * at once — one per library. Nothing is registered globally: keep the returned handle for
+         * as long as you need it and call [StreamApi.release] when you are done.
+         *
+         * Use [initialize] instead if your app talks to a single library and you would rather the
+         * SDK hold the instance for you.
          */
-        fun initialize(context: Context, accessKey: String, libraryId: Long) {
+        fun create(context: Context, config: BunnyStreamConfig): StreamApi =
+            BunnyStreamApi(context.applicationContext, config)
+
+        /** Creates an instance from the two values most callers configure. @see create */
+        fun create(context: Context, accessKey: String, libraryId: Long): StreamApi =
+            create(context, BunnyStreamConfig(accessKey, libraryId))
+
+        /**
+         * Creates an instance and keeps it as the default one, reachable from [getInstance].
+         *
+         * The SDK's own views ([net.bunny.api.StreamApi] consumers in `:player` and `:recording`)
+         * fall back to this instance when they are not given one, so a single-library app can call
+         * this once and never pass a handle around.
+         *
+         * Calling it again replaces the default instance and releases the previous one, which
+         * stops its in-flight uploads. Instances made with [create] are untouched.
+         */
+        fun initialize(context: Context, config: BunnyStreamConfig) {
             // Uploads run on a scope owned by the instance. Replacing the instance without
             // stopping them would leave transfers running against the previous library and key,
             // with no handle left to reach them.
-            (instance as? BunnyStreamApi)?.shutdownUploads()
-
-            instance = BunnyStreamApi(
-                context.applicationContext,
-                accessKey,
-            )
-
-            this.libraryId = libraryId
-            ApiClient.apiKey["AccessKey"] = accessKey
+            defaultInstance?.release()
+            defaultInstance = BunnyStreamApi(context.applicationContext, config)
         }
 
-        fun getInstance(): StreamApi {
-            return instance!!
+        /**
+         * Initialises the default instance. [accessKey] is the library API key and is required —
+         * every SDK feature (REST, uploads, live streaming) authenticates with it.
+         */
+        fun initialize(context: Context, accessKey: String, libraryId: Long) {
+            initialize(context, BunnyStreamConfig(accessKey, libraryId))
         }
 
-        fun isInitialized(): Boolean {
-            return instance != null
-        }
+        /**
+         * The default instance.
+         *
+         * @throws IllegalStateException when [initialize] has not been called. Guard with
+         *   [isInitialized] if you cannot be sure, or hold an instance from [create] instead.
+         */
+        fun getInstance(): StreamApi = defaultInstance ?: error(
+            "BunnyStreamApi has no default instance. Call BunnyStreamApi.initialize(context, " +
+                "accessKey, libraryId) before using the SDK, or create an instance with " +
+                "BunnyStreamApi.create(...) and pass it in.",
+        )
 
+        /** True once [initialize] has been called and the default instance has not been released. */
+        fun isInitialized(): Boolean = defaultInstance != null
+
+        /** Releases the default instance, stopping its in-flight uploads. */
         fun release() {
-            (instance as? BunnyStreamApi)?.shutdownUploads()
-            instance = null
+            defaultInstance?.release()
+            defaultInstance = null
         }
     }
 
-    // OkHttp client that injects Referer for the /play endpoint
+    // OkHttp client that authenticates this instance and injects Referer for the /play endpoint
     private val okHttpClientWithReferer: OkHttpClient = ApiClient.defaultClient
         .newBuilder()
+        // Authenticates every call this instance makes.
+        //
+        // The generated client keeps its key in a static map shared by every ApiClient in the
+        // process, so filling it in would mean the most recently created instance authenticating
+        // for all of them. We leave that map empty: the generated `updateAuthParams` only sets the
+        // header when it isn't already there, so setting it here wins and each instance carries
+        // its own key.
+        .addInterceptor(Interceptor { chain ->
+            chain.proceed(
+                chain.request().newBuilder()
+                    .header("AccessKey", config.accessKey)
+                    .build(),
+            )
+        })
         // Identifies the SDK on every request, e.g. "bunny-stream-android/1.3.2".
         .addInterceptor(Interceptor { chain ->
             chain.proceed(
@@ -142,15 +183,21 @@ class BunnyStreamApi private constructor(
 
     // The generated clients are implementation detail now — repositories below are the public
     // surface. They share the User-Agent-carrying OkHttp client so every call is identified.
-    private val collectionsApi = ManageCollectionsApi(baseApi, okHttpClientWithReferer)
+    private val collectionsApi = ManageCollectionsApi(config.baseApi, okHttpClientWithReferer)
 
-    private val videosApi = ManageVideosApi(baseApi, okHttpClientWithReferer)
+    private val videosApi = ManageVideosApi(config.baseApi, okHttpClientWithReferer)
 
-    private val liveStreamsApi = ManageLiveStreamsApi(baseApi, okHttpClientWithReferer)
+    private val liveStreamsApi = ManageLiveStreamsApi(config.baseApi, okHttpClientWithReferer)
 
-    private val prefs = context.getSharedPreferences(TUS_PREFS_FILE, Context.MODE_PRIVATE)
+    // One resume store per library. TUS keys its store by a fingerprint of the file being
+    // uploaded, so a single shared store would hand instance B the upload URL that instance A
+    // created — resuming a transfer into the wrong library.
+    private val prefs = context.getSharedPreferences(
+        "$TUS_PREFS_PREFIX-${config.libraryId}",
+        Context.MODE_PRIVATE,
+    )
 
-    private val ktorClient = initHttpClient(accessKey)
+    private val ktorClient = initHttpClient(config.accessKey)
 
     private val basicUploaderService = BasicUploaderService(
         ktorClient,
@@ -159,16 +206,18 @@ class BunnyStreamApi private constructor(
     private val tusVideoUploaderService = TusUploaderService(
         preferences = prefs,
         chunkSize = 1024,
-        accessKey = accessKey,
+        accessKey = config.accessKey,
         dispatcher = Dispatchers.IO
     )
 
     /**
-     * Stops every in-flight upload and tears down the uploaders' scopes. Called when this instance
-     * is replaced by [initialize] or dropped by [release], so an upload can never outlive the SDK
-     * instance that started it.
+     * Stops every in-flight upload and tears down this instance's uploader scopes, so an upload
+     * can never outlive the instance that started it.
+     *
+     * Releasing one instance leaves every other one running. The default instance is released for
+     * you when [initialize] replaces it or [BunnyStreamApi.release] drops it.
      */
-    private fun shutdownUploads() {
+    override fun release() {
         (videoUploader as? DefaultVideoUploader)?.shutdown()
         (tusVideoUploader as? DefaultVideoUploader)?.shutdown()
     }
@@ -199,6 +248,7 @@ class BunnyStreamApi private constructor(
 
     override val settingsRepository: SettingsRepository = DefaultSettingsRepository(
         httpClient = ktorClient,
+        baseApi = config.baseApi,
         coroutineDispatcher = Dispatchers.IO
     )
 

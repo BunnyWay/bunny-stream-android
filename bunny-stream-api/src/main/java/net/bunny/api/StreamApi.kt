@@ -9,13 +9,28 @@ import net.bunny.api.upload.VideoUploader
 import net.bunny.api.video.domain.VideoRepository
 
 /**
- * The SDK's entry point: everything reachable from `BunnyStreamApi.getInstance()`.
+ * One SDK instance, bound to one Bunny Stream library.
+ *
+ * Get one from `BunnyStreamApi.create(context, config)`, or let the SDK hold a default for you
+ * with `BunnyStreamApi.initialize(...)` and reach it through `BunnyStreamApi.getInstance()`.
+ * Instances are independent: two of them can address two libraries at the same time.
  *
  * Every surface here speaks domain models and returns [BunnyResult]. The generated OpenAPI client
  * that backs them is an implementation detail — before 4.0.0 it was exposed directly, which meant
  * a change to Bunny's spec could break an integrator's build without anyone touching their code.
  */
 interface StreamApi {
+    /** What this instance was created with. Its `toString` does not print the access key. */
+    val config: BunnyStreamConfig
+
+    /**
+     * The library this instance addresses, from the config it was created with.
+     *
+     * The SDK's own views use it when you do not pass a library id yourself. Repository methods
+     * take one per call, so a single instance can still read another library you have access to.
+     */
+    val libraryId: Long get() = config.libraryId
+
     /**
      * Managing videos: listing, metadata, playback data, captions, encoding, statistics.
      * @see VideoRepository
@@ -69,4 +84,12 @@ interface StreamApi {
         token: String? = null,
         expires: Long? = null,
     ): BunnyResult<PlayerSettings>
+
+    /**
+     * Stops this instance's in-flight uploads and tears down the scopes running them.
+     *
+     * Call it when you are done with an instance you created yourself. Other instances keep
+     * running; the default instance is released for you by `BunnyStreamApi.release()`.
+     */
+    fun release()
 }

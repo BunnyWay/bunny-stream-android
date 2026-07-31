@@ -102,6 +102,10 @@ dependencies {
     // MockEngine — drives BasicUploaderService's upload Flow through real Ktor machinery
     // (progress callbacks, status handling) without a server. Version tracks the ktor client below.
     testImplementation("io.ktor:ktor-client-mock:3.1.2")
+    // MockWebServer — the only way to assert what an instance actually puts on the wire. Used to
+    // prove two instances authenticate with their own keys. Pinned to the okhttp version that
+    // actually resolves (5.3.2, forced by okhttp-android), not the 4.12.0 BOM below.
+    testImplementation("com.squareup.okhttp3:mockwebserver:5.3.2")
     // https://developer.android.com/jetpack/androidx/releases/test
     androidTestImplementation("androidx.test.ext:junit:1.3.0")
     // https://developer.android.com/jetpack/androidx/releases/test#espresso
