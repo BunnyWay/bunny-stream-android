@@ -210,52 +210,92 @@ class BunnyStreamApi private constructor(
         dispatcher = Dispatchers.IO
     )
 
+    @Volatile
+    private var released = false
+
     /**
-     * Stops every in-flight upload and tears down this instance's uploader scopes, so an upload
-     * can never outlive the instance that started it.
+     * Stops every in-flight upload and frees what this instance holds: the uploader scopes and the
+     * HTTP client behind player settings and plain uploads, which owns a thread pool and a
+     * connection pool of its own.
+     *
+     * **Do not use the instance afterwards.** Calls made through a released instance fail; hold a
+     * new one from [create] instead. Calling this twice is harmless.
      *
      * Releasing one instance leaves every other one running. The default instance is released for
      * you when [initialize] replaces it or [BunnyStreamApi.release] drops it.
      */
     override fun release() {
-        (videoUploader as? DefaultVideoUploader)?.shutdown()
-        (tusVideoUploader as? DefaultVideoUploader)?.shutdown()
+        if (released) return
+        released = true
+        // The private fields, not the guarded accessors — those refuse once `released` is set.
+        videoUploaderImpl.shutdown()
+        tusVideoUploaderImpl.shutdown()
+        // The OkHttp client is a view onto the shared default one and has nothing of its own to
+        // free, but Ktor built its own engine — leaving it open leaks a thread pool per instance.
+        ktorClient.close()
     }
 
-    override val videoRepository: VideoRepository = DefaultVideoRepository(
+    private val videoRepositoryImpl = DefaultVideoRepository(
         videosApi = videosApi,
         coroutineDispatcher = Dispatchers.IO
     )
 
-    override val videoUploader: VideoUploader = DefaultVideoUploader(
+    private val videoUploaderImpl = DefaultVideoUploader(
         context = context,
         videoUploadService = basicUploaderService,
         ioDispatcher = Dispatchers.IO,
-        videoRepository = videoRepository,
+        videoRepository = videoRepositoryImpl,
     )
 
-    override val tusVideoUploader: VideoUploader = DefaultVideoUploader(
+    private val tusVideoUploaderImpl = DefaultVideoUploader(
         context = context,
         videoUploadService = tusVideoUploaderService,
         ioDispatcher = Dispatchers.IO,
-        videoRepository = videoRepository,
+        videoRepository = videoRepositoryImpl,
     )
 
-    override val collectionRepository: CollectionRepository = DefaultCollectionRepository(
+    private val collectionRepositoryImpl = DefaultCollectionRepository(
         collectionsApi = collectionsApi,
         coroutineDispatcher = Dispatchers.IO
     )
 
-    override val settingsRepository: SettingsRepository = DefaultSettingsRepository(
+    private val settingsRepositoryImpl = DefaultSettingsRepository(
         httpClient = ktorClient,
         baseApi = config.baseApi,
         coroutineDispatcher = Dispatchers.IO
     )
 
-    override val liveStreamRepository: LiveStreamRepository = DefaultLiveStreamRepository(
+    private val liveStreamRepositoryImpl = DefaultLiveStreamRepository(
         liveStreamsApi = liveStreamsApi,
         coroutineDispatcher = Dispatchers.IO
     )
+
+    override val videoRepository: VideoRepository get() = usable(videoRepositoryImpl)
+
+    override val videoUploader: VideoUploader get() = usable(videoUploaderImpl)
+
+    override val tusVideoUploader: VideoUploader get() = usable(tusVideoUploaderImpl)
+
+    override val collectionRepository: CollectionRepository get() = usable(collectionRepositoryImpl)
+
+    override val settingsRepository: SettingsRepository get() = usable(settingsRepositoryImpl)
+
+    override val liveStreamRepository: LiveStreamRepository get() = usable(liveStreamRepositoryImpl)
+
+    /**
+     * Guards every way into this instance against use after [release].
+     *
+     * Releasing closes the HTTP client, and a request issued through a closed one fails with a
+     * cancellation that propagates into the *caller's* coroutine scope — cancelling work that has
+     * nothing to do with the SDK. Saying so plainly is better than that.
+     */
+    private fun <T> usable(value: T): T {
+        check(!released) {
+            "This BunnyStreamApi instance has been released. Create another one with " +
+                "BunnyStreamApi.create(...), or call BunnyStreamApi.initialize(...) again."
+        }
+        return value
+    }
 
     override suspend fun fetchPlayerSettings(
         libraryId: Long,
