@@ -26,6 +26,7 @@ import net.bunny.api.livestream.domain.LiveStreamRepository
 import net.bunny.api.livestream.domain.model.LiveStream
 import net.bunny.api.livestream.domain.model.LiveStreamPlayData
 import net.bunny.api.model.LiveStreamStatus
+import net.bunny.api.video.domain.VideoRepository
 
 /**
  * Backing view model for [BunnyLiveStreamPlayer]. Owns the polling loop, the play-data fetches,
@@ -54,6 +55,7 @@ import net.bunny.api.model.LiveStreamStatus
  */
 public open class BunnyLiveStreamPlayerViewModel internal constructor(
     private val repositoryProvider: () -> LiveStreamRepository,
+    private val videoRepositoryProvider: () -> VideoRepository,
     private val ioDispatcher: CoroutineDispatcher,
     private val nowEpochMs: () -> Long,
     private val pollIntervalMs: Long,
@@ -64,10 +66,17 @@ public open class BunnyLiveStreamPlayerViewModel internal constructor(
         ioDispatcher: CoroutineDispatcher,
         nowEpochMs: () -> Long,
         pollIntervalMs: Long,
-    ) : this({ repository }, ioDispatcher, nowEpochMs, pollIntervalMs)
+    ) : this(
+        { repository },
+        { BunnyStreamApi.getInstance().videoRepository },
+        ioDispatcher,
+        nowEpochMs,
+        pollIntervalMs,
+    )
 
     public constructor() : this(
         repositoryProvider = { BunnyStreamApi.getInstance().liveStreamRepository },
+        videoRepositoryProvider = { BunnyStreamApi.getInstance().videoRepository },
         ioDispatcher = Dispatchers.IO,
         nowEpochMs = { System.currentTimeMillis() },
         pollIntervalMs = DEFAULT_POLL_INTERVAL_MS,
@@ -82,6 +91,13 @@ public open class BunnyLiveStreamPlayerViewModel internal constructor(
      * the player shows a message instead.
      */
     private val repository: LiveStreamRepository by lazy(repositoryProvider)
+
+    /**
+     * The video repository the trailer's play-data is fetched through. Comes from the same
+     * provider set as [repository], so a player given its own instance fetches the trailer with
+     * that instance's key and host — not whichever instance happens to be the default.
+     */
+    private val videoRepository: VideoRepository by lazy(videoRepositoryProvider)
 
     private val mutableState = MutableStateFlow<LiveStreamPlayerState>(LiveStreamPlayerState.Loading)
     public val state: StateFlow<LiveStreamPlayerState> = mutableState.asStateFlow()
@@ -367,7 +383,7 @@ public open class BunnyLiveStreamPlayerViewModel internal constructor(
         viewModelScope.launch {
             try {
                 Log.d(TAG, "fetching trailer play-data — videoId=$trailerVideoId")
-                val url = BunnyStreamApi.getInstance().videoRepository
+                val url = videoRepository
                     .fetchVideoPlayData(libraryId, trailerVideoId, token, expires)
                     .fold(
                         // Bunny's video play-data returns a similar shape to live play-data —
@@ -503,6 +519,9 @@ public open class BunnyLiveStreamPlayerViewModel internal constructor(
                 BunnyLiveStreamPlayerViewModel(
                     repositoryProvider = {
                         (bunny ?: BunnyStreamApi.getInstance()).liveStreamRepository
+                    },
+                    videoRepositoryProvider = {
+                        (bunny ?: BunnyStreamApi.getInstance()).videoRepository
                     },
                     ioDispatcher = Dispatchers.IO,
                     nowEpochMs = { System.currentTimeMillis() },
