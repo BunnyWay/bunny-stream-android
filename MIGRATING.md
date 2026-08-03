@@ -154,6 +154,29 @@ cameraView.bunny = training                      // BunnyStreamCameraUpload
 BunnyLiveStreamPlayer(libraryId, streamId, bunny = marketing)   // composable
 ```
 
+### If you implement our interfaces, they gained members
+
+Faking the SDK in tests is a reasonable thing to do, and these will not compile until you add the
+new members:
+
+| Interface | New | What a fake can return |
+|---|---|---|
+| `StreamApi` | `config`, `release()` | any `BunnyStreamConfig`; an empty `release()` |
+| `StreamCameraUploadView` | `bunny` | `null` |
+
+`StreamApi.libraryId` comes from `config`, so you do not implement it separately.
+
+### `release()` frees the instance, and it is done afterwards
+
+3.x had `release()` on the companion only, and it did nothing but drop the reference. An instance
+now closes the HTTP client behind player settings and plain uploads, which owns a thread pool of
+its own. **Do not use an instance after releasing it** — its repositories throw
+`IllegalStateException` rather than failing somewhere less obvious. Calling `release()` twice is
+harmless.
+
+If you were letting the SDK be collected without releasing it, start releasing it: that HTTP
+client was leaking in 3.x too, and creating instances per library makes it add up.
+
 ### Fixed along the way
 
 - A camera view inflated from XML read the library id when it was **constructed**, which for a view
@@ -530,5 +553,15 @@ URI permission when you pick the file, or the URI will not be readable in the ne
 For an upload that must keep running while the app is away, that is a foreground service or
 `WorkManager` job on your side; the SDK does not start one for you. `startUpload` and
 `observeUpload` work the same from inside a `Worker`.
+
+### One-off: a resumable upload interrupted before this upgrade will restart
+
+TUS resume offsets are kept in shared preferences. 3.x used one store for the whole process; 4.0.0
+uses one per library, so two libraries cannot resume into each other. The store is a different file
+as a result, and the old one is not migrated.
+
+The effect is limited and one-time: a resumable upload that was interrupted **and not finished
+before the user updated your app** starts from zero instead of resuming. Uploads started after the
+update are unaffected, and nothing else reads the old store.
 
 [result]: bunny-stream-api/src/main/java/net/bunny/api/error/BunnyResult.kt

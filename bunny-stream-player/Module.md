@@ -13,7 +13,10 @@ Two entry points:
   recording after the stream ends. Player appearance is configured in the Bunny dashboard,
   not in code.
 
-Requires `BunnyStreamApi.initialize(...)` from the `:api` module before playback.
+Requires `BunnyStreamApi.initialize(...)` from the `:api` module before playback. Both entry points
+also take an SDK instance of their own — `BunnyStreamPlayer.bunny` and the `bunny` parameter of
+`BunnyLiveStreamPlayer` — for apps that address more than one library; leaving it unset uses the
+instance `initialize` registered.
 
 Integration guides with copy-paste examples live in the repository under
 [docs/guides](https://github.com/BunnyWay/bunny-stream-android/tree/main/docs/guides).

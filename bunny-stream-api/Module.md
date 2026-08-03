@@ -4,6 +4,10 @@ Core module of the Bunny Stream Android SDK (`net.bunny:api`). Start here: call
 `BunnyStreamApi.initialize(context, accessKey, libraryId)` once, then reach the rest of the SDK
 through `BunnyStreamApi.getInstance()`.
 
+That is the single-library path. An app addressing several libraries builds one instance per
+library with `BunnyStreamApi.create(context, BunnyStreamConfig(...))` and hands each to the views
+that belong to it; see `StreamApi` and `BunnyStreamConfig`.
+
 What you get:
 
 - Video and collection management for your Bunny Stream library

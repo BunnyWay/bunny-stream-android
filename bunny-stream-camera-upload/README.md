@@ -20,6 +20,14 @@ them.
 BunnyStreamApi.initialize(context, accessKey = "your-api-key", libraryId = 12345L)
 ```
 
+The view reads the library when a recording starts, so it is safe to inflate it before this call
+runs. To record into a specific library in an app that uses several, give the view its own
+instance:
+
+```kotlin
+cameraUpload.bunny = BunnyStreamApi.create(context, BunnyStreamConfig(key, libraryId = 12345L))
+```
+
 ## Record to your library
 
 ```xml

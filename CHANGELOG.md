@@ -75,6 +75,15 @@ see [MIGRATING.md](MIGRATING.md) for before/after examples.
   failing later with a `401`.
 - `getInstance()` before `initialize` throws `IllegalStateException` naming what to call, rather
   than a bare `NullPointerException`.
+- `StreamApi` gained `config` and `release()`, and `StreamCameraUploadView` gained `bunny`, so
+  anything implementing those interfaces — a fake in a test, most likely — needs the new members.
+- `BunnyLiveStreamPlayer` takes `bunny` before its `viewModel` parameter. Named arguments are
+  unaffected; a call passing `viewModel` positionally is not.
+- `release()` now frees what an instance holds rather than only dropping the reference, and an
+  instance must not be used afterwards. Its repositories throw `IllegalStateException` instead of
+  failing somewhere less obvious. Calling it twice is harmless.
+- TUS resume state moved to a per-library store, so a resumable upload interrupted before the
+  upgrade restarts instead of resuming. One-off; uploads started after the upgrade are unaffected.
 - **Build requirements moved.** `compileSdk` 36 or higher, Kotlin 2.1 or newer, and core library
   desugaring enabled for `net.bunny:player`. `minSdk` stays at 26 and JDK stays at 17, so device
   reach is unchanged. See [MIGRATING.md](MIGRATING.md) section 0; all three are enforced by the
@@ -157,6 +166,9 @@ see [MIGRATING.md](MIGRATING.md) for before/after examples.
   plain uploads — logged full request headers, including `AccessKey` in clear text, on release
   builds as well. Both credential headers are redacted now, matching what the OkHttp path already
   did.
+- The HTTP client behind player settings and plain uploads is closed when an instance is released.
+  It owns a thread pool and a connection pool of its own and was never closed, so every
+  `initialize` leaked one.
 
 ### Removed
 

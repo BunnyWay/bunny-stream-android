@@ -22,7 +22,22 @@ BunnyStreamApi.initialize(context, accessKey = "your-api-key", libraryId = 12345
 ```
 
 `accessKey` is your library's API key (Bunny dashboard > Stream > your library > API). Keep it
-out of source control.
+out of source control. Blank credentials are rejected here rather than failing later with a 401.
+
+### More than one library
+
+`initialize` registers a *default instance*. Each instance owns its credentials, HTTP client and
+uploads, so you can hold one per library:
+
+```kotlin
+val marketing = BunnyStreamApi.create(context, BunnyStreamConfig(marketingKey, 12345L))
+val training = BunnyStreamApi.create(context, BunnyStreamConfig(trainingKey, 67890L))
+```
+
+Nothing is registered globally, so keep the handles. Point a view at one through its `bunny`
+property, and call `release()` when you are done with an instance — that stops its uploads and
+frees its HTTP client, and leaves every other instance running. Do not use an instance after
+releasing it.
 
 ## What you can do with it
 

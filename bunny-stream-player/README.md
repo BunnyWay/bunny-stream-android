@@ -19,6 +19,17 @@ BunnyStreamApi.initialize(context, accessKey = "your-api-key", libraryId = 12345
 
 Without this call the player renders a black view and logs an error.
 
+To play from a specific library in an app that uses several, give the view its own instance:
+
+```kotlin
+videoPlayer.bunny = BunnyStreamApi.create(context, BunnyStreamConfig(key, libraryId = 12345L))
+
+// Compose, for live streams
+BunnyLiveStreamPlayer(libraryId, streamId, bunny = marketing)
+```
+
+Leave `bunny` unset and the view uses the instance `initialize` registered.
+
 ## Play a video
 
 XML:
