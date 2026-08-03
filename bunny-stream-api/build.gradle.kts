@@ -143,7 +143,6 @@ dependencies {
     implementation("io.tus.java.client:tus-java-client:0.5.1")
     // https://github.com/tus/tus-android-client
     implementation("io.tus.android.client:tus-android-client:0.1.12")
-    implementation("com.google.code.gson:gson:2.14.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")
 
 }

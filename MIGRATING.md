@@ -73,16 +73,20 @@ moved up:
 
 | | 3.3.0 | 4.0.0 |
 |---|---|---|
-| media3 | 1.2.1 / 1.6.0 | **1.10.1** |
+| media3 | 1.6.0 (`net.bunny:tv`: 1.2.1) | **1.10.1** |
 | ktor | 3.1.2 | 3.5.0 |
-| gson | 2.8.9 | 2.14.0 |
-| kotlinx-coroutines | 1.7.3 | 1.11.0 |
+| gson | 2.12.1 | 2.14.0 |
+| kotlinx-coroutines | 1.6.4 | 1.11.0 |
 | kaml | 0.74.0 | 0.104.0 |
-| androidx.core | 1.12.0 | 1.18.0 |
+| androidx.core | 1.15.0 | 1.18.0 |
 | RootEncoder | 2.6.6 | 2.7.2 |
 
-media3 is the one to look at first: if your app drives ExoPlayer itself, its API moved across
-eight minor releases. kaml is second, being pre-1.0, where minor versions break.
+The 3.3.0 column is what the published POMs on Maven Central actually declare, not what our build
+files say — the two disagreed in places.
+
+media3 is the one to look at first: if your app drives ExoPlayer itself, its API moved across four
+minor releases — eight if you were on the TV artifact. kaml is second, being pre-1.0, where minor
+versions break.
 
 Arrow is **removed**, not upgraded. If your code imported `arrow.core.Either` only to read an SDK
 result it can go; if you used Arrow for your own reasons, declare it yourself.
