@@ -90,12 +90,16 @@ import java.util.concurrent.TimeUnit
  * thin: it observes [BunnyLiveStreamPlayerViewModel.state] and renders one of a handful of
  * branches with no decision logic of its own.
  *
- * @param libraryId the Bunny library id. Must match the [net.bunny.api.BunnyStreamApi] init.
+ * @param libraryId the Bunny library id the stream lives in.
  * @param streamId  GUID of the live stream to play.
  * @param token     optional embed-view token for token-authenticated libraries.
  * @param expires   embed-view token expiration timestamp (epoch seconds).
  * @param modifier  Compose modifier for the root container.
- * @param viewModel injected for testability; defaults to the lifecycle-scoped instance.
+ * @param bunny     the SDK instance to play from. Leave it null to use the default instance
+ *                  registered by [net.bunny.api.BunnyStreamApi.initialize]; pass one from
+ *                  `BunnyStreamApi.create` when the app addresses more than one library.
+ * @param viewModel injected for testability; defaults to a lifecycle-scoped instance bound
+ *                  to [bunny].
  */
 @OptIn(UnstableApi::class)
 @Composable

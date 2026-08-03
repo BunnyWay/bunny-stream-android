@@ -21,8 +21,9 @@ and every field has an equivalent. The compiler points at each call site, and th
 mechanical.
 
 Before any of that, section 0 covers what has to change in your build file. Section 1 covers the
-session, sections 2–4 results and errors, section 5 the generated REST types, sections 6–8 the
-upload API.
+session, sections 2–4 results and errors, section 5 the generated REST types, section 6 every type
+that moved or disappeared, section 7 the fixes that ride along, and section 8 what an upload still
+does not survive.
 
 ---
 
@@ -115,6 +116,22 @@ val id = BunnyStreamApi.getInstance().libraryId
 The 3.x property answered `-1` before `initialize`, so code that read it early got a sentinel that
 silently failed every call made with it. There is nothing to read before an instance exists now;
 guard with `isInitialized()` if you cannot be sure.
+
+### `BunnyStreamApi.baseApi` is gone with it
+
+It was a public compile-time constant naming the Stream API host. The host is per-instance
+configuration now:
+
+```kotlin
+// Before
+val host = BunnyStreamApi.baseApi
+
+// After
+val host = BunnyStreamApi.getInstance().config.baseApi   // or the config of the instance you hold
+```
+
+Unlike the constant, this reflects the host the instance actually calls, including a
+`BunnyStreamConfig.baseApi` override.
 
 ### `initialize` rejects credentials it used to accept
 
@@ -491,6 +508,8 @@ fun playVideo(playerView: PlayerView, video: Video, retentionData: Map<Int, Int>
 
 | 3.x | 4.0.0 |
 |---|---|
+| `BunnyStreamApi.libraryId` | `StreamApi.libraryId` — read it from the instance |
+| `BunnyStreamApi.baseApi` (const) | `BunnyStreamConfig.baseApi` — read `getInstance().config.baseApi` |
 | `VideoUploader.uploadVideo(libraryId, uri, listener)` | `startUpload(libraryId, uri)` + `observeUpload(uploadId)` |
 | `net.bunny.api.upload.service.UploadListener` | removed — collect `Flow<UploadEvent>` |
 | `net.bunny.api.upload.model.UploadError` | removed — folded into `net.bunny.api.error.BunnyError` |

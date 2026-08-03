@@ -39,7 +39,9 @@ import net.bunny.recording.databinding.RecordingViewBinding
  * starts the stream on the server once connected, shows primary/backup badges and reconnects on
  * network drops. See [StreamCameraUploadView] for the full contract.
  *
- * `BunnyStreamApi.initialize(...)` must have been called before this view is created.
+ * The view resolves its SDK instance when a recording starts, not when it is built, so it is safe
+ * to inflate it before `BunnyStreamApi.initialize(...)` has run. There has to be an instance by
+ * the time the user starts recording — the default one, or one assigned to [bunny].
  *
  * XML attributes: `brvDefaultCamera` ("back" or "front") picks the starting camera;
  * `brvHideDefaultControls` hides the built-in controls, same as [hideDefaultControls].

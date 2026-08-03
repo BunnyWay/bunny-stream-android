@@ -175,6 +175,9 @@ see [MIGRATING.md](MIGRATING.md) for before/after examples.
 - `UploadListener`, `UploadError`, `UploadRequest` (with `BasicUploadRequest` and `TusUploadRequest`)
   and `HttpStatusCodes`. `UploadError` is folded into `BunnyError`; see the mapping table in
   [MIGRATING.md](MIGRATING.md).
+- `BunnyStreamApi.libraryId` and `BunnyStreamApi.baseApi`. Both were process-wide; read
+  `getInstance().libraryId` and `getInstance().config.baseApi` — or the same properties of the
+  instance you hold.
 
 ### Known gaps
 
