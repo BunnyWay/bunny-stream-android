@@ -69,12 +69,22 @@ class BunnyStreamApi private constructor(
          * Calling it again replaces the default instance and releases the previous one, which
          * stops its in-flight uploads. Instances made with [create] are untouched.
          */
+        @Synchronized
         fun initialize(context: Context, config: BunnyStreamConfig) {
+            // Synchronized with [release] so two concurrent calls cannot interleave — unsynchronized,
+            // both could tear down the same previous instance and one registration would lose,
+            // leaving a live instance (HTTP engine, upload scopes) with no handle pointing at it.
+            // Reads stay lock-free: [getInstance] is a volatile read.
+            val replaced = defaultInstance
+
+            // Register first, release after: a concurrent reader gets the old instance or the new
+            // one, never one that is still registered but already torn down.
+            defaultInstance = BunnyStreamApi(context.applicationContext, config)
+
             // Uploads run on a scope owned by the instance. Replacing the instance without
             // stopping them would leave transfers running against the previous library and key,
             // with no handle left to reach them.
-            defaultInstance?.release()
-            defaultInstance = BunnyStreamApi(context.applicationContext, config)
+            replaced?.release()
         }
 
         /**
@@ -97,13 +107,24 @@ class BunnyStreamApi private constructor(
                 "BunnyStreamApi.create(...) and pass it in.",
         )
 
-        /** True once [initialize] has been called and the default instance has not been released. */
+        /**
+         * True while a default instance is registered: from [initialize] until
+         * [BunnyStreamApi.release] drops it or another [initialize] replaces it.
+         *
+         * It reports registration, not health — releasing the default instance through its own
+         * [StreamApi.release] leaves it registered, so this stays true while every call on it
+         * fails. Drop the default with [BunnyStreamApi.release] instead.
+         */
         fun isInitialized(): Boolean = defaultInstance != null
 
         /** Releases the default instance, stopping its in-flight uploads. */
+        @Synchronized
         fun release() {
-            defaultInstance?.release()
+            // Unregister first for the same reason [initialize] registers first: no reader may be
+            // handed an instance that is registered but already torn down.
+            val dropped = defaultInstance
             defaultInstance = null
+            dropped?.release()
         }
     }
 
