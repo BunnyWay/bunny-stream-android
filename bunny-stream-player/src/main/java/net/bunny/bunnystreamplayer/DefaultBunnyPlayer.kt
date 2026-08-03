@@ -719,6 +719,13 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
         playerView.keepScreenOn = true
         Log.d(TAG, "PlayerView attached: ${playerView.isAttachedToWindow}, size: ${playerView.width}x${playerView.height}")
 
+        // Release the previous player before building its replacement. Every ExoPlayer holds a
+        // hardware decoder until released, and orphaned players are not collected out of the
+        // codec — the live surface re-issues playback on every URL flip (trailer -> live ->
+        // recording), which used to leak one player per flip and could end a long session with
+        // playback failing on "no codec available".
+        localPlayer?.release()
+
         localPlayer = ExoPlayer.Builder(context)
             .setTrackSelector(trackSelector!!)
             .setMediaSourceFactory(mediaSourceFactory)
