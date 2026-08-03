@@ -111,6 +111,36 @@ class InstanceIsolationTest {
     }
 
     @Test
+    fun `releasing actually closes the client, not just the front door`() {
+        val server = MockWebServer().apply { start() }
+        try {
+            server.enqueue(
+                MockResponse().setResponseCode(200)
+                    .setHeader("Content-Type", "application/json")
+                    .setBody("{}"),
+            )
+            val instance = BunnyStreamApi.create(
+                context = fakeContext(),
+                config = BunnyStreamConfig(KEY_A, LIBRARY_A, baseApi = server.url("/").toString().trimEnd('/')),
+            )
+            // Held BEFORE release. The accessor guard cannot intercept a reference the caller
+            // already has, so the only thing standing between this call and the network is the
+            // closed client itself — which is exactly what this test pins. The guard-based test
+            // above would stay green with the close() removed; this one goes red.
+            val settings = instance.settingsRepository
+
+            instance.release()
+            runCatching {
+                runBlocking { settings.fetchSettings(LIBRARY_A, "video-guid", null, null) }
+            }
+
+            assertEquals("a released client must not reach the network", 0, server.requestCount)
+        } finally {
+            server.shutdown()
+        }
+    }
+
+    @Test
     fun `releasing twice is harmless`() {
         val instance = BunnyStreamApi.create(fakeContext(), KEY_A, LIBRARY_A)
 

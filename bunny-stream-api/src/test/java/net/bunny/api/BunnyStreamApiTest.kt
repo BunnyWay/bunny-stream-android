@@ -109,6 +109,20 @@ class BunnyStreamApiTest {
         assertEquals(OTHER_LIBRARY, BunnyStreamApi.getInstance().libraryId)
     }
 
+    @Test
+    fun `initializing again releases the instance it replaces`() {
+        val context = fakeContext()
+        BunnyStreamApi.initialize(context, KEY, LIBRARY)
+        val first = BunnyStreamApi.getInstance()
+
+        BunnyStreamApi.initialize(context, OTHER_KEY, OTHER_LIBRARY)
+
+        // The replaced instance must be dead — uploads stopped, client closed — not left running
+        // with no handle pointing at it. Anything still holding it is told, not left to fail on
+        // whatever its old key does next.
+        assertTrue(runCatching { first.videoRepository }.exceptionOrNull() is IllegalStateException)
+    }
+
     // endregion
 
     // region — instances are independent
