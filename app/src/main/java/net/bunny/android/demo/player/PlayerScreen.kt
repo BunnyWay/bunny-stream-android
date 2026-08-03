@@ -585,7 +585,7 @@ fun BunnyPlayerComposable(
         }
 
         uiState is VideoUiState.VideoUiLoadFailed -> {
-            val configuredLibraryId = BunnyStreamApi.libraryId
+            val configuredLibraryId = App.di.libraryId
             val requestedLibraryId = libraryId
             PlayerStatusPlaceholder(
                 title = stringResource(R.string.player_status_cant_load_title),
@@ -695,7 +695,7 @@ private fun describePlaybackError(
 ): String {
     val video = (uiState as? VideoUiState.VideoUiLoaded)?.video
 
-    val configuredLibraryId = BunnyStreamApi.libraryId
+    val configuredLibraryId = App.di.libraryId
 
     val explanation = when {
         video != null && video.status in VideoStatus.TRANSITIONAL ->

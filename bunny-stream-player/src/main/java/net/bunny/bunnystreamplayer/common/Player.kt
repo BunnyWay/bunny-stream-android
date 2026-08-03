@@ -110,8 +110,19 @@ interface BunnyPlayer {
      * [net.bunny.bunnystreamplayer.ui.BunnyStreamPlayer] view, which fetches the video and its
      * [playerSettings] first; prefer that view's `playVideo(videoId)` unless you are building a
      * fully custom player.
+     *
+     * [licenseBaseApi] is the Stream API host the Widevine license URL is built from when
+     * [PlayerSettings.drmEnabled] is set. The view passes its instance's host here, so a player
+     * pointed at another deployment licenses against that one; the default is Bunny's production
+     * host, which matches what 3.x hard-coded.
      */
-    fun playVideo(playerView: PlayerView, video: Video, retentionData: Map<Int, Int>, playerSettings: PlayerSettings)
+    fun playVideo(
+        playerView: PlayerView,
+        video: Video,
+        retentionData: Map<Int, Int>,
+        playerSettings: PlayerSettings,
+        licenseBaseApi: String = net.bunny.api.BuildConfig.BASE_API,
+    )
 
     /** Skips 10 seconds forward. */
     fun skipForward()

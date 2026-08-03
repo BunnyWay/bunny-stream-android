@@ -33,8 +33,9 @@ internal fun ApiClient.postExpectingSuccess(
         .url(url)
         .post(body)
         .header("Accept", "application/json")
-    ApiClient.apiKey["AccessKey"]?.let { builder.header("AccessKey", it) }
 
+    // No AccessKey here: the client this runs on is the instance's, and its interceptor
+    // authenticates every request that goes through it.
     client.newCall(builder.build()).execute().use { response ->
         if (!response.isSuccessful) {
             throw ClientException(

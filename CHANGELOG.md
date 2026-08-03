@@ -12,10 +12,11 @@ All notable changes to Bunny Stream Android are documented in this file. The for
 The live streaming release, bundled with an architecture refactor. Existing integrations: see
 [MIGRATING.md](MIGRATING.md).
 
-Two things change in the public API: how results and failures are reported (one envelope, one
-typed error taxonomy, uploads as a `Flow`), and what the API is made of (domain models instead of
-the OpenAPI generator's output). Every item below is a breaking API change, and nothing that was
-possible in 3.x is gone — see [MIGRATING.md](MIGRATING.md) for before/after examples.
+Three things change in the public API: how results and failures are reported (one envelope, one
+typed error taxonomy, uploads as a `Flow`), what the API is made of (domain models instead of the
+OpenAPI generator's output), and how a session is held (an instance you own instead of process-wide
+state). Every item below is a breaking API change, and nothing that was possible in 3.x is gone —
+see [MIGRATING.md](MIGRATING.md) for before/after examples.
 
 ### Added
 
@@ -56,8 +57,33 @@ possible in 3.x is gone — see [MIGRATING.md](MIGRATING.md) for before/after ex
 - Named enums where the generator emitted numbered ones: `TranscodingSeverity`, `TranscodingIssue`
   and `VideoCodec` replace `Severity._0..3`, `IssueCodes._0..11` and `EncoderOutputCodec._0..3`.
   Unknown values from a newer server map to `UNDEFINED` instead of failing to parse.
+- **More than one library at a time.** `BunnyStreamApi.create(context, BunnyStreamConfig(...))`
+  returns an instance that owns its credentials, HTTP client and uploads. Views take one through
+  `bunny` (`BunnyStreamPlayer`, `BunnyStreamCameraUpload`, `BunnyLiveStreamPlayer`) and fall back to
+  the default instance when it is not set. `StreamApi.release()` stops one instance's uploads
+  without touching the others.
+- `BunnyStreamConfig`, carrying `accessKey`, `libraryId` and `baseApi`. It rejects blank keys and
+  non-positive library ids at construction, and its `toString` does not print the key.
 
 ### Changed
+- **The session is an instance, not process-wide state.** `initialize`/`getInstance()` still work
+  and now stand for a *default instance*. `BunnyStreamApi.libraryId` is removed — read
+  `getInstance().libraryId`, or the `libraryId` of the instance you hold. The access key no longer
+  goes into the generated client's static map; each instance authenticates through its own
+  interceptor. See [MIGRATING.md](MIGRATING.md) section 1.
+- `initialize` rejects a blank access key or a non-positive library id instead of accepting them and
+  failing later with a `401`.
+- `getInstance()` before `initialize` throws `IllegalStateException` naming what to call, rather
+  than a bare `NullPointerException`.
+- `StreamApi` gained `config` and `release()`, and `StreamCameraUploadView` gained `bunny`, so
+  anything implementing those interfaces — a fake in a test, most likely — needs the new members.
+- `BunnyLiveStreamPlayer` takes `bunny` before its `viewModel` parameter. Named arguments are
+  unaffected; a call passing `viewModel` positionally is not.
+- `release()` now frees what an instance holds rather than only dropping the reference, and an
+  instance must not be used afterwards. Its repositories throw `IllegalStateException` instead of
+  failing somewhere less obvious. Calling it twice is harmless.
+- TUS resume state moved to a per-library store, so a resumable upload interrupted before the
+  upgrade restarts instead of resuming. One-off; uploads started after the upgrade are unaffected.
 - **Build requirements moved.** `compileSdk` 36 or higher, Kotlin 2.1 or newer, and core library
   desugaring enabled for `net.bunny:player`. `minSdk` stays at 26 and JDK stays at 17, so device
   reach is unchanged. See [MIGRATING.md](MIGRATING.md) section 0; all three are enforced by the
@@ -127,12 +153,31 @@ possible in 3.x is gone — see [MIGRATING.md](MIGRATING.md) for before/after ex
 - Creating a video that comes back without an id is a failure rather than a `Video` with an empty
   id. An empty id reached the camera's RTMP ingest URL, which published to nothing and lost the
   recording without reporting anything.
+- The camera view records to the right library when it is inflated from XML. It read the library id
+  when the view was constructed — for a view in a layout, before `initialize` had run — and kept
+  `-1` for its whole life, so every recording went nowhere without an error.
+- Composing `BunnyLiveStreamPlayer` before the SDK is initialised no longer crashes. Its view model
+  reached for the SDK in its constructor, which threw from inside composition where the app could
+  not catch it; the player shows an error panel instead.
+- Two libraries no longer share TUS resume state. The store was one file per process keyed by a
+  fingerprint of the uploaded file, so the same file uploaded from two libraries could resume into
+  the wrong one.
+- The library API key no longer reaches logcat. The Ktor client — used for player settings and
+  plain uploads — logged full request headers, including `AccessKey` in clear text, on release
+  builds as well. Both credential headers are redacted now, matching what the OkHttp path already
+  did.
+- The HTTP client behind player settings and plain uploads is closed when an instance is released.
+  It owns a thread pool and a connection pool of its own and was never closed, so every
+  `initialize` leaked one.
 
 ### Removed
 
 - `UploadListener`, `UploadError`, `UploadRequest` (with `BasicUploadRequest` and `TusUploadRequest`)
   and `HttpStatusCodes`. `UploadError` is folded into `BunnyError`; see the mapping table in
   [MIGRATING.md](MIGRATING.md).
+- `BunnyStreamApi.libraryId` and `BunnyStreamApi.baseApi`. Both were process-wide; read
+  `getInstance().libraryId` and `getInstance().config.baseApi` — or the same properties of the
+  instance you hold.
 
 ### Known gaps
 

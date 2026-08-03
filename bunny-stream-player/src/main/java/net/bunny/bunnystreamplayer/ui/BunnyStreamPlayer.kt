@@ -22,6 +22,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import net.bunny.api.BunnyStreamApi
+import net.bunny.api.StreamApi
 import net.bunny.api.error.fold
 import net.bunny.api.playback.PlaybackPosition
 import net.bunny.api.playback.ResumeConfig
@@ -50,7 +51,8 @@ import net.bunny.api.video.domain.model.Video
  * player.playVideo(videoId = "your-video-guid")
  * ```
  *
- * [net.bunny.api.BunnyStreamApi.initialize] must have been called first; without it [playVideo]
+ * The view needs an SDK instance: either [net.bunny.api.BunnyStreamApi.initialize] has been
+ * called, or [bunny] is set to an instance from `BunnyStreamApi.create`. With neither, [playVideo]
  * logs an error and shows nothing. Appearance (accent color, visible controls, captions styling)
  * comes from the library's player settings in the Bunny dashboard. Icons can be replaced through
  * [iconSet].
@@ -78,6 +80,22 @@ class BunnyStreamPlayer @JvmOverloads constructor(
         private const val AUTO_SAVE_INTERVAL = 10_000L // 10 seconds
 
     }
+
+    /**
+     * The SDK instance this view plays from. Leave it null to use the one
+     * [net.bunny.api.BunnyStreamApi.initialize] registered.
+     *
+     * Set it when your app addresses more than one library and this view belongs to a specific
+     * one. Assign before calling [playVideo]; the value is read per call, so a view can be moved
+     * between instances.
+     */
+    var bunny: StreamApi? = null
+
+    /** The instance to use right now. Resolved per call, never cached. */
+    private val sdk: StreamApi get() = bunny ?: BunnyStreamApi.getInstance()
+
+    /** True when this view has an instance to work with, whether its own or the default one. */
+    private val hasSdk: Boolean get() = bunny != null || BunnyStreamApi.isInitialized()
 
     private var job: Job? = null
     private var scope: CoroutineScope? = null
@@ -445,7 +463,7 @@ class BunnyStreamPlayer @JvmOverloads constructor(
             "playLiveUrl streamId=$streamId hlsUrl=${hlsUrl.take(80)} " +
                 "serverCustomization=${playData != null}",
         )
-        if (!BunnyStreamApi.isInitialized()) {
+        if (!hasSdk) {
             Log.e(TAG, "Unable to play live, initialize BunnyStreamApi first")
             return
         }
@@ -501,15 +519,18 @@ class BunnyStreamPlayer @JvmOverloads constructor(
 
         currentVideoId = videoId
         currentLibraryId = libraryId
-        val providedLibraryId = libraryId ?: BunnyStreamApi.libraryId
 
-        if (!BunnyStreamApi.isInitialized()) {
+        if (!hasSdk) {
             Log.e(
                 TAG,
                 "Unable to play video, initialize the player first using BunnyStreamSdk.initialize"
             )
             return
         }
+
+        // Read after the guard: the library id now lives on the instance, so there is nothing to
+        // read until one exists.
+        val providedLibraryId = libraryId ?: sdk.libraryId
 
         // CMCD (CTA-5004 v2) stream type for VOD playback (st=v).
         (bunnyPlayer as? DefaultBunnyPlayer)?.setCmcdStreamType(CmcdStreamType.VOD)
@@ -522,7 +543,7 @@ class BunnyStreamPlayer @JvmOverloads constructor(
         pendingJob = {
             scope!!.launch {
 
-                val video = BunnyStreamApi.getInstance().videoRepository
+                val video = sdk.videoRepository
                     .fetchVideoPlayData(providedLibraryId, videoId, token, expires)
                     .getOrNull()
                     ?.video
@@ -532,7 +553,7 @@ class BunnyStreamPlayer @JvmOverloads constructor(
                 }
                 Log.d(TAG, "video=$video")
 
-                val settings = BunnyStreamApi.getInstance()
+                val settings = sdk
                     .fetchPlayerSettings(providedLibraryId, videoId, token, expires)
 
                 settings.fold(
@@ -690,7 +711,7 @@ class BunnyStreamPlayer @JvmOverloads constructor(
 
         if (playerSettings.showHeatmap) {
             try {
-                retentionData = BunnyStreamApi.getInstance().videoRepository
+                retentionData = sdk.videoRepository
                     .fetchVideoHeatmap(video.videoLibraryId, video.id)
                     .getOrNull()
                     .orEmpty()
@@ -700,7 +721,18 @@ class BunnyStreamPlayer @JvmOverloads constructor(
             }
         }
 
-        bunnyPlayer.playVideo(binding.playerView, video, retentionData, playerSettings)
+        bunnyPlayer.playVideo(
+            binding.playerView,
+            video,
+            retentionData,
+            playerSettings,
+            // The engine builds the Widevine license URL from this host, so a view pointed at a
+            // specific instance licenses against that instance's deployment. Falls back to the
+            // production host if the instance vanished mid-load (release() racing this coroutine)
+            // rather than killing playback that is otherwise ready to start.
+            licenseBaseApi = runCatching { sdk.config.baseApi }
+                .getOrElse { net.bunny.api.BuildConfig.BASE_API },
+        )
         playerView.bunnyPlayer = bunnyPlayer
 
         // Start auto-save after video starts playing

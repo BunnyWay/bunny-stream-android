@@ -76,7 +76,7 @@ fun LiveStreamPlayerRoute(
         Log.d(
             "BunnyLive/DemoRoute",
             "LiveStreamPlayerRoute entered — streamId=$streamId title='$title' " +
-                "libraryId=${BunnyStreamApi.libraryId} apiInit=${BunnyStreamApi.isInitialized()}",
+                "libraryId=${App.di.libraryId} apiInit=${BunnyStreamApi.isInitialized()}",
         )
     }
 
@@ -109,7 +109,7 @@ fun LiveStreamPlayerRoute(
             )
         },
     ) { innerPadding ->
-        val libraryId = BunnyStreamApi.libraryId
+        val libraryId = App.di.libraryId
         if (libraryId == -1L || !BunnyStreamApi.isInitialized()) {
             Box(
                 modifier = Modifier

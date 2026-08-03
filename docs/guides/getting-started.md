@@ -78,9 +78,35 @@ Keep the API key out of source control. Read it from `local.properties`, an envi
 or your secrets tooling, and remember that a key baked into a shipped APK can be extracted; for
 production consider a backend that talks to Bunny on the app's behalf where possible.
 
-Everything in the SDK assumes this call happened. The most common integration mistake is skipping
-it: the player then renders a black view and logs an error instead of crashing, and the camera
-view fails at startup. See [Troubleshooting](troubleshooting.md).
+This registers a *default instance* that the rest of the SDK reaches through `getInstance()`, and
+that the player and camera views fall back to when you do not give them one. Blank credentials are
+rejected here rather than failing later with a 401, so call it once you actually have a key.
+
+The most common integration mistake is skipping the call: the player renders a black view and logs
+an error instead of crashing, and the camera view refuses to start. See
+[Troubleshooting](troubleshooting.md).
+
+### More than one library
+
+`initialize` is a convenience for the common case. Every instance owns its credentials, its HTTP
+client and its uploads, so you can hold as many as you have libraries:
+
+```kotlin
+val marketing = BunnyStreamApi.create(
+    context = this,
+    config = BunnyStreamConfig(accessKey = marketingKey, libraryId = 12345L),
+)
+val training = BunnyStreamApi.create(
+    context = this,
+    config = BunnyStreamConfig(accessKey = trainingKey, libraryId = 67890L),
+)
+```
+
+Nothing is registered globally, so hold on to the handles. Point a view at one with its `bunny`
+property (`BunnyStreamPlayer`, `BunnyStreamCameraUpload`) or the `bunny` parameter
+(`BunnyLiveStreamPlayer`); leave it unset and the view uses the default instance. Call
+`release()` on an instance when you are done with it — that stops its in-flight uploads and leaves
+every other instance running.
 
 ## 4. Make a call
 
@@ -96,9 +122,6 @@ result.fold(
 
 Every management call answers with a `BunnyResult` rather than throwing — see
 [Handle errors](handle-errors.md).
-
-<!-- TODO before the 4.0.0 release: update the init snippet once the session becomes
-     per-instance (the singleton is the last part of the refactor still to land). -->
 
 ## Next steps
 

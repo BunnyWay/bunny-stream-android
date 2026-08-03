@@ -40,7 +40,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import net.bunny.api.BunnyCdn
-import net.bunny.api.BunnyStreamApi
 import net.bunny.api.playback.DefaultPlaybackPositionManager
 import net.bunny.api.playback.PlaybackPosition
 import net.bunny.api.playback.PlaybackPositionManager
@@ -507,7 +506,8 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
         playerView: PlayerView,
         video: Video,
         retentionData: Map<Int, Int>,
-        playerSettings: PlayerSettings
+        playerSettings: PlayerSettings,
+        licenseBaseApi: String,
     ) {
         Log.d(TAG, "playVideo(video=$video, retentionData=$retentionData, playerSettings=$playerSettings)")
 
@@ -583,10 +583,6 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
                 .build()
         }
 
-        // Build MediaItem with DRM config (CENC)
-        val drmLicenseUri = "${BunnyStreamApi.baseApi}/WidevineLicense/" +
-                "${video.videoLibraryId}/${video.id}?contentId=${video.id}"
-
         // Title + artwork shown by the Chromecast receiver and the cast/notification UI (the
         // Cast MediaItemConverter reads MediaMetadata). Applies to both VOD and live.
         val mediaMetadata = MediaMetadata.Builder()
@@ -615,6 +611,11 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
         video.id.takeIf { it.isNotBlank() }?.let { mediaItemBuilder.setMediaId(it) }
 
         if (playerSettings.drmEnabled) {
+            // Built only for DRM'd playback, from the host the caller passed in — this used to
+            // reach for the SDK's default instance eagerly on every video, which crashed apps
+            // that only ever call BunnyStreamApi.create().
+            val drmLicenseUri = "$licenseBaseApi/WidevineLicense/" +
+                "${video.videoLibraryId}/${video.id}?contentId=${video.id}"
             mediaItemBuilder.setDrmConfiguration(
                 MediaItem.DrmConfiguration.Builder(C.WIDEVINE_UUID)
                     .setLicenseUri(drmLicenseUri)

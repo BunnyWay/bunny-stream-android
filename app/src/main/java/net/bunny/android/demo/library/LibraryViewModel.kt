@@ -67,7 +67,7 @@ class LibraryViewModel : ViewModel() {
     private var enrichJob: Job? = null
 
     private val libraryId: Long
-        get() = BunnyStreamApi.libraryId
+        get() = App.di.libraryId
 
     var useTusUpload by mutableStateOf(false)
         private set

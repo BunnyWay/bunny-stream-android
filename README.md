@@ -88,6 +88,14 @@ Initialize once, in `Application.onCreate`:
 BunnyStreamApi.initialize(context, accessKey = "your-api-key", libraryId = 12345L)
 ```
 
+That registers a default instance the whole SDK reaches through `getInstance()`. If your app talks
+to several libraries, create an instance per library instead and hand it to the views:
+
+```kotlin
+val marketing = BunnyStreamApi.create(context, BunnyStreamConfig(marketingKey, 12345L))
+playerView.bunny = marketing
+```
+
 Play a video:
 
 ```kotlin

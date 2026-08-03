@@ -5,6 +5,7 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import net.bunny.api.BuildConfig
 import net.bunny.api.BunnyStreamApi
+import net.bunny.api.StreamApi
 import net.bunny.api.error.BunnyError
 import net.bunny.api.error.BunnyResult
 import net.bunny.api.error.map
@@ -14,10 +15,15 @@ import net.bunny.api.video.domain.model.CreateVideoRequest
 import net.bunny.bunnystreamcameraupload.domain.RecordingRepository
 import net.bunny.bunnystreamcameraupload.domain.ResolvedIngest
 import net.bunny.bunnystreamcameraupload.util.redactSecrets
-import org.openapitools.client.infrastructure.ApiClient
 
 internal class DefaultRecordingRepository(
     private val coroutineDispatcher: CoroutineDispatcher,
+    /**
+     * The instance to work through, resolved per call. The camera view passes its own [bunny] when
+     * it has one, so a recording goes to the library that view belongs to rather than to whichever
+     * instance happens to be the default.
+     */
+    private val sdk: () -> StreamApi = { BunnyStreamApi.getInstance() },
 ) : RecordingRepository {
 
     companion object {
@@ -41,7 +47,7 @@ internal class DefaultRecordingRepository(
 
     override suspend fun prepareRecording(libraryId: Long): BunnyResult<String> =
         withContext(coroutineDispatcher) {
-            val created = BunnyStreamApi.getInstance().videoRepository.createVideo(
+            val created = sdk().videoRepository.createVideo(
                 libraryId = libraryId,
                 request = CreateVideoRequest(title = "recording-${System.currentTimeMillis()}"),
             )
@@ -54,7 +60,7 @@ internal class DefaultRecordingRepository(
                     val endpoint = buildVodIngestUrl(
                         rtmpEndpoint = BuildConfig.RTMP_ENDPOINT,
                         videoGuid = created.value.id,
-                        accessKey = ApiClient.apiKey["AccessKey"],
+                        accessKey = sdk().config.accessKey,
                         libraryId = libraryId,
                     )
                     Log.d(TAG, "endpoint=${endpoint.redactSecrets()}")
@@ -67,7 +73,7 @@ internal class DefaultRecordingRepository(
         libraryId: Long,
         streamId: String,
     ): BunnyResult<Unit> = withContext(coroutineDispatcher) {
-        BunnyStreamApi.getInstance().liveStreamRepository
+        sdk().liveStreamRepository
             .startLiveStream(libraryId, streamId)
             .map { stream ->
                 Log.d(TAG, "startLiveStream ok — status=${stream.status}")
@@ -79,7 +85,7 @@ internal class DefaultRecordingRepository(
         libraryId: Long,
         streamId: String,
     ): BunnyResult<Unit> = withContext(coroutineDispatcher) {
-        BunnyStreamApi.getInstance().liveStreamRepository
+        sdk().liveStreamRepository
             .stopLiveStream(libraryId, streamId)
             .map { stream ->
                 Log.d(TAG, "stopLiveStream ok — status=${stream.status}")
@@ -91,7 +97,7 @@ internal class DefaultRecordingRepository(
         libraryId: Long,
         streamId: String,
     ): BunnyResult<LiveStreamIngestStatus> = withContext(coroutineDispatcher) {
-        BunnyStreamApi.getInstance().liveStreamRepository
+        sdk().liveStreamRepository
             .getLiveStreamStatus(libraryId, streamId)
     }
 
@@ -100,7 +106,7 @@ internal class DefaultRecordingRepository(
         streamId: String,
         ingestEndpoint: String?,
     ): BunnyResult<ResolvedIngest> = withContext(coroutineDispatcher) {
-        when (val result = BunnyStreamApi.getInstance().liveStreamRepository.getLiveStream(libraryId, streamId)) {
+        when (val result = sdk().liveStreamRepository.getLiveStream(libraryId, streamId)) {
             is BunnyResult.Err -> result
             is BunnyResult.Ok -> {
                 val stream = result.value

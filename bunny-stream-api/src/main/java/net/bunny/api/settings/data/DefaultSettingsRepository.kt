@@ -17,6 +17,7 @@ import net.bunny.api.settings.domain.model.PlayerSettings
 
 internal class DefaultSettingsRepository(
     private val httpClient: HttpClient,
+    private val baseApi: String,
     private val coroutineDispatcher: CoroutineDispatcher
 ) : SettingsRepository {
 
@@ -27,7 +28,7 @@ internal class DefaultSettingsRepository(
         expires: Long?,
     ): BunnyResult<PlayerSettings> = withContext(coroutineDispatcher) {
         val endpoint = buildString {
-            append("${BunnyStreamApi.baseApi}/library/$libraryId/videos/$videoId/play")
+            append("$baseApi/library/$libraryId/videos/$videoId/play")
             val params = mutableListOf<String>()
             if (token != null) params.add("token=$token")
             if (expires != null) params.add("expires=$expires")

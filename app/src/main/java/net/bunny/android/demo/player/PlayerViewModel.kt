@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import net.bunny.android.demo.App
 import net.bunny.android.demo.library.model.Error
 import net.bunny.android.demo.library.model.Video
 import net.bunny.android.demo.library.model.VideoStatus
@@ -42,7 +43,7 @@ class PlayerViewModel : ViewModel() {
     val errorState = mutableErrorState.asSharedFlow()
 
     private val libraryId: Long
-        get() = BunnyStreamApi.libraryId
+        get() = App.di.libraryId
 
     private var lastVideoId: String? = null
     private var lastLibraryId: Long? = null
@@ -57,7 +58,7 @@ class PlayerViewModel : ViewModel() {
         lastVideoId = videoId
         lastLibraryId = libraryId
 
-        val providedLibraryId = libraryId ?: BunnyStreamApi.libraryId
+        val providedLibraryId = libraryId ?: App.di.libraryId
 
         if (libraryId == -1L || !BunnyStreamApi.isInitialized()) {
             return
@@ -78,7 +79,7 @@ class PlayerViewModel : ViewModel() {
         val status = (mutableUiState.value as? VideoUiState.VideoUiLoaded)?.video?.status
             ?: return
         if (status in VideoStatus.TRANSITIONAL) {
-            fetchVideo(videoId, lastLibraryId ?: BunnyStreamApi.libraryId, silent = true)
+            fetchVideo(videoId, lastLibraryId ?: App.di.libraryId, silent = true)
         }
     }
 

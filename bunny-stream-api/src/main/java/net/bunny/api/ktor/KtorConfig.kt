@@ -47,6 +47,13 @@ fun initHttpClient(accessKey: String?): HttpClient {
             // every other call in full.
             level = LogLevel.ALL
             filter { request -> request.method != HttpMethod.Put }
+            // The library API key rides on every request. Without this it is written to logcat in
+            // full on release builds too, where any app holding READ_LOGS — or anyone with the
+            // device attached — can read it. The OkHttp path redacts the same headers.
+            sanitizeHeader { header ->
+                header.equals("AccessKey", ignoreCase = true) ||
+                    header.equals("AuthorizationSignature", ignoreCase = true)
+            }
         }
 
         install(ResponseObserver) {

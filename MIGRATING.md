@@ -1,6 +1,6 @@
 # Migrating to 4.0.0
 
-4.0.0 changes two things about the SDK's public API, and both were long overdue.
+4.0.0 changes three things about the SDK's public API, and all three were long overdue.
 
 **How results and failures are reported.** 3.x answered in three different shapes — Arrow's
 `Either<String, T>` from repositories, callbacks from uploads, and raw generated types elsewhere —
@@ -12,12 +12,18 @@ message text. There is now one result envelope, one error taxonomy, and uploads 
 your compile-time dependency. Those are replaced by repositories speaking domain models, so a
 change to our spec can no longer break your build.
 
+**How a session is held.** 3.x kept the library id and the API key in process-wide state, so an
+app could address exactly one library and "initialise with a different key" rewrote what everything
+already running was using. The SDK is instance-based now.
+
 Every change below is source-breaking, and **nothing you could do in 3.x is gone** — every method
 and every field has an equivalent. The compiler points at each call site, and the fixes are
 mechanical.
 
-Before any of that, section 0 covers what has to change in your build file. Sections 1–3 cover
-results and errors, section 4 the generated REST types, sections 5–7 the upload API.
+Before any of that, section 0 covers what has to change in your build file. Section 1 covers the
+session, sections 2–4 results and errors, section 5 the generated REST types, section 6 every type
+that moved or disappeared, section 7 the fixes that ride along, and section 8 what an upload still
+does not survive.
 
 ---
 
@@ -67,16 +73,20 @@ moved up:
 
 | | 3.3.0 | 4.0.0 |
 |---|---|---|
-| media3 | 1.2.1 / 1.6.0 | **1.10.1** |
+| media3 | 1.6.0 (`net.bunny:tv`: 1.2.1) | **1.10.1** |
 | ktor | 3.1.2 | 3.5.0 |
-| gson | 2.8.9 | 2.14.0 |
-| kotlinx-coroutines | 1.7.3 | 1.11.0 |
+| gson | 2.12.1 | 2.14.0 |
+| kotlinx-coroutines | 1.6.4 | 1.11.0 |
 | kaml | 0.74.0 | 0.104.0 |
-| androidx.core | 1.12.0 | 1.18.0 |
+| androidx.core | 1.15.0 | 1.18.0 |
 | RootEncoder | 2.6.6 | 2.7.2 |
 
-media3 is the one to look at first: if your app drives ExoPlayer itself, its API moved across
-eight minor releases. kaml is second, being pre-1.0, where minor versions break.
+The 3.3.0 column is what the published POMs on Maven Central actually declare, not what our build
+files say — the two disagreed in places.
+
+media3 is the one to look at first: if your app drives ExoPlayer itself, its API moved across four
+minor releases — eight if you were on the TV artifact. kaml is second, being pre-1.0, where minor
+versions break.
 
 Arrow is **removed**, not upgraded. If your code imported `arrow.core.Either` only to read an SDK
 result it can go; if you used Arrow for your own reasons, declare it yourself.
@@ -86,7 +96,122 @@ Nothing changed in the merged manifest - no new permissions, no new features, an
 
 ---
 
-## 1. Management calls return `BunnyResult<T>` instead of `Either<String, T>`
+## 1. The session is an instance, not process-wide state
+
+3.x kept the library id on `BunnyStreamApi`'s companion and the API key in a static map inside the
+generated OpenAPI client. One library per process, and calling `initialize` again re-pointed
+everything already running — including uploads in flight — at the new key.
+
+**The common case is unchanged.** If your app talks to one library, keep calling `initialize` and
+reading `getInstance()`; both still work and mean what they meant. Three things changed around them.
+
+### `BunnyStreamApi.libraryId` is gone
+
+It was a `var` on the companion. Read it from the instance instead:
+
+```kotlin
+// Before
+val id = BunnyStreamApi.libraryId
+
+// After
+val id = BunnyStreamApi.getInstance().libraryId
+```
+
+The 3.x property answered `-1` before `initialize`, so code that read it early got a sentinel that
+silently failed every call made with it. There is nothing to read before an instance exists now;
+guard with `isInitialized()` if you cannot be sure.
+
+### `BunnyStreamApi.baseApi` is gone with it
+
+It was a public compile-time constant naming the Stream API host. The host is per-instance
+configuration now:
+
+```kotlin
+// Before
+val host = BunnyStreamApi.baseApi
+
+// After
+val host = BunnyStreamApi.getInstance().config.baseApi   // or the config of the instance you hold
+```
+
+Unlike the constant, this reflects the host the instance actually calls, including a
+`BunnyStreamConfig.baseApi` override.
+
+### `initialize` rejects credentials it used to accept
+
+A blank access key or a `libraryId` of `0`/`-1` now throws `IllegalArgumentException` at the call.
+3.x accepted them and failed later with a `401` or a "video not found", far from the cause. If you
+initialise with placeholder values and fill them in later, move the call to the point where you
+have the real ones.
+
+### `getInstance()` before `initialize` throws a clear error
+
+It was `instance!!`, so the failure surfaced as an unexplained `NullPointerException`. It is now an
+`IllegalStateException` naming both ways out. Nothing to change unless you were catching `NPE`.
+
+### New: more than one library at a time
+
+```kotlin
+val marketing = BunnyStreamApi.create(
+    context,
+    BunnyStreamConfig(accessKey = marketingKey, libraryId = 12345L),
+)
+val training = BunnyStreamApi.create(
+    context,
+    BunnyStreamConfig(accessKey = trainingKey, libraryId = 67890L),
+)
+```
+
+Instances created this way are not registered anywhere — hold the handle, and call `release()` when
+you are done to stop that instance's uploads. `BunnyStreamConfig` also carries `baseApi`, so an
+instance can be pointed at a different Stream host; leave it at its default unless Bunny gave you
+one.
+
+Views take an instance too, and fall back to the default one when you do not set it:
+
+```kotlin
+playerView.bunny = marketing                     // BunnyStreamPlayer
+cameraView.bunny = training                      // BunnyStreamCameraUpload
+BunnyLiveStreamPlayer(libraryId, streamId, bunny = marketing)   // composable
+```
+
+### If you implement our interfaces, they gained members
+
+Faking the SDK in tests is a reasonable thing to do, and these will not compile until you add the
+new members:
+
+| Interface | New | What a fake can return |
+|---|---|---|
+| `StreamApi` | `config`, `release()` | any `BunnyStreamConfig`; an empty `release()` |
+| `StreamCameraUploadView` | `bunny` | `null` |
+
+`StreamApi.libraryId` comes from `config`, so you do not implement it separately.
+
+### `release()` frees the instance, and it is done afterwards
+
+3.x had `release()` on the companion only, and it did nothing but drop the reference. An instance
+now closes the HTTP client behind player settings and plain uploads, which owns a thread pool of
+its own. **Do not use an instance after releasing it** — its repositories throw
+`IllegalStateException` rather than failing somewhere less obvious. Calling `release()` twice is
+harmless.
+
+If you were letting the SDK be collected without releasing it, start releasing it: that HTTP
+client was leaking in 3.x too, and creating instances per library makes it add up.
+
+### Fixed along the way
+
+- A camera view inflated from XML read the library id when it was **constructed**, which for a view
+  in a layout is before `initialize` had run. It kept `-1` for its whole life and every recording
+  went nowhere without an error. It reads the id when recording starts now.
+- `BunnyLiveStreamPlayerViewModel` reached for the SDK in its constructor, so composing the live
+  player before `initialize` crashed from inside composition. Construction is inert now and the
+  player shows an error panel instead.
+- TUS resume state was one store for the whole process, keyed by a fingerprint of the file. Two
+  libraries uploading the same file could resume into each other. Each library has its own store.
+
+---
+
+## 2. Management calls return `BunnyResult<T>` instead of `Either<String, T>`
 
 In 3.x exactly three things returned `Either<String, T>`:
 
@@ -156,7 +281,7 @@ fun <T> BunnyResult<T>.toEither(): Either<String, T> =
 
 ---
 
-## 2. Errors are typed: the `BunnyError` taxonomy
+## 3. Errors are typed: the `BunnyError` taxonomy
 
 An error is no longer a `String`. Seven cases cover everything the SDK can fail with:
 
@@ -189,7 +314,7 @@ unchanged from 3.x, so existing log greps and debug UI keep working.
 
 ---
 
-## 3. Uploads are a `Flow`, not a listener
+## 4. Uploads are a `Flow`, not a listener
 
 `VideoUploader.uploadVideo` used to take an `UploadListener` and start immediately. It is replaced
 by `startUpload`, which returns an id, and `observeUpload`, which streams that upload's events.
@@ -298,7 +423,7 @@ It needs the `videoId` and the same content URI, so persist both alongside the u
 
 ---
 
-## 4. The generated REST clients are gone from the public API
+## 5. The generated REST clients are gone from the public API
 
 3.x handed you the OpenAPI generator's output directly: `videosApi` and `collectionsApi` on
 `BunnyStreamApi`, returning types from `org.openapitools.client.models`. That made Bunny's API
@@ -383,10 +508,12 @@ fun playVideo(playerView: PlayerView, video: Video, retentionData: Map<Int, Int>
 
 ---
 
-## 5. Types that moved or disappeared
+## 6. Types that moved or disappeared
 
 | 3.x | 4.0.0 |
 |---|---|
+| `BunnyStreamApi.libraryId` | `StreamApi.libraryId` — read it from the instance |
+| `BunnyStreamApi.baseApi` (const) | `BunnyStreamConfig.baseApi` — read `getInstance().config.baseApi` |
 | `VideoUploader.uploadVideo(libraryId, uri, listener)` | `startUpload(libraryId, uri)` + `observeUpload(uploadId)` |
 | `net.bunny.api.upload.service.UploadListener` | removed — collect `Flow<UploadEvent>` |
 | `net.bunny.api.upload.model.UploadError` | removed — folded into `net.bunny.api.error.BunnyError` |
@@ -410,7 +537,7 @@ fun playVideo(playerView: PlayerView, video: Video, retentionData: Map<Int, Int>
 
 ---
 
-## 6. Fixes that come with the change
+## 7. Fixes that come with the change
 
 Behaviour that was wrong before and is worth knowing about, because it may look like a new bug:
 
@@ -437,7 +564,7 @@ Behaviour that was wrong before and is worth knowing about, because it may look 
 
 ---
 
-## 7. What an upload still does not survive
+## 8. What an upload still does not survive
 
 Uploads survive navigation. They do not survive the process: if the app is killed or swiped away,
 the transfer stops, because the SDK's scope goes with it.
@@ -449,5 +576,15 @@ URI permission when you pick the file, or the URI will not be readable in the ne
 For an upload that must keep running while the app is away, that is a foreground service or
 `WorkManager` job on your side; the SDK does not start one for you. `startUpload` and
 `observeUpload` work the same from inside a `Worker`.
+
+### One-off: a resumable upload interrupted before this upgrade will restart
+
+TUS resume offsets are kept in shared preferences. 3.x used one store for the whole process; 4.0.0
+uses one per library, so two libraries cannot resume into each other. The store is a different file
+as a result, and the old one is not migrated.
+
+The effect is limited and one-time: a resumable upload that was interrupted **and not finished
+before the user updated your app** starts from zero instead of resuming. Uploads started after the
+update are unaffected, and nothing else reads the old store.
 
 [result]: bunny-stream-api/src/main/java/net/bunny/api/error/BunnyResult.kt

@@ -1022,7 +1022,7 @@ private fun TrailerControl(
         is LiveStreamEditorViewModel.TrailerState.Ready -> {
             BunnyPlayerComposable(
                 videoId = trailer.videoId,
-                libraryId = BunnyStreamApi.libraryId,
+                libraryId = App.di.libraryId,
                 resumeEnabled = false,
                 modifier = Modifier
                     .fillMaxWidth()
