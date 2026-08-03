@@ -31,6 +31,11 @@ see [MIGRATING.md](MIGRATING.md) for before/after examples.
     stop, status polling, ingest status, thumbnails.
 - DASH support in the playback engine (manifest type detected from the URL; Bunny currently
   serves HLS).
+- Chromecast casts to the Bunny Stream receiver application - the receiver the web player uses -
+  so fMP4 HLS and Widevine-protected videos play on the TV with the dashboard's player theming
+  applied. Audio track, caption and speed selections bridge to the cast session, and the receiver
+  application can be overridden through the `net.bunny.cast.RECEIVER_APPLICATION_ID` manifest
+  meta-data.
 - Live player appearance follows the library's player settings from the Bunny dashboard
   (accent color, font, language, controls, compact mode).
 - Hosted API reference (Dokka) published from CI, plus task-oriented integration guides under

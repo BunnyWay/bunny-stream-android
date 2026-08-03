@@ -32,11 +32,22 @@ The cast button appears when:
 - Google Play services are available on the device, and
 - there is a cast device on the network.
 
-The SDK initializes the Cast framework by itself and hands playback over to the receiver with
-title and artwork; position carries over in both directions. Works for videos and live streams.
+The SDK initializes the Cast framework by itself and casts to the **Bunny Stream receiver
+application** - the same receiver the web player uses - which plays every Bunny asset, including
+fMP4 HLS and Widevine-protected videos, and applies the dashboard's player theming (key color,
+caption color, font and size) on the TV. Title and artwork show on the TV, position carries over
+in both directions, and audio track, caption and playback speed selections made in the player
+apply to the cast session. The quality menu is hidden while casting - the receiver decides ABR.
 On devices without Play services the player simply runs without a cast button.
 
-No code is required in the host app.
+No code is required in the host app. To point the SDK at a different receiver application (for
+example a staging one), override it in your app's manifest:
+
+```xml
+<meta-data
+    android:name="net.bunny.cast.RECEIVER_APPLICATION_ID"
+    android:value="YOUR_APP_ID" />
+```
 
 ## Gotchas
 
