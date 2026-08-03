@@ -125,6 +125,24 @@ Each of these has a guide with the full flow, prerequisites and gotchas:
 [Upload videos](docs/guides/upload-videos.md),
 [Manage live streams](docs/guides/manage-live-streams.md).
 
+## Chromecast
+
+The player casts to the Bunny Stream receiver application - the same receiver the web player
+uses - which plays every Bunny asset, including fMP4 HLS and Widevine-protected videos, and
+mirrors the player appearance configured in the Bunny dashboard on the TV. The cast button
+appears automatically when the library's player controls include `chromecast` and a cast device
+is available; the video title and thumbnail show on the TV, and audio track, caption and
+playback speed selections apply to the cast session.
+
+No setup is needed. To point the SDK at a different receiver application (for example a staging
+one), override it in your app's manifest:
+
+```xml
+<meta-data
+    android:name="net.bunny.cast.RECEIVER_APPLICATION_ID"
+    android:value="YOUR_APP_ID" />
+```
+
 ## Player appearance
 
 Colors, visible controls, captions styling and the player language are configured per library in

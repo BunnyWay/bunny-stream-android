@@ -9,6 +9,7 @@ import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.Rect
 import android.graphics.Typeface
+import android.graphics.drawable.Drawable
 import android.os.Build
 import android.os.Handler
 import android.os.HandlerThread
@@ -45,6 +46,8 @@ import androidx.media3.ui.TimeBar
 import androidx.mediarouter.app.MediaRouteButton
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.model.GlideUrl
+import com.bumptech.glide.request.target.CustomTarget
+import com.bumptech.glide.request.transition.Transition
 import net.bunny.api.BunnyCdn
 import com.google.android.gms.cast.framework.CastButtonFactory
 import net.bunny.api.settings.capitalizeWords
@@ -708,6 +711,7 @@ class BunnyPlayerView @JvmOverloads constructor(
         when (playerType) {
             PlayerType.DEFAULT_PLAYER -> {
                 controllerShowTimeoutMs = PlayerControlView.DEFAULT_SHOW_TIMEOUT_MS
+                clearCastPosterArtwork()
                 defaultArtwork = null
                 controllerHideOnTouch = true
                 muteButton.isVisible = true
@@ -721,10 +725,46 @@ class BunnyPlayerView @JvmOverloads constructor(
                     R.drawable.ic_cast_connected_400,
                     null
                 )
+                loadCastPosterArtwork()
                 controllerHideOnTouch = false
                 muteButton.isVisible = false
             }
         }
+    }
+
+    // The in-flight cast poster request; cleared when leaving the cast UI
+    // state so a slow response can't repaint artwork on the local player.
+    private var castPosterTarget: CustomTarget<Drawable>? = null
+
+    /**
+     * Show the video poster behind the controls while casting (the generic
+     * cast icon set by the caller stays as the fallback). Same Referer'd
+     * GlideUrl as every other CDN image load — libraries with hotlink
+     * protection 403 bare requests — and decoded at view size, not full
+     * resolution.
+     */
+    private fun loadCastPosterArtwork() {
+        clearCastPosterArtwork()
+        val url = playerSettings?.thumbnailUrl?.takeIf { it.isNotBlank() } ?: return
+        val glideUrl = GlideUrl(url) { mapOf("Referer" to BunnyCdn.REFERER) }
+        val targetWidth = width.takeIf { it > 0 } ?: 1280
+        val targetHeight = height.takeIf { it > 0 } ?: 720
+        val target = object : CustomTarget<Drawable>(targetWidth, targetHeight) {
+            override fun onResourceReady(resource: Drawable, transition: Transition<in Drawable>?) {
+                if (castPosterTarget === this) {
+                    defaultArtwork = resource
+                }
+            }
+
+            override fun onLoadCleared(placeholder: Drawable?) = Unit
+        }
+        castPosterTarget = target
+        Glide.with(context).load(glideUrl).into(target)
+    }
+
+    private fun clearCastPosterArtwork() {
+        castPosterTarget?.let { Glide.with(context).clear(it) }
+        castPosterTarget = null
     }
 
     private fun applyStyle() {

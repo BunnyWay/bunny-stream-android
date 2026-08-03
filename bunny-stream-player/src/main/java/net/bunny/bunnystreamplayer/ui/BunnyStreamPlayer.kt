@@ -559,7 +559,10 @@ class BunnyStreamPlayer @JvmOverloads constructor(
                 settings.fold(
                     onErr = {
                         initializeVideo(
-                            video, PlayerSettings(
+                            video,
+                            token = token,
+                            expires = expires,
+                            playerSettings = PlayerSettings(
                                 thumbnailUrl = "",
                                 controls = "",
                                 keyColor = 0,
@@ -589,7 +592,7 @@ class BunnyStreamPlayer @JvmOverloads constructor(
                         )
                         playerView.showError(it.message)
                     },
-                    onOk = { initializeVideo(video, it) }
+                    onOk = { initializeVideo(video, it, token, expires) }
                 )
             }
         }
@@ -700,7 +703,12 @@ class BunnyStreamPlayer @JvmOverloads constructor(
         progressListenerJob = null
     }
 
-    private suspend fun initializeVideo(video: Video, playerSettings: PlayerSettings) {
+    private suspend fun initializeVideo(
+        video: Video,
+        playerSettings: PlayerSettings,
+        token: String? = null,
+        expires: Long? = null,
+    ) {
         // A fresh load invalidates any error from the previous source — without this, a
         // late-arriving error from the torn-down player (e.g. the stale live URL during the
         // live→VOD hand-off) stays painted over working playback.
@@ -732,6 +740,10 @@ class BunnyStreamPlayer @JvmOverloads constructor(
             // rather than killing playback that is otherwise ready to start.
             licenseBaseApi = runCatching { sdk.config.baseApi }
                 .getOrElse { net.bunny.api.BuildConfig.BASE_API },
+            // The pair also rides on the license URL for cast receivers, which fetch the
+            // license themselves without the Referer header the local player sends.
+            token = token,
+            expires = expires,
         )
         playerView.bunnyPlayer = bunnyPlayer
 

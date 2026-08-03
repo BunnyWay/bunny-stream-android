@@ -48,6 +48,9 @@ import net.bunny.api.playback.ResumePositionListener
 import net.bunny.api.settings.PlaybackSpeedManager
 import net.bunny.api.settings.domain.model.PlayerSettings
 import net.bunny.api.settings.toUri
+import net.bunny.bunnystreamplayer.cast.BunnyMediaItemConverter
+import net.bunny.bunnystreamplayer.cast.CastCustomData
+import net.bunny.bunnystreamplayer.cast.CastTrackBridge
 import net.bunny.bunnystreamplayer.common.BunnyPlayer
 import net.bunny.bunnystreamplayer.config.PlaybackSpeedConfig
 import net.bunny.bunnystreamplayer.config.PlaybackSpeedPreferences
@@ -213,6 +216,13 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
         override fun onTracksChanged(tracks: Tracks) {
             super.onTracksChanged(tracks)
             Log.d(TAG, "onTracksChanged tracks: $tracks")
+            // The receiver's track list arrives asynchronously after the
+            // cast load, so selections made before (or while) casting can't
+            // be applied in one shot — reconcile whenever the receiver
+            // reports tracks. Both bridge calls no-op once in sync.
+            if (isCasting()) {
+                reconcileCastSelections()
+            }
         }
 
         override fun onPlayerError(error: PlaybackException) {
@@ -260,21 +270,58 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
 
     override var playerSettings: PlayerSettings? = null
 
+    // Carries the Bunny receiver's LoadRequest shape (metadata, sideloaded
+    // captions, DRM + theming customData); refreshed on every playVideo.
+    private val castMediaItemConverter = BunnyMediaItemConverter()
+
+    // Mirrors the SessionAvailabilityListener callbacks: true while a cast
+    // session is connected, regardless of which player is current.
+    private var castSessionAvailable = false
+
+    private fun isCasting(): Boolean =
+        castPlayer != null && currentPlayer === castPlayer
+
+    private var preferredAudioTrack: AudioTrackInfo? = null
+
+    /**
+     * Mirror the locally selected audio/caption tracks to the receiver.
+     * Safe to call repeatedly — the bridge skips tracks that are already
+     * active.
+     */
+    private fun reconcileCastSelections() {
+        preferredAudioTrack?.let {
+            CastTrackBridge.selectAudioTrack(it.languageCode, it.label)
+        }
+        if (subtitlesEnabled) {
+            selectedSubtitle?.let { CastTrackBridge.selectTextTrack(it.language) }
+        }
+        // The LoadRequest always starts the receiver at 1x — carry a
+        // pre-cast local speed over. CastPlayer mirrors the receiver's
+        // rate into its playbackParameters, so this converges.
+        val localSpeed = localPlayer?.playbackParameters?.speed ?: 1f
+        val remoteSpeed = castPlayer?.playbackParameters?.speed ?: 1f
+        if (localSpeed > 0f && localSpeed != remoteSpeed) {
+            castPlayer?.setPlaybackSpeed(localSpeed)
+        }
+    }
+
     init {
         // Only initialize Cast if it's available
         if (AppCastContext.isAvailable()) {
             try {
-                castPlayer = CastPlayer(AppCastContext.get()).also {
+                castPlayer = CastPlayer(AppCastContext.get(), castMediaItemConverter).also {
                     it.addListener(playerListener)
                     it.setSessionAvailabilityListener(object : SessionAvailabilityListener {
                         override fun onCastSessionAvailable() {
                             Log.d(TAG, "onCastSessionAvailable")
+                            castSessionAvailable = true
                             switchCurrentPlayer(it)
                         }
 
                         override fun onCastSessionUnavailable() {
                             Log.d(TAG, "onCastSessionUnavailable")
-                            switchCurrentPlayer(localPlayer!!)
+                            castSessionAvailable = false
+                            localPlayer?.let { local -> switchCurrentPlayer(local) }
                         }
                     })
                 }
@@ -400,6 +447,9 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
     /** Sets the CMCD `st` for subsequent playback (VOD -> v, live -> l, DVR live -> e). Internal. */
     internal fun setCmcdStreamType(streamType: CmcdStreamType) {
         cmcdStreamType = streamType
+        // The cast receiver needs the same live/VOD distinction: a live
+        // LoadRequest must carry STREAM_TYPE_LIVE for live UI on the TV.
+        castMediaItemConverter.isLiveStream = streamType != CmcdStreamType.VOD
         Log.d(TAG, "CMCD streamType=$streamType (query)")
     }
 
@@ -508,6 +558,8 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
         retentionData: Map<Int, Int>,
         playerSettings: PlayerSettings,
         licenseBaseApi: String,
+        token: String?,
+        expires: Long?,
     ) {
         Log.d(TAG, "playVideo(video=$video, retentionData=$retentionData, playerSettings=$playerSettings)")
 
@@ -517,6 +569,10 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
         this.playerSettings = playerSettings
         currentVideo = video
         currentVideoId = video.id
+        // Per-video state: the local preference dies with the fresh track
+        // selector below, so the cast-side preference must not outlive it
+        // (it would re-apply video A's language on whatever plays next).
+        preferredAudioTrack = null
 
         currentLibraryId = video.videoLibraryId
         resumePosition = playerSettings.resumePosition
@@ -583,6 +639,21 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
                 .build()
         }
 
+        // The Widevine license URL, built from the host the caller passed in — never from a
+        // process-wide default, which is what used to crash create()-only apps. Needed even when
+        // local playback skips DRM: the cast receiver fetches the license itself, so the URL
+        // rides to the TV in the LoadRequest customData. The token/expires pair rides along
+        // because the receiver has no Referer header to authenticate with.
+        val drmLicenseUri = buildString {
+            append("$licenseBaseApi/WidevineLicense/")
+            append("${video.videoLibraryId}/${video.id}?contentId=${video.id}")
+            // Both or neither: expires is part of the token signature, so a
+            // URL with only one of them can never validate.
+            if (token != null && expires != null) {
+                append("&token=$token&expires=$expires")
+            }
+        }
+
         // Title + artwork shown by the Chromecast receiver and the cast/notification UI (the
         // Cast MediaItemConverter reads MediaMetadata). Applies to both VOD and live.
         val mediaMetadata = MediaMetadata.Builder()
@@ -606,16 +677,20 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
             .setMediaMetadata(mediaMetadata)
             .setSubtitleConfigurations(subtitleConfigs)
 
+        // Refresh the cast LoadRequest customData for this video (theming +
+        // DRM); the converter sends it with every cast load.
+        castMediaItemConverter.castCustomData = CastCustomData.toJson(
+            CastCustomData.build(
+                playerSettings,
+                drmLicenseUri.takeIf { playerSettings.drmEnabled },
+            )
+        )
+
         // MediaItem id (used by Cast/analytics). The CMCD content id (`cid`) is set separately by
         // buildCmcdDataSourceFactory from the same guid.
         video.id.takeIf { it.isNotBlank() }?.let { mediaItemBuilder.setMediaId(it) }
 
         if (playerSettings.drmEnabled) {
-            // Built only for DRM'd playback, from the host the caller passed in — this used to
-            // reach for the SDK's default instance eagerly on every video, which crashed apps
-            // that only ever call BunnyStreamApi.create().
-            val drmLicenseUri = "$licenseBaseApi/WidevineLicense/" +
-                "${video.videoLibraryId}/${video.id}?contentId=${video.id}"
             mediaItemBuilder.setDrmConfiguration(
                 MediaItem.DrmConfiguration.Builder(C.WIDEVINE_UUID)
                     .setLicenseUri(drmLicenseUri)
@@ -689,9 +764,25 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
                 })
             }
 
-        currentPlayer = localPlayer
+        // While a cast session is connected, new playback must go to the
+        // receiver: assigning the local player here would silently drop out
+        // of cast (the session stays up, so SessionAvailabilityListener
+        // never re-fires) — the phone would play the new video while the TV
+        // keeps the old one. The live surface re-issues playback on every
+        // URL flip (trailer -> live -> recording), which made this fatal
+        // for live casting. The fresh local player stays idle as the
+        // handback target for when the session ends.
+        currentPlayer = if (castSessionAvailable && castPlayer != null) {
+            castPlayer
+        } else {
+            localPlayer
+        }
         playerView.player = currentPlayer
         playerView.keepScreenOn = true
+        playerStateListener?.onPlayerTypeChanged(
+            currentPlayer!!,
+            if (currentPlayer === castPlayer) PlayerType.CAST_PLAYER else PlayerType.DEFAULT_PLAYER,
+        )
 
         // Prepare and play
         val mediaItem = mediaItemBuilder.build()
@@ -781,7 +872,16 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
 
     override fun setSpeed(speed: Float) {
         Log.d(TAG, "Setting speed to: $speed")
+        // One call covers local and cast: media3's CastPlayer supports
+        // COMMAND_SET_SPEED_AND_PITCH natively (it sends the standard
+        // SET_PLAYBACK_RATE, clamped to the receiver's 0.5–2 range, and
+        // mirrors the applied rate back into playbackParameters).
         currentPlayer?.setPlaybackSpeed(speed)
+        // Keep the idle local player in sync while casting so playback
+        // resumes at the same speed when the session ends.
+        if (isCasting()) {
+            localPlayer?.setPlaybackSpeed(speed)
+        }
 
         if (speedConfig.rememberLastSpeed) {
             speedPreferences.saveLastSpeed(speed)
@@ -848,6 +948,10 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
     }
 
     override fun getVideoQualityOptions(): VideoQualityOptions? {
+        // While casting, quality (ABR) is decided by the receiver — the
+        // local track selector would silently do nothing, so don't offer
+        // the menu at all.
+        if (isCasting()) return null
         return getAvailableVideoQualityOptions()
     }
 
@@ -865,10 +969,19 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
 
     override fun selectAudioTrack(audioTrackInfo: AudioTrackInfo) {
         Log.d(TAG, "selectAudioTrack: $audioTrackInfo")
+        preferredAudioTrack = audioTrackInfo
 
+        // Always record the preference locally so playback continues in the
+        // chosen language when a cast session ends.
         trackSelector?.let {
             val params = it.buildUponParameters().setPreferredAudioLanguage(audioTrackInfo.languageCode)
             it.setParameters(params)
+        }
+
+        if (isCasting()) {
+            // The local track selector has no effect on the receiver; switch
+            // the receiver track via the standard media command.
+            CastTrackBridge.selectAudioTrack(audioTrackInfo.languageCode, audioTrackInfo.label)
         }
     }
 
@@ -1068,12 +1181,21 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
     }
 
     private fun selectSubtitleTrack(lang: String?) {
-        val trackSelectionParameters = currentPlayer?.trackSelectionParameters ?: return
-        currentPlayer?.trackSelectionParameters = trackSelectionParameters
-            .buildUpon()
-            .clearOverridesOfType(C.TRACK_TYPE_TEXT)
-            .setIgnoredTextSelectionFlags(C.SELECTION_FLAG_FORCED.inv())
-            .setPreferredTextLanguage(lang)
-            .build()
+        if (isCasting()) {
+            // Track selection parameters don't reach the receiver; switch
+            // (or clear) the receiver caption track directly.
+            CastTrackBridge.selectTextTrack(lang)
+        }
+        // Apply to the local player too (even while casting) so the
+        // selection carries over when the cast session ends.
+        val targets = listOfNotNull(currentPlayer, localPlayer.takeIf { isCasting() })
+        for (player in targets.distinct()) {
+            player.trackSelectionParameters = player.trackSelectionParameters
+                .buildUpon()
+                .clearOverridesOfType(C.TRACK_TYPE_TEXT)
+                .setIgnoredTextSelectionFlags(C.SELECTION_FLAG_FORCED.inv())
+                .setPreferredTextLanguage(lang)
+                .build()
+        }
     }
 }

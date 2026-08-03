@@ -91,6 +91,13 @@ dependencies {
     // https://developer.android.com/jetpack/androidx/releases/media3
     implementation("androidx.media3:media3-exoplayer-ima:1.10.1")
 
+    // Explicit (media3-cast also pulls them transitively) because the SDK
+    // uses the Cast framework and MediaRouteButton directly.
+    // https://developers.google.com/cast/docs/android_sender
+    implementation("com.google.android.gms:play-services-cast-framework:22.1.0")
+    // https://developer.android.com/jetpack/androidx/releases/mediarouter
+    implementation("androidx.mediarouter:mediarouter:1.7.0")
+
     // AndroidX Startup
     // https://developer.android.com/jetpack/androidx/releases/startup
     implementation("androidx.startup:startup-runtime:1.2.0")

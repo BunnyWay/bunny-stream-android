@@ -115,6 +115,10 @@ interface BunnyPlayer {
      * [PlayerSettings.drmEnabled] is set. The view passes its instance's host here, so a player
      * pointed at another deployment licenses against that one; the default is Bunny's production
      * host, which matches what 3.x hard-coded.
+     *
+     * [token] and [expires] are the URL-authentication pair; they also ride on the Widevine
+     * license URL sent to cast receivers, which fetch the license themselves without the Referer
+     * header the local player relies on.
      */
     fun playVideo(
         playerView: PlayerView,
@@ -122,6 +126,8 @@ interface BunnyPlayer {
         retentionData: Map<Int, Int>,
         playerSettings: PlayerSettings,
         licenseBaseApi: String = net.bunny.api.BuildConfig.BASE_API,
+        token: String? = null,
+        expires: Long? = null,
     )
 
     /** Skips 10 seconds forward. */
