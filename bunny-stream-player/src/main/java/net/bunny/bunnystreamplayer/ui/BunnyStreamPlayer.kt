@@ -51,7 +51,8 @@ import net.bunny.api.video.domain.model.Video
  * player.playVideo(videoId = "your-video-guid")
  * ```
  *
- * [net.bunny.api.BunnyStreamApi.initialize] must have been called first; without it [playVideo]
+ * The view needs an SDK instance: either [net.bunny.api.BunnyStreamApi.initialize] has been
+ * called, or [bunny] is set to an instance from `BunnyStreamApi.create`. With neither, [playVideo]
  * logs an error and shows nothing. Appearance (accent color, visible controls, captions styling)
  * comes from the library's player settings in the Bunny dashboard. Icons can be replaced through
  * [iconSet].
@@ -720,7 +721,18 @@ class BunnyStreamPlayer @JvmOverloads constructor(
             }
         }
 
-        bunnyPlayer.playVideo(binding.playerView, video, retentionData, playerSettings)
+        bunnyPlayer.playVideo(
+            binding.playerView,
+            video,
+            retentionData,
+            playerSettings,
+            // The engine builds the Widevine license URL from this host, so a view pointed at a
+            // specific instance licenses against that instance's deployment. Falls back to the
+            // production host if the instance vanished mid-load (release() racing this coroutine)
+            // rather than killing playback that is otherwise ready to start.
+            licenseBaseApi = runCatching { sdk.config.baseApi }
+                .getOrElse { net.bunny.api.BuildConfig.BASE_API },
+        )
         playerView.bunnyPlayer = bunnyPlayer
 
         // Start auto-save after video starts playing
