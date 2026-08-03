@@ -70,6 +70,19 @@ class BunnyStreamCameraUpload @JvmOverloads constructor(
         coroutineDispatcher = Dispatchers.IO
     )
 
+    override fun onDetachedFromWindow() {
+        super.onDetachedFromWindow()
+        // The view owns the camera pipeline, so once it is gone nothing can reach an active
+        // broadcast — the camera, the encoders and the server-side stream would all stay live
+        // with no handle left to stop them. Leaving the screen therefore ends the broadcast,
+        // exactly as [stopRecording] would (including the server-side stop). The surface
+        // callback already stops the bare preview; this covers the streaming pipeline.
+        if (streamHandler.isStreaming()) {
+            Log.i(TAG, "view detached mid-broadcast — stopping the stream")
+            streamHandler.stopStreaming()
+        }
+    }
+
     override var hideDefaultControls: Boolean = false
         set(value) {
             field = value

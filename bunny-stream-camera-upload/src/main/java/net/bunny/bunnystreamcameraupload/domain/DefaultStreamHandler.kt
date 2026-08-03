@@ -554,7 +554,9 @@ internal class DefaultStreamHandler(
     }
 
     override fun isStreaming(): Boolean {
-        return stream.isStreaming
+        // [stream] exists only after [initialize]; a view that never started a preview asks this
+        // from its detach hook, and "not initialized" simply means "not streaming".
+        return ::stream.isInitialized && stream.isStreaming
     }
 
     override fun selectCamera(deviceCamera: DeviceCamera) {
