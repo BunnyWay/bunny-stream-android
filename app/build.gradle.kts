@@ -2,8 +2,7 @@ import java.util.Properties
 
 plugins {
     id("com.android.application")
-    id("org.jetbrains.kotlin.android")
-    id("org.jetbrains.kotlin.plugin.compose") version "2.1.20"
+    id("org.jetbrains.kotlin.plugin.compose") version "2.2.20"
     id("kotlin-parcelize")
 }
 
@@ -32,14 +31,14 @@ val demoTokenAuthKey: String =
 
 android {
     namespace = "net.bunny.android.demo"
-    compileSdk = 35  // ← Changed from 34 to 35
+    compileSdk = 36
 
     viewBinding.enable = true
 
     defaultConfig {
         applicationId = "net.bunny.android.demo"
         minSdk = 26
-        targetSdk = 35  // ← Also update targetSdk to 35 for consistency
+        targetSdk = 36
         versionCode = 12
         versionName = "1.16"
 
@@ -75,11 +74,9 @@ android {
         }
     }
     compileOptions {
+        isCoreLibraryDesugaringEnabled = true
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
-    }
-    kotlinOptions {
-        jvmTarget = "11"
     }
     buildFeatures {
         compose = true
@@ -96,6 +93,7 @@ android {
 }
 
 dependencies {
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
     // Project Modules
     implementation(project(":api"))
     implementation(project(":player"))
@@ -103,15 +101,15 @@ dependencies {
     implementation(project(":tv"))
 
     // Lean Back
-    implementation("androidx.leanback:leanback:1.0.0")
+    implementation("androidx.leanback:leanback:1.2.0")
 
     // AndroidX Core and Lifecycle
-    implementation("androidx.core:core-ktx:1.15.0")
-    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
+    implementation("androidx.core:core-ktx:1.18.0")
+    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.10.0")
 
     // AndroidX Activity
-    implementation("androidx.activity:activity-ktx:1.10.1")
-    implementation("androidx.activity:activity-compose:1.10.1")
+    implementation("androidx.activity:activity-ktx:1.13.0")
+    implementation("androidx.activity:activity-compose:1.13.0")
 
     // Jetpack Compose BOM and Dependencies
     implementation(platform("androidx.compose:compose-bom:2025.03.01"))
@@ -121,12 +119,12 @@ dependencies {
     implementation("androidx.compose.material3:material3")
     // Extended icon pack — ContentCopy & co. for the live stream links summary.
     implementation("androidx.compose.material:material-icons-extended")
-    implementation("androidx.appcompat:appcompat:1.7.0")
+    implementation("androidx.appcompat:appcompat:1.7.1")
 
     // Testing Dependencies
     testImplementation("junit:junit:4.13.2")
-    androidTestImplementation("androidx.test.ext:junit:1.2.1")
-    androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")
+    androidTestImplementation("androidx.test.ext:junit:1.3.0")
+    androidTestImplementation("androidx.test.espresso:espresso-core:3.7.0")
     androidTestImplementation(platform("androidx.compose:compose-bom:2025.03.01"))
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
     debugImplementation("androidx.compose.ui:ui-tooling")
@@ -136,15 +134,15 @@ dependencies {
     implementation("androidx.constraintlayout:constraintlayout:2.2.1")
 
     // Media3 (ExoPlayer, UI, HLS, Cast)
-    implementation("androidx.media3:media3-exoplayer:1.6.0")
-    implementation("androidx.media3:media3-ui:1.6.0")
-    implementation("androidx.media3:media3-exoplayer-hls:1.6.0")
-    implementation("androidx.media3:media3-cast:1.6.0")
+    implementation("androidx.media3:media3-exoplayer:1.10.1")
+    implementation("androidx.media3:media3-ui:1.10.1")
+    implementation("androidx.media3:media3-exoplayer-hls:1.10.1")
+    implementation("androidx.media3:media3-cast:1.10.1")
 
     // Navigation and Lifecycle for Compose
-    implementation("androidx.navigation:navigation-compose:2.8.9")
-    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
-    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
+    implementation("androidx.navigation:navigation-compose:2.9.8")
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.10.0")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.10.0")
 
     // Coil for Compose Image Loading
     implementation("io.coil-kt.coil3:coil-compose:3.1.0")
@@ -154,12 +152,17 @@ dependencies {
     implementation("com.google.accompanist:accompanist-swiperefresh:0.36.0")
 
     // Functional Programming (Arrow)
-    implementation("io.arrow-kt:arrow-core:2.0.1")
 
     // Work Manager for background tasks
-    implementation("androidx.work:work-runtime-ktx:2.8.1")
+    implementation("androidx.work:work-runtime-ktx:2.11.2")
 
     // JSON processing - Essential for our position storage
-    implementation("com.google.code.gson:gson:2.10.1")
+    implementation("com.google.code.gson:gson:2.14.0")
 
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
+    }
 }

@@ -7,7 +7,7 @@ import android.content.pm.ActivityInfo
 import android.view.Surface
 import android.view.View
 
-class ScreenUtil {
+internal class ScreenUtil {
     companion object {
         fun lockCurrentOrientation(view: View) {
             val activity = view.context.findActivity() ?: return

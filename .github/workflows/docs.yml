@@ -1,0 +1,75 @@
+name: Docs
+
+# Builds the documentation site (integration guides via MkDocs) with the Dokka HTML
+# API reference under /api/, and publishes both to GitHub Pages.
+# Runs on every release tag; can also be started by hand from the Actions tab.
+on:
+  push:
+    tags:
+      - '*.*.*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One Pages deployment at a time; don't cancel a deploy that is already running.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build docs site
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Build guides site (MkDocs)
+        run: |
+          pip install 'mkdocs-material~=9.6'
+          mkdocs build
+
+      - name: Build API reference (Dokka)
+        # Brand the reference with the release version when building from a tag;
+        # manual (workflow_dispatch) runs fall back to the default version.
+        env:
+          VERSION: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+        run: ./gradlew dokkaGeneratePublicationHtml
+
+      - name: Combine site and reference
+        run: cp -r build/dokka/htmlMultiModule build/docs-site/api
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: build/docs-site
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4

@@ -5,131 +5,184 @@ import android.util.Log
 import io.tus.android.client.TusPreferencesURLStore
 import io.tus.java.client.TusClient
 import io.tus.java.client.TusUpload
+import io.tus.java.client.TusUploader
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
-import kotlinx.coroutines.CoroutineExceptionHandler
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
 import net.bunny.api.BuildConfig
+import net.bunny.api.error.BunnyErrorMapper
 import net.bunny.api.upload.model.FileInfo
-import net.bunny.api.upload.model.UploadError
-import net.bunny.api.upload.service.PauseState
-import net.bunny.api.upload.service.UploadListener
-import net.bunny.api.upload.service.UploadRequest
+import net.bunny.api.upload.model.PauseState
+import net.bunny.api.upload.model.UploadEvent
+import net.bunny.api.upload.service.UploadControl
 import net.bunny.api.upload.service.UploadService
 import java.net.URL
 import java.security.MessageDigest
-import java.util.UUID
-import kotlin.concurrent.atomics.AtomicBoolean
-import kotlin.concurrent.atomics.ExperimentalAtomicApi
-import kotlin.coroutines.cancellation.CancellationException
 
-@OptIn(ExperimentalAtomicApi::class)
-class TusUploaderService(
+/**
+ * Sends the file in chunks over the TUS resumable protocol.
+ *
+ * Chunking is what makes pause and resume possible: the transfer stops at a chunk boundary and the
+ * server remembers the offset, so a held — or interrupted — upload picks up where it left off
+ * instead of starting over. This is the path to use for large files and unreliable networks.
+ */
+internal class TusUploaderService(
     private val preferences: SharedPreferences,
     private val chunkSize: Int,
     private val accessKey: String,
-    private val dispatcher: CoroutineDispatcher
+    private val dispatcher: CoroutineDispatcher,
 ) : UploadService {
 
-    companion object {
+    private companion object {
         private const val TAG = "TusUploaderService"
+
+        /** How long to sleep between checks while an upload is held. */
+        private const val PAUSE_POLL_MILLIS = 250L
+
+        /** `uploadChunk()` returns this once there is nothing left to send. */
+        private const val NO_MORE_CHUNKS = -1
+
+        private const val PERCENT = 100
+        private const val SIGNATURE_VALIDITY_SECONDS = 3600L
     }
 
-    private val supervisorJob = SupervisorJob()
+    /**
+     * The point of the chunked path: the server remembers the offset, and [buildUpload] files it
+     * under a key derived from the video's identity, so a later attempt on the same video finds it.
+     */
+    override val supportsResuming: Boolean = true
 
-    private val exceptionHandler = CoroutineExceptionHandler { context, exception ->
-        exception.printStackTrace()
-        Log.d(TAG, "CoroutineExceptionHandler: context=$context exception=$exception")
+    override fun upload(
+        libraryId: Long,
+        videoId: String,
+        fileInfo: FileInfo,
+        control: UploadControl,
+    ): Flow<UploadEvent> = flow {
+        val upload = buildUpload(libraryId, videoId, fileInfo)
+
+        val uploader = try {
+            createUploader(libraryId, videoId, upload)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
+            Log.w(TAG, "could not start upload: ${e.message}")
+            emit(UploadEvent.Failed(BunnyErrorMapper.map(e), videoId))
+            return@flow
+        }
+
+        var lastProgress: UploadEvent.Progress? = null
+
+        try {
+            var chunkNumber = 0
+            while (chunkNumber > NO_MORE_CHUNKS) {
+                if (control.isCancelled) {
+                    Log.d(TAG, "upload cancelled by caller")
+                    releaseQuietly(uploader)
+                    emit(UploadEvent.Cancelled(videoId))
+                    return@flow
+                }
+
+                val progress = UploadEvent.Progress(
+                    percentage = percentageOf(uploader.offset, upload.size),
+                    videoId = videoId,
+                    pauseState = if (control.isPaused) PauseState.Paused else PauseState.Uploading,
+                )
+                // Dedupe on the whole event, not just the percentage: a pause that happens between
+                // two chunks changes the state without moving the number, and the UI needs it.
+                if (progress != lastProgress) {
+                    lastProgress = progress
+                    emit(progress)
+                }
+
+                if (control.isPaused) {
+                    delay(PAUSE_POLL_MILLIS)
+                } else {
+                    chunkNumber = uploader.uploadChunk()
+                }
+            }
+
+            uploader.finish()
+            Log.d(TAG, "upload done")
+            emit(UploadEvent.Completed(videoId))
+        } catch (e: CancellationException) {
+            // The collector went away. Release the connection, but do not turn it into an event:
+            // nobody is listening, and reporting a cancelled collector as a failed upload would be
+            // a lie.
+            releaseQuietly(uploader)
+            throw e
+        } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
+            releaseQuietly(uploader)
+            if (control.isCancelled) {
+                // The chunk in flight when cancel arrived fails on a connection that is being torn
+                // down, or against a video the caller already deleted. That is the cancel landing,
+                // not a failure — reporting it as one would put an error in front of a user who
+                // just pressed Cancel.
+                Log.d(TAG, "upload cancelled while a chunk was in flight")
+                emit(UploadEvent.Cancelled(videoId))
+            } else {
+                Log.w(TAG, "error uploading: ${e.message}")
+                emit(UploadEvent.Failed(BunnyErrorMapper.map(e), videoId))
+            }
+        }
+    }.flowOn(dispatcher)
+
+    private fun buildUpload(libraryId: Long, videoId: String, fileInfo: FileInfo): TusUpload =
+        TusUpload().apply {
+            size = fileInfo.size
+            inputStream = fileInfo.inputStream
+            metadata = mapOf(
+                "filetype" to "video/*",
+                "title" to videoId,
+            )
+            // The fingerprint is the key the URL store files this upload's offset under, so it has
+            // to be derived from the upload's identity. It used to be a fresh random UUID, which
+            // meant every attempt looked like a brand-new upload and resuming could never find the
+            // stored offset — the resumable path was resumable in name only.
+            fingerprint = "$libraryId-$videoId"
+        }
+
+    private fun createUploader(libraryId: Long, videoId: String, upload: TusUpload): TusUploader {
+        val client = TusClient().apply {
+            enableResuming(TusPreferencesURLStore(preferences))
+            uploadCreationURL = URL(BuildConfig.TUS_UPLOAD_ENDPOINT)
+            headers = signedHeaders(libraryId, videoId)
+        }
+        return client.resumeOrCreateUpload(upload).apply {
+            chunkSize = this@TusUploaderService.chunkSize
+        }
     }
 
-    private val scope = CoroutineScope(dispatcher + exceptionHandler + supervisorJob)
-
-    override suspend fun upload(
-        libraryId: Long, videoId: String, fileInfo: FileInfo, listener: UploadListener
-    ): UploadRequest {
-
-        val tusClient = TusClient()
-        tusClient.enableResuming(TusPreferencesURLStore(preferences))
-        tusClient.uploadCreationURL = URL(BuildConfig.TUS_UPLOAD_ENDPOINT)
-
-        val upload = TusUpload()
-        upload.size = fileInfo.size
-        upload.inputStream = fileInfo.inputStream
-        upload.metadata = mapOf(
-            "filetype" to "video/*",
-            "title" to videoId
-        )
-        upload.fingerprint = UUID.randomUUID().toString()
-
-        val expire = System.currentTimeMillis() / 1000 + 3600
-        val signature = "$libraryId$accessKey$expire$videoId"
-
-        tusClient.headers = mapOf(
-            "AuthorizationSignature" to sha256(signature),
+    private fun signedHeaders(libraryId: Long, videoId: String): Map<String, String> {
+        val expire = System.currentTimeMillis() / MILLIS_PER_SECOND + SIGNATURE_VALIDITY_SECONDS
+        return mapOf(
+            "AuthorizationSignature" to sha256("$libraryId$accessKey$expire$videoId"),
             "AuthorizationExpire" to expire.toString(),
             "LibraryId" to libraryId.toString(),
             "VideoId" to videoId,
             "User-Agent" to BuildConfig.USER_AGENT,
         )
+    }
 
-        val uploader = tusClient.resumeOrCreateUpload(upload)
-        uploader.chunkSize = chunkSize
-        val isPaused = AtomicBoolean(false)
-        val isCanceled = AtomicBoolean(false)
+    private fun percentageOf(bytesUploaded: Long, total: Long): Int =
+        if (total <= 0L) 0 else ((bytesUploaded.toDouble() / total) * PERCENT).toInt().coerceIn(0, PERCENT)
 
-        scope.launch {
-            var chunkNumber = 0
-            try {
-                do {
-                    val bytesUploaded = uploader.offset
-                    val progress = ((bytesUploaded.toDouble() / upload.size) * 100).toInt()
-                    val pauseState =
-                        if (isPaused.load()) PauseState.Paused else PauseState.Uploading
-
-                    listener.onProgressUpdated(progress, videoId, pauseState)
-
-                    if (!isPaused.load()) {
-                        chunkNumber = uploader.uploadChunk()
-                    } else {
-                        delay(250)
-                    }
-                    if (isCanceled.load()) {
-                        Log.d(TAG, "upload cancelled")
-                        listener.onUploadCancelled(videoId)
-                        break
-                    }
-                } while (chunkNumber > -1)
-
-                uploader.finish()
-                Log.d(TAG, "upload done")
-                listener.onUploadDone(videoId)
-            } catch (e: Exception) {
-                if(e is CancellationException){
-                    Log.d(TAG, "upload cancelled")
-                    isCanceled.store(true)
-                    listener.onUploadCancelled(videoId)
-                } else {
-                    Log.w(TAG, "error uploading: ${e.message}")
-                    e.printStackTrace()
-                    listener.onUploadError(UploadError.UnknownError(e.message ?: e.toString()), videoId)
-                }
-            }
+    /** Closes the connection and stream. Failing to release is not worth surfacing to the caller. */
+    @Suppress("TooGenericExceptionCaught")
+    private fun releaseQuietly(uploader: TusUploader) {
+        try {
+            uploader.finish()
+        } catch (e: Exception) {
+            Log.w(TAG, "could not release uploader: ${e.message}")
         }
-
-        return TusUploadRequest(
-            libraryId,
-            videoId,
-            uploader,
-            listener
-        ) { isPaused.store(it) }
     }
 
     private fun sha256(input: String): String {
-        val md = MessageDigest.getInstance("SHA-256")
-        md.update(input.toByteArray())
-        val digest = md.digest()
-        return digest.fold("") { str, b -> str + "%02x".format(b) }
+        val digest = MessageDigest.getInstance("SHA-256").digest(input.toByteArray())
+        return digest.joinToString("") { "%02x".format(it) }
     }
 }
+
+private const val MILLIS_PER_SECOND = 1000L

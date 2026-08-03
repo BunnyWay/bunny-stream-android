@@ -15,6 +15,7 @@ import androidx.core.content.res.use
 import androidx.core.view.isVisible
 import kotlinx.coroutines.Dispatchers
 import net.bunny.api.BunnyStreamApi
+import net.bunny.api.StreamApi
 import net.bunny.bunnystreamcameraupload.data.DefaultRecordingRepository
 import net.bunny.bunnystreamcameraupload.domain.DefaultStreamHandler
 import net.bunny.bunnystreamcameraupload.domain.RecordingRepository
@@ -22,6 +23,29 @@ import net.bunny.bunnystreamcameraupload.domain.StreamHandler
 import net.bunny.recording.R
 import net.bunny.recording.databinding.RecordingViewBinding
 
+/**
+ * Camera capture view of the Bunny Stream SDK. Add it to a layout:
+ *
+ * ```xml
+ * <net.bunny.bunnystreamcameraupload.BunnyStreamCameraUpload
+ *     android:id="@+id/cameraUpload"
+ *     android:layout_width="match_parent"
+ *     android:layout_height="match_parent" />
+ * ```
+ *
+ * then request the `CAMERA` and `RECORD_AUDIO` runtime permissions and call [startPreview].
+ * By default the view records the camera to a new video in your library. Set [liveStreamId]
+ * before starting to broadcast to an existing live stream instead - the SDK resolves the ingest,
+ * starts the stream on the server once connected, shows primary/backup badges and reconnects on
+ * network drops. See [StreamCameraUploadView] for the full contract.
+ *
+ * The view resolves its SDK instance when a recording starts, not when it is built, so it is safe
+ * to inflate it before `BunnyStreamApi.initialize(...)` has run. There has to be an instance by
+ * the time the user starts recording — the default one, or one assigned to [bunny].
+ *
+ * XML attributes: `brvDefaultCamera` ("back" or "front") picks the starting camera;
+ * `brvHideDefaultControls` hides the built-in controls, same as [hideDefaultControls].
+ */
 class BunnyStreamCameraUpload @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null,
@@ -34,13 +58,17 @@ class BunnyStreamCameraUpload @JvmOverloads constructor(
 
     private val binding = RecordingViewBinding.inflate(LayoutInflater.from(context), this)
 
-    private val streamRepository: RecordingRepository = DefaultRecordingRepository(Dispatchers.IO)
+    override var bunny: StreamApi? = null
+
+    private val streamRepository: RecordingRepository = DefaultRecordingRepository(
+        coroutineDispatcher = Dispatchers.IO,
+        // Resolved per call, so assigning [bunny] after the view is built still takes effect.
+        sdk = { bunny ?: BunnyStreamApi.getInstance() },
+    )
     private val streamHandler: StreamHandler = DefaultStreamHandler(
         streamRepository = streamRepository,
         coroutineDispatcher = Dispatchers.IO
     )
-
-    private val libraryId = BunnyStreamApi.libraryId
 
     override var hideDefaultControls: Boolean = false
         set(value) {
@@ -133,6 +161,16 @@ class BunnyStreamCameraUpload @JvmOverloads constructor(
 
         binding.startStop.setOnClickListener {
             if (!streamHandler.isStreaming()) {
+                // Resolved here rather than when the view is built. A view inflated from XML is
+                // constructed with its layout, which can happen before the SDK is initialised;
+                // reading the library id then used to freeze "no library yet" into the view for
+                // its whole life, and every recording afterwards went nowhere without an error.
+                if (bunny == null && !BunnyStreamApi.isInitialized()) {
+                    Log.e(TAG, "Unable to start, call BunnyStreamApi.initialize(...) first")
+                    return@setOnClickListener
+                }
+                val libraryId = (bunny ?: BunnyStreamApi.getInstance()).libraryId
+
                 val streamId = liveStreamId
                 if (streamId != null) {
                     streamHandler.startLiveStreaming(libraryId, streamId, liveIngestEndpoint)

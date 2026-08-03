@@ -1,6 +1,6 @@
 package net.bunny.api.livestream.domain
 
-import arrow.core.Either
+import net.bunny.api.error.BunnyResult
 import net.bunny.api.livestream.domain.model.LiveStream
 import net.bunny.api.livestream.domain.model.LiveStreamCreateRequest
 import net.bunny.api.livestream.domain.model.LiveStreamIngestStatus
@@ -12,7 +12,10 @@ import net.bunny.api.livestream.domain.model.LiveStreamThumbnail
  * High-level access to the Manage Live Streams API.
  *
  * Wraps the generated [net.bunny.api.api.ManageLiveStreamsApi] and exposes a coroutine-friendly
- * surface that returns [Either] (mirrors [net.bunny.api.settings.domain.SettingsRepository]).
+ * surface returning the [BunnyResult] envelope (mirrors
+ * [net.bunny.api.settings.domain.SettingsRepository]). Failures carry the typed
+ * [net.bunny.api.error.BunnyError] taxonomy: the HTTP status code, a message, and whether the
+ * failure is terminal (retrying can never succeed) or transient.
  */
 interface LiveStreamRepository {
 
@@ -27,7 +30,7 @@ interface LiveStreamRepository {
         search: String? = null,
         orderBy: String? = null,
         collectionId: String? = null,
-    ): Either<String, LiveStreamList>
+    ): BunnyResult<LiveStreamList>
 
     /**
      * Fetches details of a single live stream by its GUID.
@@ -35,22 +38,22 @@ interface LiveStreamRepository {
     suspend fun getLiveStream(
         libraryId: Long,
         streamId: String,
-    ): Either<String, LiveStream>
+    ): BunnyResult<LiveStream>
 
     /**
-     * Polling-friendly variant of [getLiveStream] that preserves the HTTP status code on failure.
+     * The polling entry point of [getLiveStream] — same call, kept as a named method because the
+     * polling loop's contract is documented here.
      *
-     * The web player's polling rules treat `401`/`403`/`404`/`410` as **permanent** (stop polling)
-     * and `5xx`/network errors as **transient** (keep polling). The existing [Either]-string
-     * surface flattens errors to human-readable messages, which is the wrong shape for that
-     * decision. Use this method from the live-stream player ViewModel.
-     *
-     * Returns [LiveStreamPollResult.Success] on 2xx, [LiveStreamPollResult.Failure] otherwise.
+     * The web player's polling rules branch on the error's terminality:
+     * `401`/`403`/`404`/`410` ([net.bunny.api.error.BunnyError.isTerminal]) mean **stop polling**
+     * — retrying can never succeed; `5xx`, network and decode failures are **transient** — keep
+     * polling, the next attempt may recover. Use this method from the live-stream player
+     * ViewModel.
      */
     suspend fun pollLiveStream(
         libraryId: Long,
         streamId: String,
-    ): LiveStreamPollResult
+    ): BunnyResult<LiveStream>
 
     /**
      * Fetches playback data (HLS URL, controls, DRM, etc.) for a live stream. Optional
@@ -61,7 +64,7 @@ interface LiveStreamRepository {
         streamId: String,
         token: String? = null,
         expires: Long? = null,
-    ): Either<String, LiveStreamPlayData>
+    ): BunnyResult<LiveStreamPlayData>
 
     /**
      * Creates a new live stream in the given library. Returns the freshly-created stream so
@@ -70,7 +73,7 @@ interface LiveStreamRepository {
     suspend fun createLiveStream(
         libraryId: Long,
         request: LiveStreamCreateRequest,
-    ): Either<String, LiveStream>
+    ): BunnyResult<LiveStream>
 
     /**
      * Updates an existing live stream. Only non-null fields in [request] are sent to the server;
@@ -80,7 +83,7 @@ interface LiveStreamRepository {
         libraryId: Long,
         streamId: String,
         request: LiveStreamCreateRequest,
-    ): Either<String, Unit>
+    ): BunnyResult<Unit>
 
     /**
      * Permanently deletes a live stream. Once deleted the stream cannot be recovered, but any
@@ -89,7 +92,7 @@ interface LiveStreamRepository {
     suspend fun deleteLiveStream(
         libraryId: Long,
         streamId: String,
-    ): Either<String, Unit>
+    ): BunnyResult<Unit>
 
     /**
      * Marks the stream as started so viewers can watch. Call once the RTMP encoder is
@@ -99,7 +102,7 @@ interface LiveStreamRepository {
     suspend fun startLiveStream(
         libraryId: Long,
         streamId: String,
-    ): Either<String, LiveStream>
+    ): BunnyResult<LiveStream>
 
     /**
      * Stops the stream. Ongoing publishing is cut by the ingest server, and if `recordVod`
@@ -109,7 +112,7 @@ interface LiveStreamRepository {
     suspend fun stopLiveStream(
         libraryId: Long,
         streamId: String,
-    ): Either<String, LiveStream>
+    ): BunnyResult<LiveStream>
 
     /**
      * Sets the live stream thumbnail from a remote image URL.
@@ -118,7 +121,7 @@ interface LiveStreamRepository {
         libraryId: Long,
         streamId: String,
         thumbnailUrl: String,
-    ): Either<String, Unit>
+    ): BunnyResult<Unit>
 
     /**
      * Uploads a local image as the live stream thumbnail.
@@ -134,7 +137,7 @@ interface LiveStreamRepository {
         streamId: String,
         imageBytes: ByteArray,
         contentType: String = "image/jpeg",
-    ): Either<String, Unit>
+    ): BunnyResult<Unit>
 
     /**
      * Lists the stream's recently generated thumbnails (most recent first), each as a loadable URL
@@ -150,7 +153,7 @@ interface LiveStreamRepository {
         limit: Int? = null,
         from: String? = null,
         to: String? = null,
-    ): Either<String, List<LiveStreamThumbnail>>
+    ): BunnyResult<List<LiveStreamThumbnail>>
 
     /**
      * Removes the stream's custom thumbnail.
@@ -162,7 +165,7 @@ interface LiveStreamRepository {
         libraryId: Long,
         streamId: String,
         restoreLibraryDefault: Boolean = false,
-    ): Either<String, Unit>
+    ): BunnyResult<Unit>
 
     /**
      * Fetches the stream's lightweight ingest status (`GET …/live/{streamId}/status`) — whether
@@ -177,5 +180,5 @@ interface LiveStreamRepository {
     suspend fun getLiveStreamStatus(
         libraryId: Long,
         streamId: String,
-    ): Either<String, LiveStreamIngestStatus>
+    ): BunnyResult<LiveStreamIngestStatus>
 }

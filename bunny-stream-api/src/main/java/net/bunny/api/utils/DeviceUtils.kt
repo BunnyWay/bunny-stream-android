@@ -38,6 +38,12 @@ object DeviceUtils {
     }
 }
 
+/**
+ * Rough device classification returned by [DeviceUtils.getDeviceType].
+ *
+ * Note: [TABLET] is reserved and never returned by the current detection logic; tablets are
+ * reported as [MOBILE].
+ */
 enum class DeviceType {
     MOBILE,
     TV,

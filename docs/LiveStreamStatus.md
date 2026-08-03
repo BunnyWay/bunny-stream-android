@@ -1,5 +1,5 @@
 
-# LiveStreamStatus
+# net.bunny.api.model.LiveStreamStatus
 
 ## Enum
 

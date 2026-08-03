@@ -2,7 +2,10 @@ package net.bunny.bunnystreamplayer.livestream
 
 import android.util.Log
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -15,12 +18,15 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import net.bunny.api.BunnyStreamApi
-import net.bunny.api.livestream.domain.LiveStreamPollResult
+import net.bunny.api.StreamApi
+import net.bunny.api.error.BunnyError
+import net.bunny.api.error.BunnyResult
+import net.bunny.api.error.fold
 import net.bunny.api.livestream.domain.LiveStreamRepository
-import net.bunny.api.livestream.domain.isTerminal
 import net.bunny.api.livestream.domain.model.LiveStream
 import net.bunny.api.livestream.domain.model.LiveStreamPlayData
 import net.bunny.api.model.LiveStreamStatus
+import net.bunny.api.video.domain.VideoRepository
 
 /**
  * Backing view model for [BunnyLiveStreamPlayer]. Owns the polling loop, the play-data fetches,
@@ -48,18 +54,50 @@ import net.bunny.api.model.LiveStreamStatus
  * in the composable. This keeps it unit-testable on the JVM with a fake [LiveStreamRepository].
  */
 public open class BunnyLiveStreamPlayerViewModel internal constructor(
-    private val repository: LiveStreamRepository,
+    private val repositoryProvider: () -> LiveStreamRepository,
+    private val videoRepositoryProvider: () -> VideoRepository,
     private val ioDispatcher: CoroutineDispatcher,
     private val nowEpochMs: () -> Long,
     private val pollIntervalMs: Long,
 ) : ViewModel() {
 
+    internal constructor(
+        repository: LiveStreamRepository,
+        ioDispatcher: CoroutineDispatcher,
+        nowEpochMs: () -> Long,
+        pollIntervalMs: Long,
+    ) : this(
+        { repository },
+        { BunnyStreamApi.getInstance().videoRepository },
+        ioDispatcher,
+        nowEpochMs,
+        pollIntervalMs,
+    )
+
     public constructor() : this(
-        repository = BunnyStreamApi.getInstance().liveStreamRepository,
+        repositoryProvider = { BunnyStreamApi.getInstance().liveStreamRepository },
+        videoRepositoryProvider = { BunnyStreamApi.getInstance().videoRepository },
         ioDispatcher = Dispatchers.IO,
         nowEpochMs = { System.currentTimeMillis() },
         pollIntervalMs = DEFAULT_POLL_INTERVAL_MS,
     )
+
+    /**
+     * Resolved on first use rather than at construction.
+     *
+     * Compose builds this view model during composition, which can run before the host app has
+     * initialised the SDK. Reaching for the instance in the constructor turned that ordering into
+     * a crash the app had no chance to catch; now [start] reports it through [terminalError] and
+     * the player shows a message instead.
+     */
+    private val repository: LiveStreamRepository by lazy(repositoryProvider)
+
+    /**
+     * The video repository the trailer's play-data is fetched through. Comes from the same
+     * provider set as [repository], so a player given its own instance fetches the trailer with
+     * that instance's key and host — not whichever instance happens to be the default.
+     */
+    private val videoRepository: VideoRepository by lazy(videoRepositoryProvider)
 
     private val mutableState = MutableStateFlow<LiveStreamPlayerState>(LiveStreamPlayerState.Loading)
     public val state: StateFlow<LiveStreamPlayerState> = mutableState.asStateFlow()
@@ -144,6 +182,19 @@ public open class BunnyLiveStreamPlayerViewModel internal constructor(
             return
         }
         started = true
+
+        // First touch of the SDK instance. If the host never initialised it, say so here rather
+        // than letting the failure escape from whatever coroutine happens to reach it first.
+        val unavailable = runCatching { repository }.exceptionOrNull()
+        if (unavailable != null) {
+            Log.e(TAG, "cannot start — the SDK has no instance", unavailable)
+            terminated = true
+            mutableTerminalError.value =
+                "The Bunny SDK is not initialised. Call BunnyStreamApi.initialize(...) before " +
+                    "showing the player."
+            return
+        }
+
         this.libraryId = libraryId
         this.streamId = streamId
         this.token = token
@@ -206,25 +257,25 @@ public open class BunnyLiveStreamPlayerViewModel internal constructor(
                 repository.pollLiveStream(libraryId, streamId)
             }
             when (result) {
-                is LiveStreamPollResult.Success -> handleStreamUpdate(result.stream)
-                is LiveStreamPollResult.Failure -> handlePollFailure(result)
+                is BunnyResult.Ok -> handleStreamUpdate(result.value)
+                is BunnyResult.Err -> handlePollFailure(result.error)
             }
         } finally {
             pollInFlight = false
         }
     }
 
-    private fun handlePollFailure(failure: LiveStreamPollResult.Failure) {
-        if (failure.isTerminal()) {
-            Log.w(TAG, "poll failed with terminal status ${failure.statusCode} — stopping polling")
+    private fun handlePollFailure(error: BunnyError) {
+        if (error.isTerminal) {
+            Log.w(TAG, "poll failed with terminal status ${error.httpStatus} — stopping polling")
             terminated = true
             pollJob?.cancel()
             pollJob = null
-            mutableTerminalError.value = failure.message
+            mutableTerminalError.value = error.message
         } else {
             // 5xx/network/transient — keep polling, no UI change. Spec: "Treat them as transient;
             // back off if you want, but do not stop."
-            Log.w(TAG, "poll failed with transient status ${failure.statusCode}: ${failure.message}")
+            Log.w(TAG, "poll failed with transient status ${error.httpStatus}: ${error.message}")
         }
     }
 
@@ -283,16 +334,15 @@ public open class BunnyLiveStreamPlayerViewModel internal constructor(
                 repository.fetchLiveStreamPlayData(libraryId, streamId, token, expires)
             }
             result.fold(
-                ifLeft = { msg ->
-                    // Play-data errors don't carry an HTTP status code, so we can't decide
-                    // terminal vs transient from here. Treat all play-data errors as transient:
-                    // the polling loop is the authoritative terminal-status detector (it gets
-                    // back a typed status code) and will set [terminalError] if needed. Worst
-                    // case: we sit on the loading spinner until polling either succeeds or hits
-                    // a terminal status, which matches the spec's poll-driven transition model.
-                    Log.w(TAG, "fetchPlayData[$reason] failed (will rely on poll loop): $msg")
+                onErr = { error ->
+                    // Play-data errors now carry the HTTP status too, but the polling loop stays
+                    // the single authoritative terminal-status detector — one decision path, one
+                    // place that flips [terminalError]. Treat all play-data errors as transient
+                    // here. Worst case: we sit on the loading spinner until polling either
+                    // succeeds or hits a terminal status, matching the poll-driven model.
+                    Log.w(TAG, "fetchPlayData[$reason] failed (will rely on poll loop): ${error.message}")
                 },
-                ifRight = { playData ->
+                onOk = { playData ->
                     Log.d(
                         TAG,
                         "fetchPlayData[$reason] OK — " +
@@ -333,18 +383,20 @@ public open class BunnyLiveStreamPlayerViewModel internal constructor(
         viewModelScope.launch {
             try {
                 Log.d(TAG, "fetching trailer play-data — videoId=$trailerVideoId")
-                val url = withContext(ioDispatcher) {
-                    val playData = BunnyStreamApi.getInstance().videosApi.videoGetVideoPlayData(
-                        libraryId,
-                        trailerVideoId,
-                        token,
-                        expires,
+                val url = videoRepository
+                    .fetchVideoPlayData(libraryId, trailerVideoId, token, expires)
+                    .fold(
+                        // Bunny's video play-data returns a similar shape to live play-data —
+                        // videoPlaylistUrl first, fallbackUrl second. Treat blanks as "no URL".
+                        onOk = { playData ->
+                            playData.videoPlaylistUrl?.takeIf { it.isNotBlank() }
+                                ?: playData.fallbackUrl?.takeIf { it.isNotBlank() }
+                        },
+                        onErr = { error ->
+                            Log.w(TAG, "trailer play-data failed: ${error.message}")
+                            null
+                        },
                     )
-                    // Bunny's video play-data returns a similar shape to live play-data —
-                    // videoPlaylistUrl first, fallbackUrl second. Treat blanks as "no URL".
-                    playData.videoPlaylistUrl?.takeIf { it.isNotBlank() }
-                        ?: playData.fallbackUrl?.takeIf { it.isNotBlank() }
-                }
                 if (url.isNullOrBlank()) {
                     Log.w(TAG, "trailer play-data returned no playable URL — skipping trailer")
                 } else {
@@ -455,5 +507,27 @@ public open class BunnyLiveStreamPlayerViewModel internal constructor(
 
         /** Production poll interval, matched to the web player. Don't lower without sign-off. */
         public const val DEFAULT_POLL_INTERVAL_MS: Long = 5_000L
+
+        /**
+         * Builds a view model bound to [bunny], or to the default instance when it is null.
+         *
+         * [BunnyLiveStreamPlayer] uses this so an app addressing more than one library can point
+         * the player at the right one. The instance is resolved when the stream starts, not here.
+         */
+        internal fun factory(bunny: StreamApi?): ViewModelProvider.Factory = viewModelFactory {
+            initializer {
+                BunnyLiveStreamPlayerViewModel(
+                    repositoryProvider = {
+                        (bunny ?: BunnyStreamApi.getInstance()).liveStreamRepository
+                    },
+                    videoRepositoryProvider = {
+                        (bunny ?: BunnyStreamApi.getInstance()).videoRepository
+                    },
+                    ioDispatcher = Dispatchers.IO,
+                    nowEpochMs = { System.currentTimeMillis() },
+                    pollIntervalMs = DEFAULT_POLL_INTERVAL_MS,
+                )
+            }
+        }
     }
 }

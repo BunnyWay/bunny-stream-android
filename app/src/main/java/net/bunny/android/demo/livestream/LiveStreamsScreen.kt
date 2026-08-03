@@ -104,7 +104,6 @@ fun LiveStreamsRoute(
             )
             appState.navController.navigateToLiveStreamPlayer(
                 streamId = stream.id,
-                fallbackHlsUrl = stream.playbackUrlHls,
                 title = stream.title,
             )
         },

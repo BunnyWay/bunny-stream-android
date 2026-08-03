@@ -22,6 +22,8 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import net.bunny.api.BunnyStreamApi
+import net.bunny.api.StreamApi
+import net.bunny.api.error.fold
 import net.bunny.api.playback.PlaybackPosition
 import net.bunny.api.playback.ResumeConfig
 import net.bunny.api.playback.ResumePositionListener
@@ -37,10 +39,36 @@ import net.bunny.bunnystreamplayer.model.getSanitizedRetentionData
 import net.bunny.bunnystreamplayer.ui.fullscreen.FullScreenPlayerActivity
 import net.bunny.bunnystreamplayer.ui.widget.BunnyPlayerView
 import net.bunny.player.databinding.ViewBunnyVideoPlayerBinding
-import org.openapitools.client.models.VideoModel
-import org.openapitools.client.models.VideoPlayDataModelVideo
+import net.bunny.api.error.getOrNull
+import net.bunny.api.video.domain.model.Video
 
 
+/**
+ * The video player view of the Bunny Stream SDK. Add it to a layout (or wrap it in `AndroidView`
+ * from Compose) and call [playVideo] with a video id from your library:
+ *
+ * ```kotlin
+ * player.playVideo(videoId = "your-video-guid")
+ * ```
+ *
+ * The view needs an SDK instance: either [net.bunny.api.BunnyStreamApi.initialize] has been
+ * called, or [bunny] is set to an instance from `BunnyStreamApi.create`. With neither, [playVideo]
+ * logs an error and shows nothing. Appearance (accent color, visible controls, captions styling)
+ * comes from the library's player settings in the Bunny dashboard. Icons can be replaced through
+ * [iconSet].
+ *
+ * What the view handles on its own:
+ * - playback controls, seek-bar preview thumbnails, chapters, moments and captions
+ * - fullscreen (opens a dedicated fullscreen screen) and Picture-in-Picture (the host activity
+ *   must declare `android:supportsPictureInPicture="true"`)
+ * - Chromecast, when Google Play services are available
+ * - pausing when the host goes to the background and resuming on return
+ * - resume positions, once enabled with [enableResumePosition]
+ *
+ * The view attaches to its host lifecycle automatically. Playback stops when the view is detached
+ * from the window. One playback engine is shared per process; use one player view at a time and
+ * detach it before starting playback in another.
+ */
 class BunnyStreamPlayer @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null,
@@ -52,6 +80,22 @@ class BunnyStreamPlayer @JvmOverloads constructor(
         private const val AUTO_SAVE_INTERVAL = 10_000L // 10 seconds
 
     }
+
+    /**
+     * The SDK instance this view plays from. Leave it null to use the one
+     * [net.bunny.api.BunnyStreamApi.initialize] registered.
+     *
+     * Set it when your app addresses more than one library and this view belongs to a specific
+     * one. Assign before calling [playVideo]; the value is read per call, so a view can be moved
+     * between instances.
+     */
+    var bunny: StreamApi? = null
+
+    /** The instance to use right now. Resolved per call, never cached. */
+    private val sdk: StreamApi get() = bunny ?: BunnyStreamApi.getInstance()
+
+    /** True when this view has an instance to work with, whether its own or the default one. */
+    private val hasSdk: Boolean get() = bunny != null || BunnyStreamApi.isInitialized()
 
     private var job: Job? = null
     private var scope: CoroutineScope? = null
@@ -419,7 +463,7 @@ class BunnyStreamPlayer @JvmOverloads constructor(
             "playLiveUrl streamId=$streamId hlsUrl=${hlsUrl.take(80)} " +
                 "serverCustomization=${playData != null}",
         )
-        if (!BunnyStreamApi.isInitialized()) {
+        if (!hasSdk) {
             Log.e(TAG, "Unable to play live, initialize BunnyStreamApi first")
             return
         }
@@ -429,14 +473,9 @@ class BunnyStreamPlayer @JvmOverloads constructor(
 
         loadVideoJob?.cancel()
 
-        // Synthetic VideoModel — the engine only reads guid/title/library id/captions for the
-        // happy path. Everything else can be null and the engine treats them as missing.
-        val video = VideoModel(
-            videoLibraryId = libraryId,
-            guid = streamId,
-            title = videoTitle,
-            captions = emptyList(),
-        )
+        // Synthetic Video — the engine only reads id/title/library id/captions for the happy
+        // path; the rest stays at its empty defaults and the engine treats them as missing.
+        val video = Video(id = streamId, videoLibraryId = libraryId, title = videoTitle)
 
         // Compact mode is a view-level layout concern (not part of PlayerSettings), so forward the
         // dashboard's flag straight to the player view before building the settings.
@@ -480,15 +519,18 @@ class BunnyStreamPlayer @JvmOverloads constructor(
 
         currentVideoId = videoId
         currentLibraryId = libraryId
-        val providedLibraryId = libraryId ?: BunnyStreamApi.libraryId
 
-        if (!BunnyStreamApi.isInitialized()) {
+        if (!hasSdk) {
             Log.e(
                 TAG,
                 "Unable to play video, initialize the player first using BunnyStreamSdk.initialize"
             )
             return
         }
+
+        // Read after the guard: the library id now lives on the instance, so there is nothing to
+        // read until one exists.
+        val providedLibraryId = libraryId ?: sdk.libraryId
 
         // CMCD (CTA-5004 v2) stream type for VOD playback (st=v).
         (bunnyPlayer as? DefaultBunnyPlayer)?.setCmcdStreamType(CmcdStreamType.VOD)
@@ -501,28 +543,21 @@ class BunnyStreamPlayer @JvmOverloads constructor(
         pendingJob = {
             scope!!.launch {
 
-                val video: VideoModel
-
-                try {
-                    video = withContext(Dispatchers.IO) {
-                        BunnyStreamApi.getInstance().videosApi.videoGetVideoPlayData(
-                            providedLibraryId,
-                            videoId,
-                            token,
-                            expires
-                        ).video?.toVideoModel()!!
-                    }
-                    Log.d(TAG, "video=$video")
-                } catch (e: Exception) {
-                    Log.w(TAG, "Error fetching video: $e")
+                val video = sdk.videoRepository
+                    .fetchVideoPlayData(providedLibraryId, videoId, token, expires)
+                    .getOrNull()
+                    ?.video
+                if (video == null) {
+                    Log.w(TAG, "Error fetching video $videoId — no play data")
                     return@launch
                 }
+                Log.d(TAG, "video=$video")
 
-                val settings = BunnyStreamApi.getInstance()
+                val settings = sdk
                     .fetchPlayerSettings(providedLibraryId, videoId, token, expires)
 
                 settings.fold(
-                    ifLeft = {
+                    onErr = {
                         initializeVideo(
                             video,
                             token = token,
@@ -555,9 +590,9 @@ class BunnyStreamPlayer @JvmOverloads constructor(
                                 captionsPath = ""
                             )
                         )
-                        playerView.showError(it)
+                        playerView.showError(it.message)
                     },
-                    ifRight = { initializeVideo(video, it, token, expires) }
+                    onOk = { initializeVideo(video, it, token, expires) }
                 )
             }
         }
@@ -669,7 +704,7 @@ class BunnyStreamPlayer @JvmOverloads constructor(
     }
 
     private suspend fun initializeVideo(
-        video: VideoModel,
+        video: Video,
         playerSettings: PlayerSettings,
         token: String? = null,
         expires: Long? = null,
@@ -684,19 +719,32 @@ class BunnyStreamPlayer @JvmOverloads constructor(
 
         if (playerSettings.showHeatmap) {
             try {
-                val retentionDataResponse = withContext(Dispatchers.IO) {
-                    BunnyStreamApi.getInstance().videosApi.videoGetVideoHeatmap(
-                        video.videoLibraryId!!,
-                        video.guid!!
-                    )
-                }
-                retentionData = retentionDataResponse.getSanitizedRetentionData()
+                retentionData = sdk.videoRepository
+                    .fetchVideoHeatmap(video.videoLibraryId, video.id)
+                    .getOrNull()
+                    .orEmpty()
+                    .getSanitizedRetentionData()
             } catch (e: Exception) {
                 Log.w(TAG, "Error fetching video heatmap")
             }
         }
 
-        bunnyPlayer.playVideo(binding.playerView, video, retentionData, playerSettings, token, expires)
+        bunnyPlayer.playVideo(
+            binding.playerView,
+            video,
+            retentionData,
+            playerSettings,
+            // The engine builds the Widevine license URL from this host, so a view pointed at a
+            // specific instance licenses against that instance's deployment. Falls back to the
+            // production host if the instance vanished mid-load (release() racing this coroutine)
+            // rather than killing playback that is otherwise ready to start.
+            licenseBaseApi = runCatching { sdk.config.baseApi }
+                .getOrElse { net.bunny.api.BuildConfig.BASE_API },
+            // The pair also rides on the license URL for cast receivers, which fetch the
+            // license themselves without the Referer header the local player sends.
+            token = token,
+            expires = expires,
+        )
         playerView.bunnyPlayer = bunnyPlayer
 
         // Start auto-save after video starts playing
@@ -765,34 +813,4 @@ class BunnyStreamPlayer @JvmOverloads constructor(
     }
 
 
-    fun VideoPlayDataModelVideo.toVideoModel(): VideoModel = VideoModel(
-        videoLibraryId = this.videoLibraryId,
-        guid = this.guid,
-        title = this.title,
-        dateUploaded = this.dateUploaded,
-        views = this.views,
-        isPublic = this.isPublic,
-        length = this.length,
-        status = this.status,
-        framerate = this.framerate,
-        rotation = this.rotation,
-        width = this.width,
-        height = this.height,
-        availableResolutions = this.availableResolutions,
-        outputCodecs = this.outputCodecs,
-        thumbnailCount = this.thumbnailCount,
-        encodeProgress = this.encodeProgress,
-        storageSize = this.storageSize,
-        captions = this.captions,
-        hasMP4Fallback = this.hasMP4Fallback,
-        collectionId = this.collectionId,
-        thumbnailFileName = this.thumbnailFileName,
-        averageWatchTime = this.averageWatchTime,
-        totalWatchTime = this.totalWatchTime,
-        category = this.category,
-        chapters = this.chapters,
-        moments = this.moments,
-        metaTags = this.metaTags,
-        transcodingMessages = this.transcodingMessages
-    )
 }

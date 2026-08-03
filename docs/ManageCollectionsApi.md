@@ -2,18 +2,18 @@
 
 All URIs are relative to *https://video.bunnycdn.com*
 
-Method | HTTP request | Description
-------------- | ------------- | -------------
-[**collectionCreateCollection**](ManageCollectionsApi.md#collectionCreateCollection) | **POST** /library/{libraryId}/collections | Create Collection
-[**collectionDeleteCollection**](ManageCollectionsApi.md#collectionDeleteCollection) | **DELETE** /library/{libraryId}/collections/{collectionId} | Delete Collection
-[**collectionGetCollection**](ManageCollectionsApi.md#collectionGetCollection) | **GET** /library/{libraryId}/collections/{collectionId} | Get Collection
-[**collectionList**](ManageCollectionsApi.md#collectionList) | **GET** /library/{libraryId}/collections | Get Collection List
-[**collectionUpdateCollection**](ManageCollectionsApi.md#collectionUpdateCollection) | **POST** /library/{libraryId}/collections/{collectionId} | Update Collection
+| Method | HTTP request | Description |
+| ------------- | ------------- | ------------- |
+| [**collectionCreateCollection**](ManageCollectionsApi.md#collectionCreateCollection) | **POST** /library/{libraryId}/collections | Create Collection |
+| [**collectionDeleteCollection**](ManageCollectionsApi.md#collectionDeleteCollection) | **DELETE** /library/{libraryId}/collections/{collectionId} | Delete Collection |
+| [**collectionGetCollection**](ManageCollectionsApi.md#collectionGetCollection) | **GET** /library/{libraryId}/collections/{collectionId} | Get Collection |
+| [**collectionList**](ManageCollectionsApi.md#collectionList) | **GET** /library/{libraryId}/collections | Get Collection List |
+| [**collectionUpdateCollection**](ManageCollectionsApi.md#collectionUpdateCollection) | **POST** /library/{libraryId}/collections/{collectionId} | Update Collection |
 
 
 <a id="collectionCreateCollection"></a>
 # **collectionCreateCollection**
-> CollectionModel collectionCreateCollection(libraryId, collectionUpdateCollectionRequest)
+> CollectionModel collectionCreateCollection(libraryId, updateCollectionModel)
 
 Create Collection
 
@@ -25,9 +25,9 @@ Create Collection
 
 val apiInstance = ManageCollectionsApi()
 val libraryId : kotlin.Long = 789 // kotlin.Long | 
-val collectionUpdateCollectionRequest : CollectionUpdateCollectionRequest =  // CollectionUpdateCollectionRequest | 
+val updateCollectionModel : UpdateCollectionModel =  // UpdateCollectionModel | 
 try {
-    val result : CollectionModel = apiInstance.collectionCreateCollection(libraryId, collectionUpdateCollectionRequest)
+    val result : CollectionModel = apiInstance.collectionCreateCollection(libraryId, updateCollectionModel)
     println(result)
 } catch (e: ClientException) {
     println("4xx response calling ManageCollectionsApi#collectionCreateCollection")
@@ -39,11 +39,10 @@ try {
 ```
 
 ### Parameters
-
-Name | Type | Description  | Notes
-------------- | ------------- | ------------- | -------------
- **libraryId** | **kotlin.Long**|  |
- **collectionUpdateCollectionRequest** | [**CollectionUpdateCollectionRequest**](CollectionUpdateCollectionRequest.md)|  |
+| **libraryId** | **kotlin.Long**|  | |
+| Name | Type | Description  | Notes |
+| ------------- | ------------- | ------------- | ------------- |
+| **updateCollectionModel** | [**UpdateCollectionModel**](UpdateCollectionModel.md)|  | |
 
 ### Return type
 
@@ -89,11 +88,10 @@ try {
 ```
 
 ### Parameters
-
-Name | Type | Description  | Notes
-------------- | ------------- | ------------- | -------------
- **libraryId** | **kotlin.Long**|  |
- **collectionId** | **kotlin.String**|  |
+| **libraryId** | **kotlin.Long**|  | |
+| Name | Type | Description  | Notes |
+| ------------- | ------------- | ------------- | ------------- |
+| **collectionId** | **kotlin.String**|  | |
 
 ### Return type
 
@@ -140,12 +138,11 @@ try {
 ```
 
 ### Parameters
-
-Name | Type | Description  | Notes
-------------- | ------------- | ------------- | -------------
- **libraryId** | **kotlin.Long**|  |
- **collectionId** | **kotlin.String**|  |
- **includeThumbnails** | **kotlin.Boolean**|  | [optional] [default to false]
+| **libraryId** | **kotlin.Long**|  | |
+| **collectionId** | **kotlin.String**|  | |
+| Name | Type | Description  | Notes |
+| ------------- | ------------- | ------------- | ------------- |
+| **includeThumbnails** | **kotlin.Boolean**|  | [optional] [default to false] |
 
 ### Return type
 
@@ -195,15 +192,14 @@ try {
 ```
 
 ### Parameters
-
-Name | Type | Description  | Notes
-------------- | ------------- | ------------- | -------------
- **libraryId** | **kotlin.Long**|  |
- **page** | **kotlin.Int**|  | [optional] [default to 1]
- **itemsPerPage** | **kotlin.Int**|  | [optional] [default to 100]
- **search** | **kotlin.String**|  | [optional] [default to &quot;&quot;]
- **orderBy** | **kotlin.String**|  | [optional] [default to &quot;date&quot;]
- **includeThumbnails** | **kotlin.Boolean**|  | [optional] [default to false]
+| **libraryId** | **kotlin.Long**|  | |
+| **page** | **kotlin.Int**|  | [optional] [default to 1] |
+| **itemsPerPage** | **kotlin.Int**|  | [optional] [default to 100] |
+| **search** | **kotlin.String**|  | [optional] [default to &quot;&quot;] |
+| **orderBy** | **kotlin.String**|  | [optional] [default to &quot;date&quot;] |
+| Name | Type | Description  | Notes |
+| ------------- | ------------- | ------------- | ------------- |
+| **includeThumbnails** | **kotlin.Boolean**|  | [optional] [default to false] |
 
 ### Return type
 
@@ -223,7 +219,7 @@ Configure AccessKey:
 
 <a id="collectionUpdateCollection"></a>
 # **collectionUpdateCollection**
-> StatusModel collectionUpdateCollection(libraryId, collectionId, collectionUpdateCollectionRequest)
+> StatusModel collectionUpdateCollection(libraryId, collectionId, updateCollectionModel)
 
 Update Collection
 
@@ -236,9 +232,9 @@ Update Collection
 val apiInstance = ManageCollectionsApi()
 val libraryId : kotlin.Long = 789 // kotlin.Long | 
 val collectionId : kotlin.String = collectionId_example // kotlin.String | 
-val collectionUpdateCollectionRequest : CollectionUpdateCollectionRequest =  // CollectionUpdateCollectionRequest | 
+val updateCollectionModel : UpdateCollectionModel =  // UpdateCollectionModel | 
 try {
-    val result : StatusModel = apiInstance.collectionUpdateCollection(libraryId, collectionId, collectionUpdateCollectionRequest)
+    val result : StatusModel = apiInstance.collectionUpdateCollection(libraryId, collectionId, updateCollectionModel)
     println(result)
 } catch (e: ClientException) {
     println("4xx response calling ManageCollectionsApi#collectionUpdateCollection")
@@ -250,12 +246,11 @@ try {
 ```
 
 ### Parameters
-
-Name | Type | Description  | Notes
-------------- | ------------- | ------------- | -------------
- **libraryId** | **kotlin.Long**|  |
- **collectionId** | **kotlin.String**|  |
- **collectionUpdateCollectionRequest** | [**CollectionUpdateCollectionRequest**](CollectionUpdateCollectionRequest.md)|  |
+| **libraryId** | **kotlin.Long**|  | |
+| **collectionId** | **kotlin.String**|  | |
+| Name | Type | Description  | Notes |
+| ------------- | ------------- | ------------- | ------------- |
+| **updateCollectionModel** | [**UpdateCollectionModel**](UpdateCollectionModel.md)|  | |
 
 ### Return type
 

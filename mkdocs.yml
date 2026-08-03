@@ -1,0 +1,64 @@
+# Documentation site for the integration guides (published to GitHub Pages by
+# .github/workflows/docs.yml, with the Dokka API reference under /api/).
+# Local preview: pip install mkdocs-material && mkdocs serve
+site_name: Bunny Stream Android SDK
+site_description: Integrate Bunny video and live streaming into your Android app
+site_url: https://bunnyway.github.io/bunny-stream-android/
+repo_url: https://github.com/BunnyWay/bunny-stream-android
+repo_name: BunnyWay/bunny-stream-android
+edit_uri: edit/main/docs/guides/
+
+docs_dir: docs/guides
+site_dir: build/docs-site
+
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: deep orange
+      accent: deep orange
+      toggle:
+        icon: material/brightness-7
+        name: Dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: deep orange
+      accent: deep orange
+      toggle:
+        icon: material/brightness-4
+        name: Light mode
+  features:
+    - navigation.sections
+    - navigation.top
+    - content.code.copy
+    - content.action.edit
+    - search.suggest
+
+markdown_extensions:
+  - admonition
+  - tables
+  - pymdownx.highlight
+  - pymdownx.superfences
+
+nav:
+  - Overview: README.md
+  - Getting started: getting-started.md
+  - Playback:
+      - Play a video: play-a-video.md
+      - Play a live stream: play-a-live-stream.md
+      - Secure playback: secure-playback.md
+      - Picture-in-Picture and Chromecast: picture-in-picture-and-cast.md
+  - Managing content:
+      - Manage videos and collections: manage-videos.md
+      - Upload videos: upload-videos.md
+      - Manage live streams: manage-live-streams.md
+  - Publishing from the device:
+      - Go live from the camera: go-live-from-the-camera.md
+  - Reference:
+      - Handle errors: handle-errors.md
+      - Capability matrix: capability-matrix.md
+      - Troubleshooting: troubleshooting.md
+      - API reference: https://bunnyway.github.io/bunny-stream-android/api/
+      - Migrating to 4.0.0: https://github.com/BunnyWay/bunny-stream-android/blob/main/MIGRATING.md
+      - Changelog: https://github.com/BunnyWay/bunny-stream-android/blob/main/CHANGELOG.md

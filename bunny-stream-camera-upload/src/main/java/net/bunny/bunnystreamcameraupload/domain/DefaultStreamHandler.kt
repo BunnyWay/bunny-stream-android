@@ -4,7 +4,9 @@ import android.util.Log
 import android.view.SurfaceHolder
 import android.view.ViewGroup
 import android.widget.Toast
-import arrow.core.Either
+import net.bunny.api.error.BunnyResult
+import net.bunny.api.error.fold
+import net.bunny.api.error.map
 import com.pedro.common.ConnectChecker
 import com.pedro.common.socket.base.SocketType
 import com.pedro.encoder.input.sources.audio.MicrophoneSource
@@ -28,6 +30,7 @@ import net.bunny.bunnystreamcameraupload.RecordingDurationListener
 import net.bunny.bunnystreamcameraupload.RecordingStateListener
 import net.bunny.bunnystreamcameraupload.util.ScreenUtil
 import net.bunny.recording.R
+import net.bunny.bunnystreamcameraupload.util.redactSecrets
 
 /**
  * Drives the camera broadcast over one **or two** RTMP ingest outputs via RootEncoder's
@@ -44,7 +47,7 @@ import net.bunny.recording.R
  *   stream stays live as long as either is up. Doubles the upload bandwidth, hence opt-in. Falls
  *   back to single when the stream has no backup ingest.
  */
-class DefaultStreamHandler(
+internal class DefaultStreamHandler(
     private val streamRepository: RecordingRepository,
     coroutineDispatcher: CoroutineDispatcher
 ) : StreamHandler {
@@ -137,9 +140,6 @@ class DefaultStreamHandler(
     }
 
     /** Redacts the stream key (last path segment) so URLs are safe to log. */
-    private fun String.redactKey(): String =
-        substringBeforeLast('/') + "/" + substringAfterLast('/').take(4) + "…"
-
     private val width = 1920
     private val height = 1080
     private val fps = 30
@@ -166,7 +166,7 @@ class DefaultStreamHandler(
 
     private fun handleStarted(index: Int, url: String) {
         val out = outputs[index]
-        Log.d(TAG, "onConnectionStarted[$index] ${out.endpoint} ${url.redactKey()}")
+        Log.d(TAG, "onConnectionStarted[$index] ${out.endpoint} ${url.redactSecrets()}")
         notify(out.endpoint, IngestEndpointState.CONNECTING)
         recordingStateListener?.onStreamConnected()
     }
@@ -198,11 +198,11 @@ class DefaultStreamHandler(
         liveStartRequested = true
         scope.launch {
             streamRepository.startLiveStream(live.first, live.second).fold(
-                ifLeft = { message ->
-                    Log.w(TAG, "startLiveStream failed: $message")
+                onOk = { Log.d(TAG, "live stream marked as started") },
+                onErr = { error ->
+                    Log.w(TAG, "startLiveStream failed: ${error.message}")
                     liveStartRequested = false
                 },
-                ifRight = { Log.d(TAG, "live stream marked as started") },
             )
         }
     }
@@ -215,7 +215,7 @@ class DefaultStreamHandler(
         Log.w(
             TAG,
             "onConnectionFailed[$index] ${out.endpoint} attempt=${out.failures} " +
-                    "reason=\"$reason\" url=${out.url?.redactKey()}"
+                    "reason=\"$reason\" url=${out.url?.redactSecrets()}"
         )
         val c = client(index)
         var toastMsg = openGlView.context.getString(R.string.stream_reconnecting)
@@ -248,7 +248,7 @@ class DefaultStreamHandler(
                             R.string.ingest_switched_to_primary
                         },
                     )
-                    Log.w(TAG, "failover[$index] → ${out.endpoint} (${target.redactKey()})")
+                    Log.w(TAG, "failover[$index] → ${out.endpoint} (${target.redactSecrets()})")
                 }
                 c.reTry(ReconnectPolicy.reconnectDelayMs(out.failures), reason, target)
             }
@@ -316,8 +316,8 @@ class DefaultStreamHandler(
         ingestStatusJob = scope.launch {
             while (isActive) {
                 streamRepository.getIngestStatus(live.first, live.second).fold(
-                    ifLeft = { message -> Log.w(TAG, "ingest status poll failed: $message") },
-                    ifRight = { status -> onIngestStatus(status.primaryLive, status.backupLive) },
+                    onOk = { status -> onIngestStatus(status.primaryLive, status.backupLive) },
+                    onErr = { error -> Log.w(TAG, "ingest status poll failed: ${error.message}") },
                 )
                 delay(INGEST_STATUS_POLL_MS)
             }
@@ -408,7 +408,12 @@ class DefaultStreamHandler(
         for (i in 0 until RTMP_OUTPUTS) {
             client(i).apply {
                 setSocketType(SocketType.KTOR)
-                setLogs(true)
+                // RootEncoder's own logging prints the RTMP publish command verbatim, and the
+                // stream name Bunny requires carries the library access key. That would put a
+                // working credential in logcat on every broadcast, on release builds too. The
+                // connection state we actually need is already logged through the checkers above,
+                // with the key redacted.
+                setLogs(false)
                 // Dual-mode per-output retry budget. Single mode overrides this at start:
                 // RootEncoder's internal counter never resets on success, while our policy counts
                 // failures since the last successful connect — so the internal counter must not
@@ -453,17 +458,17 @@ class DefaultStreamHandler(
         startWithEndpoint { streamRepository.prepareLiveBroadcast(libraryId, streamId, ingestEndpoint) }
     }
 
-    private fun startWithEndpoint(prepare: suspend () -> Either<String, ResolvedIngest>) {
+    private fun startWithEndpoint(prepare: suspend () -> BunnyResult<ResolvedIngest>) {
         recordingStateListener?.onStreamInitializing()
         scope.launch {
             when (val result = prepare()) {
-                is Either.Left -> {
+                is BunnyResult.Err -> {
                     MainScope().launch {
-                        recordingStateListener?.onStreamConnectionFailed(result.value)
+                        recordingStateListener?.onStreamConnectionFailed(result.message)
                     }
                 }
 
-                is Either.Right -> {
+                is BunnyResult.Ok -> {
                     if (stream.isStreaming) {
                         Log.w(TAG, "startStream skipped — already streaming")
                         return@launch
@@ -481,7 +486,7 @@ class DefaultStreamHandler(
                         for (i in 0 until RTMP_OUTPUTS) client(i).setReTries(12)
                         outputs[0].apply { url = primary; endpoint = IngestEndpoint.PRIMARY; active = true }
                         outputs[1].apply { url = backup; endpoint = IngestEndpoint.BACKUP; active = true }
-                        Log.d(TAG, "startStream DUAL primary=${primary.redactKey()} + backup=${backup.redactKey()}")
+                        Log.d(TAG, "startStream DUAL primary=${primary.redactSecrets()} + backup=${backup.redactSecrets()}")
                         stream.startStream(MultiType.RTMP, 0, primary)
                         stream.startStream(MultiType.RTMP, 1, backup)
                     } else {
@@ -498,7 +503,7 @@ class DefaultStreamHandler(
                             endpoint = IngestEndpoint.PRIMARY
                             active = true
                         }
-                        Log.d(TAG, "startStream SINGLE primary=${primary.redactKey()} hasBackup=${backup != null}")
+                        Log.d(TAG, "startStream SINGLE primary=${primary.redactSecrets()} hasBackup=${backup != null}")
                         stream.startStream(MultiType.RTMP, 0, primary)
                     }
                 }
@@ -541,8 +546,8 @@ class DefaultStreamHandler(
             liveStartRequested = false
             scope.launch {
                 streamRepository.stopLiveStream(live.first, live.second).fold(
-                    ifLeft = { message -> Log.w(TAG, "stopLiveStream failed: $message") },
-                    ifRight = { Log.d(TAG, "live stream stopped server-side") },
+                    onOk = { Log.d(TAG, "live stream stopped server-side") },
+                    onErr = { error -> Log.w(TAG, "stopLiveStream failed: ${error.message}") },
                 )
             }
         }

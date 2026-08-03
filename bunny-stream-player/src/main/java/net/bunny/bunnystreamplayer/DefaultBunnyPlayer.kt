@@ -40,7 +40,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import net.bunny.api.BunnyCdn
-import net.bunny.api.BunnyStreamApi
 import net.bunny.api.playback.DefaultPlaybackPositionManager
 import net.bunny.api.playback.PlaybackPosition
 import net.bunny.api.playback.PlaybackPositionManager
@@ -66,7 +65,7 @@ import net.bunny.bunnystreamplayer.model.SubtitleInfo
 import net.bunny.bunnystreamplayer.model.Subtitles
 import net.bunny.bunnystreamplayer.model.VideoQuality
 import net.bunny.bunnystreamplayer.model.VideoQualityOptions
-import org.openapitools.client.models.VideoModel
+import net.bunny.api.video.domain.model.Video
 import kotlin.math.ceil
 import kotlin.math.round
 import kotlin.time.Duration.Companion.seconds
@@ -74,6 +73,15 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
 
+/**
+ * The ExoPlayer-based implementation of [BunnyPlayer], obtained through [getInstance].
+ *
+ * The engine is a process-wide singleton: every
+ * [net.bunny.bunnystreamplayer.ui.BunnyStreamPlayer] view in the app shares this one instance;
+ * use one player view at a time. Apps that embed the
+ * player view never create this class themselves; use the engine directly only when building
+ * custom player chrome on top of the [BunnyPlayer] interface.
+ */
 @SuppressLint("UnsafeOptInUsageError")
 class DefaultBunnyPlayer private constructor(private val appContext: Context) : BunnyPlayer {
 
@@ -86,6 +94,7 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
         @Volatile
         private var instance: BunnyPlayer? = null
 
+        /** Returns the shared playback engine, creating it on first use. */
         fun getInstance(context: Context) =
             instance ?: synchronized(this) {
                 instance ?: DefaultBunnyPlayer(context.applicationContext).also { instance = it }
@@ -111,7 +120,7 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
     private var castPlayer: Player? = null
     override var currentPlayer: Player? = null
 
-    private var currentVideo: VideoModel? = null
+    private var currentVideo: Video? = null
     private var currentVideoId: String? = null
     private var selectedSubtitle: SubtitleInfo? = null
     private var subtitlesEnabled = false
@@ -545,11 +554,12 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
     @SuppressLint("UnsafeOptInUsageError")
     override fun playVideo(
         playerView: PlayerView,
-        video: VideoModel,
+        video: Video,
         retentionData: Map<Int, Int>,
         playerSettings: PlayerSettings,
+        licenseBaseApi: String,
         token: String?,
-        expires: Long?
+        expires: Long?,
     ) {
         Log.d(TAG, "playVideo(video=$video, retentionData=$retentionData, playerSettings=$playerSettings)")
 
@@ -558,7 +568,7 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
 
         this.playerSettings = playerSettings
         currentVideo = video
-        currentVideoId = video.guid
+        currentVideoId = video.id
         // Per-video state: the local preference dies with the fresh track
         // selector below, so the cast-side preference must not outlive it
         // (it would re-apply video A's language on whatever plays next).
@@ -613,29 +623,30 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
         // supplies the DashMediaSource); DefaultMediaSourceFactory picks HLS vs DASH from the
         // MediaItem MIME below. Drives the CMCD `sf` too.
         val manifestFormat = ManifestFormat.fromUrl(playerSettings.videoUrl)
-        val cmcdContentId = video.guid?.takeIf { it.isNotBlank() }.orEmpty()
+        val cmcdContentId = video.id
         val cmcdDataSourceFactory =
             buildCmcdDataSourceFactory(httpFactory, cmcdContentId, manifestFormat.cmcdSf)
         val mediaSourceFactory = DefaultMediaSourceFactory(context)
             .setDataSourceFactory(cmcdDataSourceFactory)
 
         // Set up subtitle tracks if available
-        val subtitleConfigs = video.captions?.map { cap ->
-            val subUri = Uri.parse("${playerSettings.captionsPath}${cap.srclang}.vtt?ver=1")
+        val subtitleConfigs = video.captions.map { cap ->
+            val subUri = Uri.parse("${playerSettings.captionsPath}${cap.languageCode}.vtt?ver=1")
             MediaItem.SubtitleConfiguration.Builder(subUri)
                 .setMimeType(MimeTypes.TEXT_VTT)
-                .setLanguage(cap.srclang)
+                .setLanguage(cap.languageCode)
                 .setSelectionFlags(C.SELECTION_FLAG_DEFAULT)
                 .build()
-        } ?: emptyList()
+        }
 
-        // Build MediaItem with DRM config (CENC). The token/expires pair
-        // rides on the license URL: the local player authenticates license
-        // requests with the Referer header, but a cast receiver fetches the
-        // license itself without one.
+        // The Widevine license URL, built from the host the caller passed in — never from a
+        // process-wide default, which is what used to crash create()-only apps. Needed even when
+        // local playback skips DRM: the cast receiver fetches the license itself, so the URL
+        // rides to the TV in the LoadRequest customData. The token/expires pair rides along
+        // because the receiver has no Referer header to authenticate with.
         val drmLicenseUri = buildString {
-            append("${BunnyStreamApi.baseApi}/WidevineLicense/")
-            append("${video.videoLibraryId}/${video.guid}?contentId=${video.guid}")
+            append("$licenseBaseApi/WidevineLicense/")
+            append("${video.videoLibraryId}/${video.id}?contentId=${video.id}")
             // Both or neither: expires is part of the token signature, so a
             // URL with only one of them can never validate.
             if (token != null && expires != null) {
@@ -677,7 +688,7 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
 
         // MediaItem id (used by Cast/analytics). The CMCD content id (`cid`) is set separately by
         // buildCmcdDataSourceFactory from the same guid.
-        video.guid?.takeIf { it.isNotBlank() }?.let { mediaItemBuilder.setMediaId(it) }
+        video.id.takeIf { it.isNotBlank() }?.let { mediaItemBuilder.setMediaId(it) }
 
         if (playerSettings.drmEnabled) {
             mediaItemBuilder.setDrmConfiguration(
@@ -780,7 +791,7 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
         currentPlayer!!.prepare()
 
         // Check for saved position before starting playback
-        checkForSavedPosition(video.guid ?: "")
+        checkForSavedPosition(video.id)
         currentVideoId?.let { videoId ->
             checkForSavedPosition(videoId)
         }
@@ -801,17 +812,17 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
         // Init seek thumbnails and metadata
         initSeekThumbnailPreview(video, playerSettings.seekPath)
 
-        moments = video.moments?.map {
-            Moment(it.label, it.timestamp?.seconds?.inWholeMilliseconds ?: 0)
-        } ?: emptyList()
+        moments = video.moments.map {
+            Moment(it.label, it.timestampSeconds?.seconds?.inWholeMilliseconds ?: 0)
+        }
 
-        chapters = video.chapters?.map {
+        chapters = video.chapters.map {
             Chapter(
-                it.start?.seconds?.inWholeMilliseconds ?: 0,
-                it.end?.seconds?.inWholeMilliseconds ?: 0,
+                it.startSeconds?.seconds?.inWholeMilliseconds ?: 0,
+                it.endSeconds?.seconds?.inWholeMilliseconds ?: 0,
                 it.title
             )
-        } ?: emptyList()
+        }
 
         if (playerSettings.showHeatmap) {
             this.retentionData = retentionData.map { (ms, pct) ->
@@ -842,9 +853,9 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
         }
     }
 
-    private fun initSeekThumbnailPreview(video: VideoModel, seekPath: String) {
+    private fun initSeekThumbnailPreview(video: Video, seekPath: String) {
         val thumbnailPreviewsList: MutableList<String> = mutableListOf()
-        val numberOfPreviews = round((video.thumbnailCount?.toFloat() ?: 0.0F) / THUMBNAILS_PER_IMAGE).toInt()
+        val numberOfPreviews = round(video.thumbnailCount.toFloat() / THUMBNAILS_PER_IMAGE).toInt()
         var i = 0
         do {
             thumbnailPreviewsList.add("$seekPath/_${i}.jpg")
@@ -853,8 +864,8 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
 
         seekThumbnail = SeekThumbnail(
             seekThumbnailUrls = thumbnailPreviewsList,
-            frameDurationPerThumbnail = ceil((((video.length?.toFloat()) ?: 0.0F) * 1000) / (video.thumbnailCount ?: 1)).toInt(),
-            totalThumbnailCount = video.thumbnailCount ?: 0,
+            frameDurationPerThumbnail = ceil((video.lengthSeconds.toFloat() * 1000) / video.thumbnailCount.coerceAtLeast(1)).toInt(),
+            totalThumbnailCount = video.thumbnailCount,
             thumbnailsPerImage = THUMBNAILS_PER_IMAGE,
         )
     }
@@ -888,7 +899,7 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
     override fun getSubtitles(): Subtitles {
         return Subtitles(
             currentVideo?.captions?.map {
-                SubtitleInfo(it.label!!, it.srclang!!)
+                SubtitleInfo(it.label.orEmpty(), it.languageCode.orEmpty())
             } ?: listOf(),
             if(subtitlesEnabled) {
                 selectedSubtitle
@@ -923,7 +934,7 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
             } else {
                 val caption = currentVideo?.captions?.getOrNull(0)
                 if (caption != null) {
-                    selectedSubtitle = SubtitleInfo(caption.label!!, caption.srclang!!)
+                    selectedSubtitle = SubtitleInfo(caption.label.orEmpty(), caption.languageCode.orEmpty())
                     selectSubtitle(selectedSubtitle!!)
                 }
             }

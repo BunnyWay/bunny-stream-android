@@ -1,77 +1,79 @@
-# Camera recording and upload using BunnyStreamCameraUpload
+# bunny-stream-camera-upload
 
-Integrated camera solution that enables recording and direct upload of videos from the device camera.
+Camera capture module of the Bunny Stream Android SDK (`net.bunny:recording`). One view,
+`BunnyStreamCameraUpload`, that either records the device camera to a new video in your library
+or broadcasts it live to an existing live stream.
 
 ## Installation
 
-Declare dependency in your project's `build.gradle.kts`:
-```
+```kotlin
 implementation("net.bunny:recording:latest.release")
 ```
 
+Requires Android 8.0 (API 26). The module declares the `CAMERA` and `RECORD_AUDIO` permissions in
+its manifest, but your app must request them at runtime - `startPreview()` does nothing without
+them.
+
 ## Initialization
 
-After installation, you'll need to configure the package with your Bunny credentials. Initialization is common for all modules.
+```kotlin
+BunnyStreamApi.initialize(context, accessKey = "your-api-key", libraryId = 12345L)
+```
+
+The view reads the library when a recording starts, so it is safe to inflate it before this call
+runs. To record into a specific library in an app that uses several, give the view its own
+instance:
 
 ```kotlin
-// Initialize with your access key (optional) and library ID
-BunnyStreamApi.initialize(context, accessKey, libraryId)
+cameraUpload.bunny = BunnyStreamApi.create(context, BunnyStreamConfig(key, libraryId = 12345L))
 ```
 
-**`BunnyStreamCameraUpload` requires `CAMERA` and `RECORD_AUDIO` permissions:**
-
-```xml
-<uses-permission android:name="android.permission.CAMERA" />
-<uses-permission android:name="android.permission.RECORD_AUDIO" />
-```
-
-1. Add `BunnyRecordingView` to your layout
+## Record to your library
 
 ```xml
 <net.bunny.bunnystreamcameraupload.BunnyStreamCameraUpload
-      android:id="@+id/recordingView"
-      android:layout_width="match_parent"
-      android:layout_height="match_parent"
-      app:brvDefaultCamera="front"
-      />
+    android:id="@+id/cameraUpload"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    app:brvDefaultCamera="front" />
 ```
 
-2. Set close listener:
-```
-recordingView.closeStreamClickListener = OnClickListener {
-    // Hanlde stream close event, e.g. finish currenty activity
-    finish()
-}
+```kotlin
+// after CAMERA + RECORD_AUDIO are granted:
+binding.cameraUpload.startPreview()
 ```
 
-3. Check for mic and camera permissions and start preview:
+The built-in controls handle start, stop, mute and camera switching. Recording produces a new
+video in your library.
 
-```
-private fun hasPermission(permissionId: String): Boolean {
-    val permission = ContextCompat.checkSelfPermission(this, permissionId)
-    return permission == PackageManager.PERMISSION_GRANTED
-}
+## Broadcast to a live stream
 
-val camGranted = hasPermission(Manifest.permission.CAMERA)
-val micGranted = hasPermission(Manifest.permission.RECORD_AUDIO)
+Set the stream id before going live - everything else stays the same:
 
-if(camGranted && micGranted){
-    recordingView.startPreview()
-} else {
-    val permissions = listOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO)
-    requestPermissions(
-        permissions.toTypedArray(),
-        PERMISSIONS_REQUEST_CODE
-    )
-}
+```kotlin
+binding.cameraUpload.liveStreamId = "stream-guid"
 ```
 
-If you don't want to use default UI controls you can hide them using `hideDefaultControls()` and control the streaming by calling functions from `StreamCameraUploadView` interface that `BunnyRecordingView` implements.
+The SDK starts the stream on the server once connected, ends it on stop, reconnects on network
+drops with primary/backup failover, and shows connection badges. Full flow, listeners and the
+dual-publish option: [Go live from the camera](../docs/guides/go-live-from-the-camera.md).
 
-Full usage example and permissions handling can be found in demo app.
+## Custom UI
 
-Checkout [class level documentation](docs/index.md)
+Set `hideDefaultControls = true` (or the `brvHideDefaultControls` XML attribute) and drive the
+view through the `StreamCameraUploadView` interface: `startPreview`, `stopRecording`,
+`switchCamera`, `setAudioMuted`, `isRecording`.
+
+## Guides
+
+- [Go live from the camera](../docs/guides/go-live-from-the-camera.md)
+- [Manage live streams](../docs/guides/manage-live-streams.md) (create the stream you broadcast to)
+- [Troubleshooting](../docs/guides/troubleshooting.md)
+
+## Reference
+
+[API reference](https://bunnyway.github.io/bunny-stream-android/api/) (generated from the source)
 
 ## License
 
-Bunny Stream Android is licensed under the [MIT License](LICENSE). See the LICENSE file for more details.
+Bunny Stream Android is licensed under the [MIT License](../LICENSE).

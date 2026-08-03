@@ -1,6 +1,7 @@
 package net.bunny.api.livestream.data
 
-import arrow.core.Either
+import net.bunny.api.error.BunnyError
+import net.bunny.api.error.BunnyResult
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.slot
@@ -9,7 +10,6 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.runTest
 import net.bunny.api.api.ManageLiveStreamsApi
-import net.bunny.api.livestream.domain.LiveStreamPollResult
 import net.bunny.api.livestream.domain.model.LiveStreamCreateRequest
 import net.bunny.api.model.LiveStreamStatus
 import org.junit.Assert.assertEquals
@@ -23,11 +23,10 @@ import org.openapitools.client.models.IngestEndpoints
 import org.openapitools.client.models.IngestEndpointsRtmp
 import org.openapitools.client.models.LiveStreamModel
 import org.openapitools.client.models.LiveStreamPlayDataModel
-import org.openapitools.client.models.LiveStreamPlayDataModelLiveStream
 import org.openapitools.client.models.LiveStreamStatusModel
 import org.openapitools.client.models.PaginationListOfLiveStreamModel
 import org.openapitools.client.models.RtmpOutput as GeneratedRtmpOutput
-import org.openapitools.client.models.LiveStreamCreateRequest as GeneratedLiveStreamCreateRequest
+import org.openapitools.client.models.CreateLiveStreamModel as GeneratedLiveStreamCreateRequest
 import java.net.URI
 
 /**
@@ -36,7 +35,7 @@ import java.net.URI
  *  1. [DefaultLiveStreamRepository.pollLiveStream] HTTP-status-code translation — this is the
  *     polling loop's terminal-vs-transient signal (web spec section 3). If a status code goes
  *     into the wrong bucket the player either gives up too early or hammers the API forever.
- *  2. Friendly error messages from the [Either]-String surface — what the existing CRUD UI
+ *  2. Friendly error messages carried by the [BunnyResult] envelope — what the existing CRUD UI
  *     surfaces in toasts. Vocabulary needs to stay stable.
  *  3. DTO → domain mapping — field defaults for nullable proto fields, RtmpOutput's java.net.URI
  *     flattening, parity between the two `toDomain()` mappers (`LiveStreamModel` and the
@@ -66,8 +65,8 @@ class DefaultLiveStreamRepositoryTest {
 
         val result = repo.pollLiveStream(LIBRARY_ID, STREAM_ID)
 
-        assertTrue("Expected Success", result is LiveStreamPollResult.Success)
-        val stream = (result as LiveStreamPollResult.Success).stream
+        assertTrue("Expected Ok", result is BunnyResult.Ok)
+        val stream = (result as BunnyResult.Ok).value
         assertEquals(STREAM_ID, stream.id)
         assertEquals("Hello", stream.title)
         assertEquals(LiveStreamStatus.RUNNING, stream.status)
@@ -78,8 +77,8 @@ class DefaultLiveStreamRepositoryTest {
             ClientException(message = "nope", statusCode = 401)
 
         val result = repo.pollLiveStream(LIBRARY_ID, STREAM_ID)
-        val failure = result as LiveStreamPollResult.Failure
-        assertEquals(401, failure.statusCode)
+        val failure = result as BunnyResult.Err
+        assertEquals(401, failure.httpStatus)
     }
 
     @Test fun `pollLiveStream preserves 410 status code on ClientException`() = runTest(dispatcher) {
@@ -87,8 +86,8 @@ class DefaultLiveStreamRepositoryTest {
             ClientException(message = "Gone", statusCode = 410)
 
         val result = repo.pollLiveStream(LIBRARY_ID, STREAM_ID)
-        val failure = result as LiveStreamPollResult.Failure
-        assertEquals(410, failure.statusCode)
+        val failure = result as BunnyResult.Err
+        assertEquals(410, failure.httpStatus)
     }
 
     @Test fun `pollLiveStream preserves 500 status code on ServerException`() = runTest(dispatcher) {
@@ -96,33 +95,33 @@ class DefaultLiveStreamRepositoryTest {
             ServerException(message = "server broke", statusCode = 500)
 
         val result = repo.pollLiveStream(LIBRARY_ID, STREAM_ID)
-        val failure = result as LiveStreamPollResult.Failure
-        assertEquals(500, failure.statusCode)
+        val failure = result as BunnyResult.Err
+        assertEquals(500, failure.httpStatus)
     }
 
-    @Test fun `pollLiveStream maps generic IOException to statusCode 0`() = runTest(dispatcher) {
+    @Test fun `pollLiveStream maps generic IOException to httpStatus 0`() = runTest(dispatcher) {
         // Transport-level errors — DNS, socket, timeout — don't carry an HTTP status. The poll
-        // loop relies on statusCode == 0 to classify these as transient (per spec).
+        // loop relies on httpStatus == 0 to classify these as transient (per spec).
         every { api.liveStreamGetByStreamId(LIBRARY_ID, STREAM_ID) } throws
             java.net.SocketTimeoutException("timeout")
 
         val result = repo.pollLiveStream(LIBRARY_ID, STREAM_ID)
-        val failure = result as LiveStreamPollResult.Failure
-        assertEquals(0, failure.statusCode)
+        val failure = result as BunnyResult.Err
+        assertEquals(0, failure.httpStatus)
     }
 
     // endregion
 
-    // region — getLiveStream: Either<String, _> error vocabulary
+    // region — getLiveStream: BunnyResult error vocabulary
 
-    @Test fun `getLiveStream returns Right on 2xx`() = runTest(dispatcher) {
+    @Test fun `getLiveStream answers with the stream on 2xx`() = runTest(dispatcher) {
         every { api.liveStreamGetByStreamId(LIBRARY_ID, STREAM_ID) } returns liveStreamModel(
             guid = STREAM_ID,
         )
 
         val result = repo.getLiveStream(LIBRARY_ID, STREAM_ID)
-        assertTrue(result is Either.Right)
-        assertEquals(STREAM_ID, (result as Either.Right).value.id)
+        assertTrue(result is BunnyResult.Ok)
+        assertEquals(STREAM_ID, (result as BunnyResult.Ok).value.id)
     }
 
     @Test fun `getLiveStream maps 401 to friendly 'Authorization required' message`() =
@@ -132,7 +131,7 @@ class DefaultLiveStreamRepositoryTest {
 
             val result = repo.getLiveStream(LIBRARY_ID, STREAM_ID)
             assertEquals(
-                Either.Left("Authorization required Unauthorized"),
+                BunnyResult.Err(BunnyError.Auth(401, "Authorization required Unauthorized")),
                 result,
             )
         }
@@ -141,14 +140,14 @@ class DefaultLiveStreamRepositoryTest {
         every { api.liveStreamGetByStreamId(LIBRARY_ID, STREAM_ID) } throws
             ClientException(message = "ignored", statusCode = 403)
 
-        assertEquals(Either.Left("Forbidden"), repo.getLiveStream(LIBRARY_ID, STREAM_ID))
+        assertEquals(BunnyResult.Err(BunnyError.Auth(403, "Forbidden")), repo.getLiveStream(LIBRARY_ID, STREAM_ID))
     }
 
     @Test fun `getLiveStream maps 404 to 'Not Found'`() = runTest(dispatcher) {
         every { api.liveStreamGetByStreamId(LIBRARY_ID, STREAM_ID) } throws
             ClientException(message = "ignored", statusCode = 404)
 
-        assertEquals(Either.Left("Not Found"), repo.getLiveStream(LIBRARY_ID, STREAM_ID))
+        assertEquals(BunnyResult.Err(BunnyError.NotFound("Not Found")), repo.getLiveStream(LIBRARY_ID, STREAM_ID))
     }
 
     @Test fun `getLiveStream falls back to upstream message for unmapped status codes`() =
@@ -158,7 +157,7 @@ class DefaultLiveStreamRepositoryTest {
                 ClientException(message = "I'm a teapot", statusCode = 418)
 
             assertEquals(
-                Either.Left("I'm a teapot"),
+                BunnyResult.Err(BunnyError.Http(418, "I'm a teapot")),
                 repo.getLiveStream(LIBRARY_ID, STREAM_ID),
             )
         }
@@ -176,7 +175,7 @@ class DefaultLiveStreamRepositoryTest {
                 LiveStreamModel(guid = STREAM_ID)
 
             val result = repo.getLiveStream(LIBRARY_ID, STREAM_ID)
-            val stream = (result as Either.Right).value
+            val stream = (result as BunnyResult.Ok).value
 
             assertEquals(STREAM_ID, stream.id)
             assertEquals("", stream.title) // title was null → empty
@@ -203,7 +202,7 @@ class DefaultLiveStreamRepositoryTest {
                 ),
             )
 
-            val stream = (repo.getLiveStream(LIBRARY_ID, STREAM_ID) as Either.Right).value
+            val stream = (repo.getLiveStream(LIBRARY_ID, STREAM_ID) as BunnyResult.Ok).value
             assertEquals(1, stream.rtmpOutputs.size)
             val out = stream.rtmpOutputs.single()
             assertEquals("rtmp://example.test/live", out.endpoint)
@@ -226,7 +225,7 @@ class DefaultLiveStreamRepositoryTest {
                 playbackUrlHls = "https://list.test/p.m3u8",
             )
 
-            val stream = (repo.getLiveStream(LIBRARY_ID, STREAM_ID) as Either.Right).value
+            val stream = (repo.getLiveStream(LIBRARY_ID, STREAM_ID) as BunnyResult.Ok).value
             assertEquals(LiveStreamStatus.SCHEDULED, stream.status)
             assertEquals("2026-05-29T17:00:00Z", stream.startedAt)
             assertEquals(true, stream.recordVod)
@@ -252,7 +251,7 @@ class DefaultLiveStreamRepositoryTest {
                 ),
             )
 
-            val stream = (repo.getLiveStream(LIBRARY_ID, STREAM_ID) as Either.Right).value
+            val stream = (repo.getLiveStream(LIBRARY_ID, STREAM_ID) as BunnyResult.Ok).value
             assertEquals("rtmp://global.rtmp.mediadelivery.net/live", stream.primaryIngestUrl)
             assertEquals("rtmp://global-backup.rtmp.mediadelivery.net/live", stream.backupIngestUrl)
         }
@@ -261,7 +260,7 @@ class DefaultLiveStreamRepositoryTest {
         runTest(dispatcher) {
             every { api.liveStreamGetByStreamId(LIBRARY_ID, STREAM_ID) } returns liveStreamModel(guid = STREAM_ID)
 
-            val stream = (repo.getLiveStream(LIBRARY_ID, STREAM_ID) as Either.Right).value
+            val stream = (repo.getLiveStream(LIBRARY_ID, STREAM_ID) as BunnyResult.Ok).value
             assertNull(stream.primaryIngestUrl)
             assertNull(stream.backupIngestUrl)
         }
@@ -284,7 +283,7 @@ class DefaultLiveStreamRepositoryTest {
         )
 
         val playData = (
-            repo.fetchLiveStreamPlayData(LIBRARY_ID, STREAM_ID) as Either.Right
+            repo.fetchLiveStreamPlayData(LIBRARY_ID, STREAM_ID) as BunnyResult.Ok
         ).value
         assertEquals("https://pd.test/play.m3u8", playData.videoPlaylistUrl)
         assertEquals("https://pd.test/fallback.m3u8", playData.fallbackUrl)
@@ -301,7 +300,7 @@ class DefaultLiveStreamRepositoryTest {
             every {
                 api.liveStreamGetStreamPlayData(LIBRARY_ID, STREAM_ID, null, null)
             } returns LiveStreamPlayDataModel(
-                liveStream = LiveStreamPlayDataModelLiveStream(
+                liveStream = LiveStreamModel(
                     guid = STREAM_ID,
                     title = "Embedded",
                     status = LiveStreamStatus.RUNNING,
@@ -311,7 +310,7 @@ class DefaultLiveStreamRepositoryTest {
             )
 
             val playData = (
-                repo.fetchLiveStreamPlayData(LIBRARY_ID, STREAM_ID) as Either.Right
+                repo.fetchLiveStreamPlayData(LIBRARY_ID, STREAM_ID) as BunnyResult.Ok
             ).value
             val embedded = playData.liveStream
             assertEquals(STREAM_ID, embedded?.id)
@@ -353,7 +352,7 @@ class DefaultLiveStreamRepositoryTest {
             } returns LiveStreamPlayDataModel()
 
             val playData = (
-                repo.fetchLiveStreamPlayData(LIBRARY_ID, STREAM_ID) as Either.Right
+                repo.fetchLiveStreamPlayData(LIBRARY_ID, STREAM_ID) as BunnyResult.Ok
             ).value
             assertEquals(false, playData.enableDRM)
             assertEquals(0, playData.drmVersion)
@@ -389,7 +388,7 @@ class DefaultLiveStreamRepositoryTest {
             } returns liveStreamModel(guid = "created-id")
 
             val result = repo.createLiveStream(LIBRARY_ID, request)
-            assertTrue(result is Either.Right)
+            assertTrue(result is BunnyResult.Ok)
 
             val dto = dtoSlot.captured
             assertEquals("title", dto.title)
@@ -405,7 +404,7 @@ class DefaultLiveStreamRepositoryTest {
             assertEquals("trailer", dto.preStreamTrailerVideoId)
         }
 
-    @Test fun `updateLiveStream maps 400 ClientException to Left`() =
+    @Test fun `updateLiveStream maps a 400 ClientException to a typed error`() =
         runTest(dispatcher) {
             // The official preview API uses PUT and signals validation failures with a 400
             // (the HTTP-200-with-success=false quirk no longer applies to this endpoint).
@@ -418,10 +417,10 @@ class DefaultLiveStreamRepositoryTest {
                 STREAM_ID,
                 LiveStreamCreateRequest(title = "x"),
             )
-            assertTrue("Expected Left for HTTP 400", result is Either.Left)
+            assertTrue("Expected Err for HTTP 400", result is BunnyResult.Err)
         }
 
-    @Test fun `updateLiveStream returns Right(Unit) and discards the echoed model`() =
+    @Test fun `updateLiveStream answers with Unit and discards the echoed model`() =
         runTest(dispatcher) {
             every {
                 api.liveStreamUpdate(LIBRARY_ID, STREAM_ID, any())
@@ -430,7 +429,7 @@ class DefaultLiveStreamRepositoryTest {
             val result = repo.updateLiveStream(
                 LIBRARY_ID, STREAM_ID, LiveStreamCreateRequest(title = "x"),
             )
-            assertEquals(Either.Right(Unit), result)
+            assertEquals(BunnyResult.Ok(Unit), result)
         }
 
     @Test fun `startLiveStream maps the returned model to domain`() = runTest(dispatcher) {
@@ -439,8 +438,8 @@ class DefaultLiveStreamRepositoryTest {
         } returns liveStreamModel(guid = STREAM_ID, status = LiveStreamStatus.RUNNING)
 
         val result = repo.startLiveStream(LIBRARY_ID, STREAM_ID)
-        assertTrue(result is Either.Right)
-        assertEquals(LiveStreamStatus.RUNNING, (result as Either.Right).value.status)
+        assertTrue(result is BunnyResult.Ok)
+        assertEquals(LiveStreamStatus.RUNNING, (result as BunnyResult.Ok).value.status)
         verify(exactly = 1) { api.liveStreamStartStream(LIBRARY_ID, STREAM_ID) }
     }
 
@@ -450,12 +449,12 @@ class DefaultLiveStreamRepositoryTest {
         } returns liveStreamModel(guid = STREAM_ID, status = LiveStreamStatus.ENDED)
 
         val result = repo.stopLiveStream(LIBRARY_ID, STREAM_ID)
-        assertTrue(result is Either.Right)
-        assertEquals(LiveStreamStatus.ENDED, (result as Either.Right).value.status)
+        assertTrue(result is BunnyResult.Ok)
+        assertEquals(LiveStreamStatus.ENDED, (result as BunnyResult.Ok).value.status)
         verify(exactly = 1) { api.liveStreamStopStream(LIBRARY_ID, STREAM_ID) }
     }
 
-    @Test fun `deleteLiveStream returns Right(Unit) and discards the echoed model`() =
+    @Test fun `deleteLiveStream answers with Unit and discards the echoed model`() =
         runTest(dispatcher) {
             // The repo uses the *WithHttpInfo variant — the plain liveStreamDelete() NPEs casting
             // the empty 2xx body to a non-null model — and treats any 2xx as success.
@@ -463,7 +462,7 @@ class DefaultLiveStreamRepositoryTest {
                 api.liveStreamDeleteWithHttpInfo(LIBRARY_ID, STREAM_ID)
             } returns Success<LiveStreamModel?>(data = null, statusCode = 200)
 
-            assertEquals(Either.Right(Unit), repo.deleteLiveStream(LIBRARY_ID, STREAM_ID))
+            assertEquals(BunnyResult.Ok(Unit), repo.deleteLiveStream(LIBRARY_ID, STREAM_ID))
             verify(exactly = 1) { api.liveStreamDeleteWithHttpInfo(LIBRARY_ID, STREAM_ID) }
         }
 
@@ -484,7 +483,7 @@ class DefaultLiveStreamRepositoryTest {
             ),
         )
 
-        val list = (repo.listLiveStreams(LIBRARY_ID) as Either.Right).value
+        val list = (repo.listLiveStreams(LIBRARY_ID) as BunnyResult.Ok).value
         assertEquals(42L, list.totalItems)
         assertEquals(1L, list.currentPage)
         assertEquals(10, list.itemsPerPage)
@@ -500,7 +499,7 @@ class DefaultLiveStreamRepositoryTest {
             api.liveStreamList(LIBRARY_ID, null, null, null, null, null)
         } returns PaginationListOfLiveStreamModel()
 
-        val list = (repo.listLiveStreams(LIBRARY_ID) as Either.Right).value
+        val list = (repo.listLiveStreams(LIBRARY_ID) as BunnyResult.Ok).value
         assertEquals(0L, list.totalItems)
         assertEquals(0L, list.currentPage)
         assertEquals(0, list.itemsPerPage)
@@ -516,18 +515,18 @@ class DefaultLiveStreamRepositoryTest {
 
         val result = repo.listLiveStreams(LIBRARY_ID, page = 1, itemsPerPage = 10)
 
-        assertTrue("404 must map to Right(empty list)", result is Either.Right)
-        val list = (result as Either.Right).value
+        assertTrue("404 must map to a value(empty list)", result is BunnyResult.Ok)
+        val list = (result as BunnyResult.Ok).value
         assertEquals(0L, list.totalItems)
         assertTrue(list.items.isEmpty())
     }
 
-    @Test fun `listLiveStreams keeps non-404 client errors as Left`() = runTest(dispatcher) {
+    @Test fun `listLiveStreams keeps non-404 client errors as errors`() = runTest(dispatcher) {
         every {
             api.liveStreamList(LIBRARY_ID, null, null, null, null, null)
         } throws ClientException(message = "nope", statusCode = 401)
 
-        assertTrue(repo.listLiveStreams(LIBRARY_ID) is Either.Left)
+        assertTrue(repo.listLiveStreams(LIBRARY_ID) is BunnyResult.Err)
     }
 
     // endregion
@@ -545,7 +544,7 @@ class DefaultLiveStreamRepositoryTest {
             duration = 60,
         )
 
-        val status = (repo.getLiveStreamStatus(LIBRARY_ID, STREAM_ID) as Either.Right).value
+        val status = (repo.getLiveStreamStatus(LIBRARY_ID, STREAM_ID) as BunnyResult.Ok).value
         assertEquals(true, status.readyToStart)
         assertEquals(true, status.primaryLive)
         assertEquals(false, status.backupLive)
@@ -558,7 +557,7 @@ class DefaultLiveStreamRepositoryTest {
             api.liveStreamGetStreamStatus(LIBRARY_ID, STREAM_ID)
         } returns LiveStreamStatusModel()
 
-        val status = (repo.getLiveStreamStatus(LIBRARY_ID, STREAM_ID) as Either.Right).value
+        val status = (repo.getLiveStreamStatus(LIBRARY_ID, STREAM_ID) as BunnyResult.Ok).value
         assertEquals(false, status.readyToStart)
         assertEquals(false, status.primaryLive)
         assertEquals(false, status.backupLive)
@@ -572,7 +571,7 @@ class DefaultLiveStreamRepositoryTest {
         } throws ClientException(message = "nope", statusCode = 401)
 
         val result = repo.getLiveStreamStatus(LIBRARY_ID, STREAM_ID)
-        assertEquals(Either.Left("Authorization required Unauthorized"), result)
+        assertEquals(BunnyResult.Err(BunnyError.Auth(401, "Authorization required Unauthorized")), result)
     }
 
     // endregion

@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import net.bunny.api.error.fold
 import net.bunny.android.demo.App
 import net.bunny.android.demo.library.model.Error
 import net.bunny.android.demo.livestream.model.LiveStreamListUiState
@@ -35,7 +36,7 @@ class LiveStreamsViewModel : ViewModel() {
     val errorState = mutableErrorState.asSharedFlow()
 
     private val libraryId: Long
-        get() = BunnyStreamApi.libraryId
+        get() = App.di.libraryId
 
     private val repository
         get() = App.di.streamSdk.liveStreamRepository
@@ -51,12 +52,12 @@ class LiveStreamsViewModel : ViewModel() {
 
         viewModelScope.launch {
             repository.listLiveStreams(libraryId).fold(
-                ifLeft = { message ->
-                    Log.w(TAG, "listLiveStreams failed: $message")
-                    mutableErrorState.emit(Error(message))
+                onErr = { error ->
+                    Log.w(TAG, "listLiveStreams failed: ${error.message}")
+                    mutableErrorState.emit(Error(error.message))
                     notifyStreamsUpdated(emptyList())
                 },
-                ifRight = { list ->
+                onOk = { list ->
                     Log.d(
                         TAG,
                         "listLiveStreams ok — items=${list.items.size}, " +
@@ -81,11 +82,11 @@ class LiveStreamsViewModel : ViewModel() {
         Log.d(TAG, "createStream title=${request.title}")
         viewModelScope.launch {
             repository.createLiveStream(libraryId, request).fold(
-                ifLeft = { message ->
-                    Log.w(TAG, "Failed to create live stream: $message")
-                    mutableErrorState.emit(Error(message))
+                onErr = { error ->
+                    Log.w(TAG, "Failed to create live stream: ${error.message}")
+                    mutableErrorState.emit(Error(error.message))
                 },
-                ifRight = { created ->
+                onOk = { created ->
                     Log.d(
                         TAG,
                         "createLiveStream ok — id=${created.id} title='${created.title}' " +
@@ -103,11 +104,11 @@ class LiveStreamsViewModel : ViewModel() {
         Log.d(TAG, "updateStream id=$streamId title=${request.title}")
         viewModelScope.launch {
             repository.updateLiveStream(libraryId, streamId, request).fold(
-                ifLeft = { message ->
-                    Log.w(TAG, "Failed to update live stream: $message")
-                    mutableErrorState.emit(Error(message))
+                onErr = { error ->
+                    Log.w(TAG, "Failed to update live stream: ${error.message}")
+                    mutableErrorState.emit(Error(error.message))
                 },
-                ifRight = {
+                onOk = {
                     // The API doesn't echo the updated entity back, so re-fetch the row to refresh
                     // anything the server may have changed (e.g. derived status).
                     refreshSingle(streamId)
@@ -120,11 +121,11 @@ class LiveStreamsViewModel : ViewModel() {
         Log.d(TAG, "deleteStream id=${stream.id}")
         viewModelScope.launch {
             repository.deleteLiveStream(libraryId, stream.id).fold(
-                ifLeft = { message ->
-                    Log.w(TAG, "Failed to delete live stream: $message")
-                    mutableErrorState.emit(Error(message))
+                onErr = { error ->
+                    Log.w(TAG, "Failed to delete live stream: ${error.message}")
+                    mutableErrorState.emit(Error(error.message))
                 },
-                ifRight = {
+                onOk = {
                     val remaining = (mutableUiState.value as? LiveStreamListUiState.Loaded)
                         ?.streams
                         ?.filterNot { it.id == stream.id }
@@ -142,11 +143,11 @@ class LiveStreamsViewModel : ViewModel() {
     private fun refreshSingle(streamId: String) {
         viewModelScope.launch {
             repository.getLiveStream(libraryId, streamId).fold(
-                ifLeft = {
+                onErr = {
                     // Fall back to a full reload — the row may have moved due to ordering changes.
                     load()
                 },
-                ifRight = { updated ->
+                onOk = { updated ->
                     val existing = (mutableUiState.value as? LiveStreamListUiState.Loaded)?.streams
                         ?: emptyList()
                     val replaced = existing.map {

@@ -14,11 +14,17 @@ interface BunnyPlayer {
      *
      * @param videoId Video ID
      * @param libraryId Library ID, falls back to the default library ID if null
-     * @param videoTitle Video title
+     * @param videoTitle Video title used for analytics/casting; not shown by the controls
      * @param token Embed view token for authenticated playback on token-secured pull zones
      * @param expires Embed view token expiration timestamp
      */
-    fun playVideo(videoId: String, libraryId: Long?, videoTitle: String, token: String? = null, expires: Long? = null)
+    fun playVideo(
+        videoId: String,
+        libraryId: Long? = null,
+        videoTitle: String = "",
+        token: String? = null,
+        expires: Long? = null,
+    )
 
     /**
      * Pauses video

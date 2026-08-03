@@ -31,7 +31,7 @@ import kotlin.math.max
 import androidx.core.graphics.createBitmap
 
 @UnstableApi
-class BunnyTimeBar @JvmOverloads constructor(
+internal class BunnyTimeBar @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null,
     defStyleAttr: Int = 0

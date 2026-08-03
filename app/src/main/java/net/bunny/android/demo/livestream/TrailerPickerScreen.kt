@@ -49,6 +49,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import net.bunny.api.error.fold
+import net.bunny.api.error.getOrNull
 import net.bunny.android.demo.App
 import net.bunny.android.demo.R
 import net.bunny.android.demo.ui.AppState
@@ -207,7 +209,7 @@ class TrailerPickerViewModel : ViewModel() {
     }
 
     private val libraryId: Long
-        get() = BunnyStreamApi.libraryId
+        get() = App.di.libraryId
 
     private val mutableState = MutableStateFlow<State>(State.Loading)
     val state = mutableState.asStateFlow()
@@ -221,18 +223,13 @@ class TrailerPickerViewModel : ViewModel() {
         mutableState.value = State.Loading
         viewModelScope.launch {
             try {
-                val response = withContext(Dispatchers.IO) {
-                    App.di.streamSdk.videosApi.videoList(
-                        libraryId = libraryId,
-                        page = null,
-                        itemsPerPage = null,
-                        search = null,
-                        collection = null,
-                        orderBy = null,
-                    )
+                val page = App.di.streamSdk.videoRepository.listVideos(libraryId).getOrNull()
+                if (page == null) {
+                    mutableState.value = State.Failed("Could not load the video library")
+                    return@launch
                 }
-                val videos = response.items.orEmpty().mapNotNull { model ->
-                    model.guid?.let { TrailerVideo(it, model.title ?: "Untitled", null) }
+                val videos = page.items.map { video ->
+                    TrailerVideo(video.id, video.title.ifBlank { "Untitled" }, null)
                 }
                 mutableState.value = State.Loaded(videos)
                 enrichThumbnails(videos)
@@ -250,7 +247,10 @@ class TrailerPickerViewModel : ViewModel() {
             val enriched = videos.map { video ->
                 BunnyStreamApi.getInstance()
                     .fetchPlayerSettings(libraryId, video.id)
-                    .fold({ video }, { video.copy(thumbnailUrl = it.thumbnailUrl) })
+                    .fold(
+                        onOk = { video.copy(thumbnailUrl = it.thumbnailUrl) },
+                        onErr = { video },
+                    )
             }
             if (mutableState.value is State.Loaded) {
                 mutableState.value = State.Loaded(enriched)
