@@ -67,7 +67,7 @@ dependencies {
 
     // AndroidX and Material
     // https://developer.android.com/jetpack/androidx/releases/core
-    implementation("androidx.core:core-ktx:1.15.0")
+    implementation("androidx.core:core-ktx:1.19.0")
     // https://developer.android.com/jetpack/androidx/releases/appcompat
     implementation("androidx.appcompat:appcompat:1.7.0")
     // https://github.com/material-components/material-components-android
@@ -86,9 +86,9 @@ dependencies {
     // https://junit.org/junit4/
     testImplementation("junit:junit:4.13.2")
     // https://developer.android.com/jetpack/androidx/releases/test
-    androidTestImplementation("androidx.test.ext:junit:1.2.1")
+    androidTestImplementation("androidx.test.ext:junit:1.3.0")
     // https://developer.android.com/jetpack/androidx/releases/test#espresso
-    androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")
+    androidTestImplementation("androidx.test.espresso:espresso-core:3.7.0")
 
     // Functional programming library (Arrow)
     // https://arrow-kt.io
