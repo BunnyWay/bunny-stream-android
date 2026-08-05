@@ -23,6 +23,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import net.bunny.api.BunnyStreamApi
 import net.bunny.api.StreamApi
+import net.bunny.api.error.errorOrNull
 import net.bunny.api.error.fold
 import net.bunny.api.playback.PlaybackPosition
 import net.bunny.api.playback.ResumeConfig
@@ -543,12 +544,18 @@ class BunnyStreamPlayer @JvmOverloads constructor(
         pendingJob = {
             scope!!.launch {
 
-                val video = sdk.videoRepository
+                val playData = sdk.videoRepository
                     .fetchVideoPlayData(providedLibraryId, videoId, token, expires)
-                    .getOrNull()
-                    ?.video
+                val video = playData.getOrNull()?.video
                 if (video == null) {
-                    Log.w(TAG, "Error fetching video $videoId — no play data")
+                    // Tell the viewer and the host app. This used to log and return, leaving a
+                    // black view with no explanation — indistinguishable from a player that is
+                    // still loading, and the commonest thing behind "the player shows nothing".
+                    val reason = playData.errorOrNull()?.message
+                        ?: "Video $videoId is not available in library $providedLibraryId"
+                    Log.w(TAG, "Error fetching video $videoId — $reason")
+                    playerView.showError(reason)
+                    onPlaybackError?.invoke(reason)
                     return@launch
                 }
                 Log.d(TAG, "video=$video")
