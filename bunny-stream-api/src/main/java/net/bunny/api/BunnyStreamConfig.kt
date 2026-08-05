@@ -20,6 +20,13 @@ data class BunnyStreamConfig(
 ) {
     init {
         require(accessKey.isNotBlank()) { "accessKey must not be blank" }
+        // A key pasted from a dashboard or read from a properties file often carries a trailing
+        // space or newline. It travels into the AccessKey header verbatim, so the request fails
+        // with 401 and the key still *looks* right wherever you print it. Say so here instead.
+        require(accessKey == accessKey.trim()) {
+            "accessKey has leading or trailing whitespace — it would be sent as-is and rejected " +
+                "with 401. Trim it before passing it in."
+        }
         require(libraryId > 0) { "libraryId must be a positive library id, was $libraryId" }
         require(baseApi.isNotBlank()) { "baseApi must not be blank" }
     }

@@ -43,6 +43,23 @@ class BunnyStreamApiTest {
     }
 
     @Test
+    fun `a key with whitespace around it is rejected, not sent`() {
+        // Pasting a key on a phone routinely brings a trailing space or newline. It would go into
+        // the AccessKey header verbatim and come back 401, while still looking correct in every
+        // log line and settings field.
+        val error = runCatching { BunnyStreamConfig(accessKey = "$KEY ", libraryId = LIBRARY) }
+            .exceptionOrNull()
+
+        assertTrue(error is IllegalArgumentException)
+        assertTrue(error!!.message!!.contains("whitespace"))
+        assertTrue("the message has to name the fix", error.message!!.contains("Trim"))
+        assertTrue(
+            runCatching { BunnyStreamConfig(accessKey = "\n$KEY", libraryId = LIBRARY) }
+                .exceptionOrNull() is IllegalArgumentException,
+        )
+    }
+
+    @Test
     fun `a library id that is not a real library is rejected`() {
         // -1 was the "unset" sentinel the companion held; 0 is not a library either.
         assertTrue(
