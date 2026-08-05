@@ -60,6 +60,20 @@ internal class DefaultStreamHandler(
         /** RTMP output capacity: index 0 = primary slot, index 1 = backup slot. */
         private const val RTMP_OUTPUTS = 2
 
+        /** Capture frame rate. Matches RootEncoder's own default; named here because we pass it. */
+        private const val FPS = 30
+
+        /**
+         * Seconds between H.264 keyframes.
+         *
+         * RootEncoder defaults to 2, and the publisher cannot send a single video frame until the
+         * first keyframe exists — while audio starts flowing immediately. That gap opened every
+         * recording with audio over a black picture, and Bunny's transcoder reported it as
+         * "Audio and Video stream lengths are not same" on every camera upload we ever made.
+         * One second halves the worst case; [requestKeyframe] on connect removes the rest.
+         */
+        private const val KEYFRAME_INTERVAL_SECONDS = 1
+
         /** How often the broadcaster polls `GET /live/{id}/status` while publishing. */
         private const val INGEST_STATUS_POLL_MS = 5_000L
 
@@ -176,6 +190,13 @@ internal class DefaultStreamHandler(
         out.failures = 0
         out.connected = true
         Log.d(TAG, "onConnectionSuccess[$index] ${out.endpoint}")
+        // Force a keyframe the moment the publisher can carry video. Without it the first frame
+        // waits for the next scheduled keyframe, and everything published before it is audio over
+        // a black picture — the recording opens blind and the streams end up different lengths.
+        // Also correct on reconnect: the new connection starts from a keyframe rather than from
+        // frames that reference one the server never received.
+        runCatching { stream.requestKeyframe() }
+            .onFailure { Log.w(TAG, "requestKeyframe failed: ${it.message}") }
         notify(out.endpoint, IngestEndpointState.LIVE)
         // Start the timer on the first output that goes live; keep it running across reconnects.
         if (recordingStartTime == null) recordingStartTime = System.currentTimeMillis()
@@ -424,7 +445,7 @@ internal class DefaultStreamHandler(
         }
 
         val prepared = try {
-            stream.prepareVideo(width, height, vBitrate) &&
+            stream.prepareVideo(width, height, vBitrate, FPS, KEYFRAME_INTERVAL_SECONDS) &&
                     stream.prepareAudio(sampleRate, isStereo, aBitrate)
         } catch (e: IllegalArgumentException) {
             false
