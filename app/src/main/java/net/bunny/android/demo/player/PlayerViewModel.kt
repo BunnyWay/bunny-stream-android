@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import net.bunny.android.demo.App
+import net.bunny.android.demo.livestream.EmbedToken
 import net.bunny.android.demo.library.model.Error
 import net.bunny.android.demo.library.model.Video
 import net.bunny.android.demo.library.model.VideoStatus
@@ -22,6 +23,9 @@ import net.bunny.api.video.domain.model.Video as SdkVideo
 import java.util.UUID
 import kotlin.time.DurationUnit
 import kotlin.time.toDuration
+
+/** Playback tokens are short-lived; an hour outlasts any session in the demo. */
+private const val PLAYBACK_TOKEN_TTL_SECONDS = 3600L
 
 class PlayerViewModel : ViewModel() {
 
@@ -85,8 +89,18 @@ class PlayerViewModel : ViewModel() {
 
     private fun fetchVideo(videoId: String, providedLibraryId: Long, silent: Boolean) {
         scope.launch {
+            // The screen fetches play data of its own, for the metadata panel — so it needs the
+            // playback token just as much as the player does. On a token-protected library this
+            // call is the first thing to run, and without a token it 401s before playback is even
+            // attempted.
+            val tokenAuthKey = App.di.localPrefs.tokenAuthKey
+            val expires = if (tokenAuthKey.isBlank()) null
+            else System.currentTimeMillis() / 1000 + PLAYBACK_TOKEN_TTL_SECONDS
+            val token = if (tokenAuthKey.isBlank() || expires == null) null
+            else EmbedToken.generate(tokenAuthKey, videoId, expires)
+
             val result = BunnyStreamApi.getInstance().videoRepository
-                .fetchVideoPlayData(providedLibraryId, videoId)
+                .fetchVideoPlayData(providedLibraryId, videoId, token = token, expires = expires)
 
             when (result) {
                 is BunnyResult.Err -> handleFetchFailure(result.error.message, silent)
