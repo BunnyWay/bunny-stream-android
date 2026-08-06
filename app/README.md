@@ -17,8 +17,14 @@ bunny.demo.tokenAuthKey=your-token-auth-key
 
 3. Run the `app` configuration on a device or emulator.
 
-The values land in `BuildConfig` of debug and staging builds; release builds ship empty and the
-credentials can also be changed at runtime on the demo's configuration screen.
+The values land in `BuildConfig` of debug and staging builds; release builds ship empty.
+
+All three can also be entered at runtime on the demo's **Bunny Stream Configuration** screen, which
+is how you point the demo at your own library without rebuilding. Saving there verifies the key
+against the library before accepting it, so a wrong key or library id is reported on the spot
+rather than surfacing later as a failure somewhere else. The token authentication key is optional
+and only matters when the library has that setting on — without it playback is a black picture
+with working controls, see [Troubleshooting](../docs/guides/troubleshooting.md).
 
 ## What is where
 

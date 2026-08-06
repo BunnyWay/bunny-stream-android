@@ -18,6 +18,12 @@ BunnyLiveStreamPlayer(libraryId, streamId, token = token, expires = expires)
 `expires` is a unix timestamp (seconds). The token is a SHA-256 based signature over your
 library's token authentication key, the video id and the expiry.
 
+**Forgetting the token looks like nothing failing.** The management API does not need it, so the
+call for play data succeeds and the player comes up with a working timeline and controls — the CDN
+just serves no media, and the picture stays black. There is no error to catch. The same happens
+with a token signed using a different library's key. If playback is black on a library that works
+in the Bunny dashboard, check this first.
+
 **Sign tokens on your server.** The signature requires the library's token authentication key;
 shipping that key inside the app makes the protection pointless, since anyone can extract it and
 mint their own tokens. The usual setup: your backend exposes an endpoint that returns

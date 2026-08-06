@@ -8,6 +8,16 @@ The failure modes integrators actually hit, with fixes.
 (`Unable to play video, initialize the player first...`) and renders nothing. Initialize in
 `Application.onCreate`, see [Getting started](getting-started.md).
 
+## The video plays black, but the controls and timeline work
+
+The library has token authentication on and playback was started without a token. The API call
+succeeds, so play data arrives and the player builds its UI, but the CDN serves no media — there
+is nothing to report as an error, and nothing to see.
+
+Pass `token` and `expires` to `playVideo` / `BunnyLiveStreamPlayer`, see
+[Secure playback](secure-playback.md). Check the setting under Bunny dashboard > Stream > your
+library > Security; a token signed with a different library's key fails the same silent way.
+
 ## `IllegalStateException: BunnyStreamApi has no default instance`
 
 Something reached `getInstance()` before `initialize` ran. Usually the SDK is initialised from a
