@@ -55,6 +55,7 @@ fun SettingsRoute(
             else viewModel.libraryId.toString()
         )
     }
+    var tokenAuthKey by remember { mutableStateOf(viewModel.tokenAuthKey) }
 
     val state = viewModel.state
 
@@ -76,7 +77,12 @@ fun SettingsRoute(
             libraryId = it
             viewModel.dismissError()
         },
-        onSaveClicked = { viewModel.saveAndVerify(accessKey, libraryId) },
+        tokenAuthKey = tokenAuthKey,
+        onTokenAuthKeyUpdated = {
+            tokenAuthKey = it
+            viewModel.dismissError()
+        },
+        onSaveClicked = { viewModel.saveAndVerify(accessKey, libraryId, tokenAuthKey) },
         checking = state == SettingsState.Checking,
         errorMessage = (state as? SettingsState.Failed)?.message,
     )
@@ -91,6 +97,8 @@ private fun SettingsScreen(
     onAccessKeyUpdated: (String) -> Unit,
     libraryId: String,
     onLibraryIdUpdated: (String) -> Unit,
+    tokenAuthKey: String = "",
+    onTokenAuthKeyUpdated: (String) -> Unit = {},
     onSaveClicked: () -> Unit,
     checking: Boolean = false,
     errorMessage: String? = null,
@@ -148,6 +156,23 @@ private fun SettingsScreen(
                 onValueChange = onAccessKeyUpdated,
                 singleLine = true,
                 label = { Text(stringResource(id = R.string.hint_access_key)) }
+            )
+
+            OutlinedTextField(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                value = tokenAuthKey,
+                onValueChange = onTokenAuthKeyUpdated,
+                singleLine = true,
+                label = { Text("Token authentication key (optional)") },
+                supportingText = {
+                    Text(
+                        "Only needed when the library has token authentication enabled. " +
+                            "Without it playback shows a black picture. Bunny dashboard > " +
+                            "Stream > your library > Security."
+                    )
+                },
             )
 
             if (errorMessage != null) {

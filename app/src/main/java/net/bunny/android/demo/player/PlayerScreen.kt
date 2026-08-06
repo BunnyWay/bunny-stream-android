@@ -55,6 +55,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.delay
 import net.bunny.android.demo.App
 import net.bunny.android.demo.R
+import net.bunny.android.demo.livestream.EmbedToken
 import net.bunny.android.demo.ui.AppState
 import net.bunny.android.demo.ui.theme.BunnyStreamTheme
 import net.bunny.android.demo.library.model.Video
@@ -66,6 +67,9 @@ import net.bunny.bunnystreamplayer.config.PlaybackSpeedConfig
 import net.bunny.bunnystreamplayer.ui.BunnyStreamPlayer
 import java.util.Locale
 import java.util.concurrent.TimeUnit
+
+/** Playback tokens are short-lived; an hour outlasts any session in the demo. */
+private const val PLAYBACK_TOKEN_TTL_SECONDS = 3600L
 
 @Composable
 fun PlayerRoute(
@@ -574,12 +578,33 @@ fun BunnyPlayerComposable(
                 modifier = modifier.background(Color.Gray)
             )
 
-            LaunchedEffect(playerView, videoId, libraryId, playbackAttempt) {
+            // Token authentication: when the library has a token-auth key configured, sign a
+            // short-lived playback token. Without it a token-protected library returns no media
+            // and the player shows a black picture with working controls — the live screen has
+            // done this since it shipped; VOD never did.
+            // NOTE: demo-only — generate tokens server-side in production, never ship the key.
+            val tokenAuthKey = App.di.localPrefs.tokenAuthKey
+            val tokenExpires = remember(videoId, tokenAuthKey) {
+                if (tokenAuthKey.isBlank()) null
+                else System.currentTimeMillis() / 1000 + PLAYBACK_TOKEN_TTL_SECONDS
+            }
+            val playbackToken = remember(videoId, tokenAuthKey, tokenExpires) {
+                if (tokenAuthKey.isBlank() || tokenExpires == null) null
+                else EmbedToken.generate(tokenAuthKey, videoId, tokenExpires)
+            }
+
+            LaunchedEffect(playerView, videoId, libraryId, playbackAttempt, playbackToken) {
                 val player = playerView ?: return@LaunchedEffect
                 val request = player to Triple(videoId, libraryId, playbackAttempt)
                 if (lastStarted != request) {
                     lastStarted = request
-                    player.playVideo(videoId, libraryId, videoTitle = "")
+                    player.playVideo(
+                        videoId,
+                        libraryId,
+                        videoTitle = "",
+                        token = playbackToken,
+                        expires = tokenExpires,
+                    )
                 }
             }
         }

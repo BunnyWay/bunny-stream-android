@@ -37,6 +37,9 @@ class SettingsViewModel : ViewModel() {
     var libraryId by mutableLongStateOf(prefs.libraryId)
         private set
 
+    var tokenAuthKey by mutableStateOf(prefs.tokenAuthKey)
+        private set
+
     var state by mutableStateOf<SettingsState>(SettingsState.Idle)
         private set
 
@@ -52,9 +55,10 @@ class SettingsViewModel : ViewModel() {
      * and only surfaced later as "could not load the video library" on a different screen. One
      * cheap listing call turns that into an answer here, where it can still be corrected.
      */
-    fun saveAndVerify(rawAccessKey: String, rawLibraryId: String) {
+    fun saveAndVerify(rawAccessKey: String, rawLibraryId: String, rawTokenAuthKey: String) {
         val key = rawAccessKey.trim()
         val library = rawLibraryId.trim().toLongOrDefault(-1)
+        val tokenKey = rawTokenAuthKey.trim()
 
         if (key.isEmpty()) {
             state = SettingsState.Failed("Enter the library's API key.")
@@ -79,6 +83,8 @@ class SettingsViewModel : ViewModel() {
                 onOk = {
                     accessKey = key
                     libraryId = library
+                    tokenAuthKey = tokenKey
+                    App.di.localPrefs.tokenAuthKey = tokenKey
                     App.di.updateKeys(key, library)
                     state = SettingsState.Verified
                 },
