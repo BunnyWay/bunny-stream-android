@@ -359,6 +359,14 @@ class BunnyStreamPlayer @JvmOverloads constructor(
         stopAutoSave()
         stopProgressListener() // Add this line
         bunnyPlayer.stop()
+
+        // Hand the engine's output back before this view goes away. The engine is shared by every
+        // player view in the process, so a detached view that keeps holding it leaves the output
+        // bound to a surface that no longer exists — and the next view gets a player that decodes
+        // into nothing: playback runs, the timeline moves, the picture stays black and no error is
+        // raised. Only the second and later playback in a session hit it, which is why every test
+        // that played one video passed.
+        binding.playerView.player = null
     }
 
     fun setPlaybackSpeedConfig(config: PlaybackSpeedConfig) {
@@ -735,6 +743,14 @@ class BunnyStreamPlayer @JvmOverloads constructor(
                 Log.w(TAG, "Error fetching video heatmap")
             }
         }
+
+        // Claim the engine before starting it, not after. Assigning this hands the engine this
+        // view's state listener, and playVideo emits onPlayerTypeChanged during the call — the
+        // event that actually puts the player into a view. With the old order the engine still
+        // held the listener of the previous, already destroyed view, so the second and every later
+        // playback in a session delivered its player to a view nobody could see: the timeline ran,
+        // the picture stayed black, and nothing failed loudly enough to notice.
+        playerView.bunnyPlayer = bunnyPlayer
 
         bunnyPlayer.playVideo(
             binding.playerView,

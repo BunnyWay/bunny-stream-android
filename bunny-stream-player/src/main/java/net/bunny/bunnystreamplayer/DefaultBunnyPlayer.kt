@@ -724,6 +724,11 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
         // codec — the live surface re-issues playback on every URL flip (trailer -> live ->
         // recording), which used to leak one player per flip and could end a long session with
         // playback failing on "no codec available".
+        // Detach before releasing. A released player left attached takes the view's surface down
+        // with it, and the replacement then decodes into nothing: playback runs to completion with
+        // the picture black and no error, because nothing actually failed. Only the second and
+        // later playback in a session hit it, which is why every single-play test passed.
+        playerView.player = null
         localPlayer?.release()
 
         localPlayer = ExoPlayer.Builder(context)
