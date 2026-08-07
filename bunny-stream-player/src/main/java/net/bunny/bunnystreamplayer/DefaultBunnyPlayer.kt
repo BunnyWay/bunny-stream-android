@@ -757,6 +757,13 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
 
                     override fun onDrmSessionManagerError(eventTime: AnalyticsListener.EventTime, error: Exception) {
                         Log.e(TAG, "❌ DRM session manager error", error)
+                        // A failed DRM session does not always surface as a PlaybackException, so
+                        // without this the picture simply stops after the frames decoded before
+                        // the licence was needed: a black view, no error, nothing to report. Say
+                        // it out loud on the same channel every other playback failure uses.
+                        playerStateListener?.onPlayerError(
+                            "DRM licence failed: ${error.message ?: error::class.java.simpleName}"
+                        )
                     }
 
                     override fun onTracksChanged(eventTime: AnalyticsListener.EventTime, tracks: Tracks) {
