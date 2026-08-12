@@ -1,6 +1,8 @@
 package net.bunny.android.demo.player
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,6 +12,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -27,6 +30,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -123,6 +127,7 @@ fun PlayerScreen(
     var resumeCallback by remember { mutableStateOf<((Boolean) -> Unit)?>(null) }
     var playbackError by remember { mutableStateOf<String?>(null) }
     var playbackAttempt by remember { mutableStateOf(0) }
+    var nativeControls by remember { mutableStateOf(true) }
 
     // Get resume position preferences
     val resumePrefs = App.di.resumePositionPrefs
@@ -176,74 +181,89 @@ fun PlayerScreen(
                 },
                 resumeConfig = resumePrefs.getResumeConfig(),
                 resumeEnabled = resumePrefs.isResumeEnabled(),
+                controlsEnabled = nativeControls,
                 modifier = Modifier
                     .fillMaxWidth()
                     .aspectRatio(16f / 9f)
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
+            // Only the panels below the player scroll. Wrapping the player in the scrolling
+            // container makes the scroll gesture detector swallow taps on the video, and the
+            // built-in controls then never come up.
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                Spacer(modifier = Modifier.height(16.dp))
 
-            // Speed Control Section
-            SpeedControlSection(
-                currentSpeed = currentSpeed,
-                onSpeedChanged = { speed ->
-                    currentSpeed = speed
-                    playerController?.setSpeed(speed)
-                }
-            )
+                NativeControlsSection(
+                    controlsEnabled = nativeControls,
+                    onControlsEnabledChanged = { nativeControls = it }
+                )
 
-            Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
-            when (uiState) {
-                VideoUiState.VideoUiEmpty -> {}
-                is VideoUiState.VideoUiLoaded -> {
-                    val props = buildList {
-                        add(VideoProperty(stringResource(R.string.label_title), uiState.video.name))
-                        add(
-                            VideoProperty(
-                                stringResource(R.string.label_duration),
-                                uiState.video.duration
-                            )
-                        )
-                        add(
-                            VideoProperty(
-                                stringResource(R.string.label_views),
-                                uiState.video.viewCount
-                            )
-                        )
-                        add(
-                            VideoProperty(
-                                stringResource(R.string.label_size),
-                                stringResource(
-                                    R.string.value_size_mb,
-                                    String.format(Locale.US, "%.2f", uiState.video.size)
-                                )
-                            )
-                        )
-                        if (uiState.video.status != VideoStatus.FINISHED) {
+                // Speed Control Section
+                SpeedControlSection(
+                    currentSpeed = currentSpeed,
+                    onSpeedChanged = { speed ->
+                        currentSpeed = speed
+                        playerController?.setSpeed(speed)
+                    }
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                when (uiState) {
+                    VideoUiState.VideoUiEmpty -> {}
+                    is VideoUiState.VideoUiLoaded -> {
+                        val props = buildList {
+                            add(VideoProperty(stringResource(R.string.label_title), uiState.video.name))
                             add(
                                 VideoProperty(
-                                    stringResource(R.string.label_status),
-                                    uiState.video.status.name
+                                    stringResource(R.string.label_duration),
+                                    uiState.video.duration
                                 )
                             )
+                            add(
+                                VideoProperty(
+                                    stringResource(R.string.label_views),
+                                    uiState.video.viewCount
+                                )
+                            )
+                            add(
+                                VideoProperty(
+                                    stringResource(R.string.label_size),
+                                    stringResource(
+                                        R.string.value_size_mb,
+                                        String.format(Locale.US, "%.2f", uiState.video.size)
+                                    )
+                                )
+                            )
+                            if (uiState.video.status != VideoStatus.FINISHED) {
+                                add(
+                                    VideoProperty(
+                                        stringResource(R.string.label_status),
+                                        uiState.video.status.name
+                                    )
+                                )
+                            }
                         }
+                        VideoPropertiesCard(properties = props)
                     }
-                    VideoPropertiesCard(properties = props)
-                }
 
-                is VideoUiState.VideoUiLoadFailed -> {
-                    VideoPropertiesCard(
-                        properties = listOf(
-                            VideoProperty(
-                                stringResource(R.string.label_metadata),
-                                stringResource(R.string.value_metadata_unavailable)
+                    is VideoUiState.VideoUiLoadFailed -> {
+                        VideoPropertiesCard(
+                            properties = listOf(
+                                VideoProperty(
+                                    stringResource(R.string.label_metadata),
+                                    stringResource(R.string.value_metadata_unavailable)
+                                )
                             )
                         )
-                    )
+                    }
+
+                    VideoUiState.VideoUiLoading -> {}
                 }
 
-                VideoUiState.VideoUiLoading -> {}
+                Spacer(modifier = Modifier.height(16.dp))
             }
         }
     }
@@ -350,6 +370,59 @@ fun ResumeDialog(
             }
         }
     )
+}
+
+/**
+ * Toggles [BunnyStreamPlayer.controlsEnabled] so the demo can show both halves of the option: the
+ * SDK's own chrome, and the bare video surface an app gets when it draws its own.
+ */
+@Composable
+fun NativeControlsSection(
+    controlsEnabled: Boolean,
+    onControlsEnabledChanged: (Boolean) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        shape = RoundedCornerShape(12.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = stringResource(R.string.label_native_controls),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = stringResource(
+                        if (controlsEnabled) R.string.hint_native_controls_on
+                        else R.string.hint_native_controls_off
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            Switch(
+                checked = controlsEnabled,
+                onCheckedChange = onControlsEnabledChanged
+            )
+        }
+    }
 }
 
 @Composable
@@ -495,6 +568,7 @@ fun BunnyPlayerComposable(
     onRetry: (() -> Unit)? = null,
     resumeConfig: ResumeConfig = ResumeConfig(),
     resumeEnabled: Boolean = true,
+    controlsEnabled: Boolean = true,
     modifier: Modifier = Modifier
 ) {
     if (LocalInspectionMode.current) {
@@ -568,11 +642,16 @@ fun BunnyPlayerComposable(
 
                     player.onPlaybackError = { message -> onPlaybackError?.invoke(message) }
 
+                    player.controlsEnabled = controlsEnabled
+
                     onPlayerReady(player)
                     playerView = player
                     player
                 },
                 update = {
+                    // Re-applied here so flipping the toggle takes effect on the player already on
+                    // screen, without recreating it.
+                    it.controlsEnabled = controlsEnabled
                     onPlayerReady(it)
                 },
                 modifier = modifier.background(Color.Gray)

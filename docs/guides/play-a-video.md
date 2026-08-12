@@ -145,5 +145,18 @@ and the entry points to fullscreen and Picture-in-Picture, so a custom UI has to
 - Fullscreen opens a separate screen provided by the SDK; nothing to configure.
 - Picture-in-Picture needs a flag on your activity, see
   [Picture-in-Picture and Chromecast](picture-in-picture-and-cast.md).
+- In Compose, do not put the player inside a `verticalScroll` container. The scroll gesture
+  detector swallows taps aimed at the `AndroidView`, so tapping the video never brings the controls
+  up - playback looks fine, the controls just never appear. Keep the player outside the scrolling
+  area and scroll only the content below it:
+
+  ```kotlin
+  Column(Modifier.fillMaxSize()) {
+      BunnyPlayerComposable(...)                              // outside the scroll
+      Column(Modifier.verticalScroll(rememberScrollState())) {
+          // the rest of your screen
+      }
+  }
+  ```
 
 Working example: `PlayerScreen` in the [demo app](https://github.com/BunnyWay/bunny-stream-android/blob/main/app/README.md).

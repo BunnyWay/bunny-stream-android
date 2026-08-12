@@ -94,6 +94,9 @@
     <string name="button_close">Close</string>
     <string name="label_playback_speed">Playback Speed</string>
     <string name="label_current_speed">Current Speed:</string>
+    <string name="label_native_controls">Built-in player controls</string>
+    <string name="hint_native_controls_on">The SDK draws the control bar, seek bar and menus.</string>
+    <string name="hint_native_controls_off">Bare video surface — your app draws its own controls. Playback errors are still shown.</string>
     <string name="value_speed">%1$sx</string>
     <string name="label_title">Title</string>
     <string name="label_duration">Duration</string>
