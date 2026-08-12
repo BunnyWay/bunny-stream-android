@@ -22,6 +22,7 @@ import android.view.Menu
 import android.view.PixelCopy
 import android.view.SurfaceView
 import android.view.TextureView
+import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
@@ -135,6 +136,23 @@ class BunnyPlayerView @JvmOverloads constructor(
             updateControlsVisibility()
         }
 
+    /**
+     * Whether the built-in control bar is used. Set it to `false` to get a bare video surface and
+     * drive playback from your own UI; taps on the player then do nothing and no control ever
+     * appears. Defaults to `true`.
+     *
+     * Playback errors are still reported: the error banner is attached to the player view rather
+     * than the control bar, and [onPlaybackError] fires either way.
+     *
+     * The live badge is part of the control bar, so it disappears with the rest — a custom live UI
+     * has to draw its own.
+     */
+    var controlsEnabled: Boolean = true
+        set(value) {
+            field = value
+            useController = value
+        }
+
     private val playStateListener = object : PlayerStateListener {
         override fun onPlayingChanged(isPlaying: Boolean) {
             playPauseButton.state = if (isPlaying) {
@@ -142,7 +160,7 @@ class BunnyPlayerView @JvmOverloads constructor(
             } else {
                 ToggleableImageButton.State.STATE_DEFAULT
             }
-            errorWrapper.isVisible = false
+            hideError()
             if (isPlaying) {
                 overlay.removeAllViews()
             }
@@ -333,13 +351,22 @@ class BunnyPlayerView @JvmOverloads constructor(
         findViewById<ToggleableImageButton>(R.id.bunny_subtitle)
     }
 
-    private val errorWrapper by lazy {
-        findViewById<ViewGroup>(R.id.errorWrapper)
-    }
+    /**
+     * The error banner, inflated on first use and attached to the player view itself.
+     *
+     * It deliberately does not live in the control bar layout: with [controlsEnabled] off that
+     * whole subtree stops rendering, and an app drawing its own chrome would get a player that
+     * silently shows nothing instead of saying why playback stopped.
+     */
+    private var errorView: View? = null
 
-    private val errorMessage by lazy {
-        findViewById<TextView>(R.id.errorMessage)
-    }
+    private fun requireErrorView(): View =
+        errorView ?: LayoutInflater.from(context)
+            .inflate(R.layout.view_player_error, this, false)
+            .also {
+                addView(it)
+                errorView = it
+            }
 
     private val overlay by lazy {
         findViewById<FrameLayout>(androidx.media3.ui.R.id.exo_overlay)
@@ -1006,8 +1033,12 @@ class BunnyPlayerView @JvmOverloads constructor(
     }
 
     fun showError(message: String) {
-        errorWrapper.isVisible = true
-        errorMessage.text = message
+        val view = requireErrorView()
+        view.findViewById<TextView>(R.id.errorMessage).text = message
+        view.isVisible = true
+        // The banner is added on first use, so it can end up below views added earlier (the cast
+        // thumbnail, the speed badge). Lift it so an error is never painted over.
+        view.bringToFront()
     }
 
     /**
@@ -1016,7 +1047,8 @@ class BunnyPlayerView @JvmOverloads constructor(
      * stay painted over working playback.
      */
     fun hideError() {
-        errorWrapper.isVisible = false
+        // Nothing to hide before the first error — don't inflate the banner just to keep it gone.
+        errorView?.isVisible = false
     }
 
     override fun onAttachedToWindow() {

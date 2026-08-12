@@ -48,11 +48,12 @@ player.playVideo(videoId, token = token, expires = expires)
 
 ## Appearance
 
-Colors, visible controls, captions styling and most other appearance options are configured per
-library in the Bunny dashboard (Stream > your library > Player), not in code. The player applies
-them automatically.
+Colors, captions styling and most other appearance options are configured per library in the Bunny
+dashboard (Stream > your library > Player), not in code. The player applies them automatically.
+(The dashboard's list of visible controls is applied to live playback; VOD shows the full control
+bar.)
 
-The one code-side option is the icon set:
+Code-side there is the icon set:
 
 ```kotlin
 player.iconSet = PlayerIconSet(
@@ -60,6 +61,9 @@ player.iconSet = PlayerIconSet(
     pauseIcon = R.drawable.my_pause,
 )
 ```
+
+To replace the controls entirely rather than restyle them, see
+[Your own controls instead of the built-in ones](#your-own-controls-instead-of-the-built-in-ones).
 
 ## Resume positions
 
@@ -100,6 +104,38 @@ player.setProgressListener(object : BunnyPlayer.ProgressListener {
     }
 })
 ```
+
+## Your own controls instead of the built-in ones
+
+Turn the built-in control bar off to get a bare video surface and drive playback yourself. Set it
+before starting playback:
+
+```kotlin
+val player = BunnyStreamPlayer(context)
+player.controlsEnabled = false
+player.playVideo(videoId)
+
+// drive it from your own UI
+myPlayButton.setOnClickListener { player.play() }
+myPauseButton.setOnClickListener { player.pause() }
+mySeekBar.setOnSeekBarChangeListener(/* ... */)   // player.seekTo(positionMs)
+```
+
+Nothing is drawn over the video and taps on it do nothing, so your own overlay is free to handle
+them. Combine it with the progress listener above to render your own timeline.
+
+Everything below the chrome keeps working: DRM, resume positions, captions, watermark, playback
+speed and CDN telemetry. Playback errors are still reported both ways - the SDK paints its error
+banner on the video, and `onPlaybackError` fires so you can show your own instead:
+
+```kotlin
+player.onPlaybackError = { message ->
+    // your own error UI
+}
+```
+
+What you take over: everything the control bar drew. That includes the live badge, the cast button
+and the entry points to fullscreen and Picture-in-Picture, so a custom UI has to provide its own.
 
 ## Gotchas
 

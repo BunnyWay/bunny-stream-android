@@ -39,6 +39,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import net.bunny.bunnystreamplayer.ui.widget.BunnyPlayerView
 import net.bunny.api.BunnyCdn
 import net.bunny.api.playback.DefaultPlaybackPositionManager
 import net.bunny.api.playback.PlaybackPosition
@@ -715,7 +716,9 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
             .build()
 
         playerView.setShutterBackgroundColor(Color.TRANSPARENT)
-        playerView.useController = true
+        // Honour the host's choice of chrome. This used to be pinned to `true`, which quietly
+        // re-enabled the controls on every source change for an app driving its own UI.
+        playerView.useController = (playerView as? BunnyPlayerView)?.controlsEnabled ?: true
         playerView.keepScreenOn = true
         Log.d(TAG, "PlayerView attached: ${playerView.isAttachedToWindow}, size: ${playerView.width}x${playerView.height}")
 

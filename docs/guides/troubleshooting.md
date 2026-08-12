@@ -52,7 +52,17 @@ The hosting activity is missing `android:supportsPictureInPicture="true"`. See
 ## There is no cast button
 
 Either the `chromecast` control is disabled in the library's player settings, the device has no
-Google Play services, or there is no cast target on the network.
+Google Play services, or there is no cast target on the network. `controlsEnabled = false` also
+removes it - see below.
+
+## With `controlsEnabled = false` the live badge, cast and fullscreen buttons are gone
+
+That is the whole point of the flag: it removes the control bar, and those were part of it. Your
+own UI provides them - `BunnyStreamPlayer` still exposes the playback commands (`play()`,
+`pause()`, `seekTo()`) and the progress listener.
+
+Playback errors are the exception: they are still painted on the video and reported through
+`onPlaybackError`, so a custom UI never silently shows a dead picture.
 
 ## Camera preview never starts
 

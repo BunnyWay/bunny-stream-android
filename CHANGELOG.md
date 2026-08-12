@@ -38,6 +38,11 @@ see [MIGRATING.md](MIGRATING.md) for before/after examples.
   meta-data.
 - Live player appearance follows the library's player settings from the Bunny dashboard
   (accent color, font, language, controls, compact mode).
+- `BunnyStreamPlayer.controlsEnabled` — set it to `false` for a bare video surface and drive
+  playback from your own UI. Everything below the chrome keeps working (DRM, resume positions,
+  captions, watermark, CDN telemetry), and playback errors are still surfaced on screen and through
+  `onPlaybackError`. Your UI takes over what the control bar drew, including the live badge, the
+  cast button and the fullscreen and Picture-in-Picture entry points.
 - Hosted API reference (Dokka) published from CI, plus task-oriented integration guides under
   `docs/guides/`.
 

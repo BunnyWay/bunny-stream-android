@@ -175,6 +175,26 @@ class BunnyStreamPlayer @JvmOverloads constructor(
             playerView.compactControls = value
         }
 
+    /**
+     * Whether the built-in player chrome is used. Set it to `false` before starting playback to get
+     * a bare video surface and drive playback from your own UI (`play()`, `pause()`, `seekTo()` and
+     * the rest of this class stay available). Taps on the player then do nothing and no control is
+     * ever shown. Defaults to `true`.
+     *
+     * What you keep: playback errors are still surfaced on screen and through [onPlaybackError],
+     * plus DRM, resume positions, captions, watermark and CDN telemetry.
+     *
+     * What you take over: everything the control bar drew, including the live badge, the cast
+     * button and the fullscreen and picture-in-picture entry points.
+     *
+     * Forwards to [BunnyPlayerView.controlsEnabled].
+     */
+    var controlsEnabled: Boolean
+        get() = playerView.controlsEnabled
+        set(value) {
+            playerView.controlsEnabled = value
+        }
+
     private val bunnyPlayer = DefaultBunnyPlayer.getInstance(context)
     private var progressListener: BunnyPlayer.ProgressListener? = null
     private var progressListenerJob: Job? = null

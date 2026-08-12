@@ -73,8 +73,9 @@ hiccups, and the switch to the recording once the stream ends. Details:
 
 ## Appearance
 
-Colors, visible controls, captions styling and the player language come from the library's
-player settings in the Bunny dashboard. In code you can replace the control icons:
+Colors, captions styling and the player language come from the library's player settings in the
+Bunny dashboard. (The dashboard's list of visible controls is applied to live playback; VOD shows
+the full control bar.) In code you can replace the control icons:
 
 ```kotlin
 binding.videoPlayer.iconSet = PlayerIconSet(
@@ -82,6 +83,16 @@ binding.videoPlayer.iconSet = PlayerIconSet(
     pauseIcon = R.drawable.my_pause,
 )
 ```
+
+To drop the built-in chrome altogether and drive playback from your own UI:
+
+```kotlin
+binding.videoPlayer.controlsEnabled = false
+```
+
+The video surface is then bare and taps on it do nothing. Playback errors are still shown and
+reported through `onPlaybackError`. See
+[Play a video](../docs/guides/play-a-video.md#your-own-controls-instead-of-the-built-in-ones).
 
 ## Picture-in-Picture
 
