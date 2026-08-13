@@ -164,6 +164,7 @@ class BunnyPlayerView @JvmOverloads constructor(
             if (isPlaying) {
                 overlay.removeAllViews()
             }
+            onPlayingChanged?.invoke(isPlaying)
         }
 
         override fun onMutedChanged(isMuted: Boolean) {
@@ -172,32 +173,38 @@ class BunnyPlayerView @JvmOverloads constructor(
             } else {
                 ToggleableImageButton.State.STATE_DEFAULT
             }
+            onMutedChanged?.invoke(isMuted)
         }
 
         override fun onPlaybackSpeedChanged(speed: Float) {
-
+            onPlaybackSpeedChanged?.invoke(speed)
         }
 
         override fun onLoadingChanged(isLoading: Boolean) {
-
+            onLoadingChanged?.invoke(isLoading)
         }
 
         override fun onChaptersUpdated(chapters: List<Chapter>) {
             Log.d(TAG, "onChaptersUpdated: $chapters")
             timeBar?.chapters = chapters
+            onChaptersUpdated?.invoke(chapters)
         }
 
         override fun onMomentsUpdated(moments: List<Moment>) {
             Log.d(TAG, "onMomentsUpdated: $moments")
             timeBar?.moments = moments
+            onMomentsUpdated?.invoke(moments)
         }
 
         override fun onRetentionGraphUpdated(points: List<RetentionGraphEntry>) {
             timeBar?.retentionGraphData = points
+            onRetentionGraphUpdated?.invoke(points)
         }
 
         override fun onPlayerTypeChanged(player: Player, playerType: PlayerType) {
             updatePlayer(player, playerType)
+            // Only the enum goes out: `player` is a media3 type and part of the engine's internals.
+            onPlayerTypeChanged?.invoke(playerType)
         }
 
         override fun onPlayerError(message: String) {
@@ -229,6 +236,44 @@ class BunnyPlayerView @JvmOverloads constructor(
      * playback from the live edge.
      */
     var onPlaybackError: ((message: String) -> Unit)? = null
+
+    /**
+     * Invoked whenever the playback rate changes, including the rate the engine restores by itself
+     * when [net.bunny.bunnystreamplayer.config.PlaybackSpeedConfig.rememberLastSpeed] is on.
+     *
+     * Hosts that draw their own speed selector need this: the remembered rate is applied to the
+     * next video without anyone touching the UI, and a selector that only tracks its own taps ends
+     * up showing 1× over a video playing at 0.25×.
+     */
+    var onPlaybackSpeedChanged: ((speed: Float) -> Unit)? = null
+
+    /**
+     * Invoked when playback starts or stops, whatever the cause - a control, your own code, the end
+     * of the video, or a handover to Chromecast. Keep a custom play/pause button in sync with this
+     * rather than with your own taps.
+     */
+    var onPlayingChanged: ((isPlaying: Boolean) -> Unit)? = null
+
+    /** Invoked when the audio is muted or unmuted, from any source. */
+    var onMutedChanged: ((isMuted: Boolean) -> Unit)? = null
+
+    /** Invoked while the player buffers, so a custom UI can show its own spinner. */
+    var onLoadingChanged: ((isLoading: Boolean) -> Unit)? = null
+
+    /** Invoked with the video's chapters once they are known (empty when it has none). */
+    var onChaptersUpdated: ((chapters: List<Chapter>) -> Unit)? = null
+
+    /** Invoked with the video's moments once they are known (empty when it has none). */
+    var onMomentsUpdated: ((moments: List<Moment>) -> Unit)? = null
+
+    /** Invoked with the retention graph once it is known, for a custom seek bar. */
+    var onRetentionGraphUpdated: ((points: List<RetentionGraphEntry>) -> Unit)? = null
+
+    /**
+     * Invoked when playback moves between this device and a connected Chromecast. A custom UI needs
+     * it to stop presenting itself as the thing playing the video.
+     */
+    var onPlayerTypeChanged: ((playerType: PlayerType) -> Unit)? = null
 
     var bunnyPlayer: BunnyPlayer? = null
         set(value) {

@@ -175,6 +175,9 @@ fun PlayerScreen(
                 onPlaybackError = { message ->
                     playbackError = message
                 },
+                onPlaybackSpeedChanged = { speed ->
+                    currentSpeed = speed
+                },
                 onRetry = {
                     playbackAttempt++
                     onReloadVideo()
@@ -565,6 +568,7 @@ fun BunnyPlayerComposable(
     onPlayerReady: (BunnyStreamPlayer) -> Unit = {},
     onResumePosition: ((PlaybackPosition, (Boolean) -> Unit) -> Unit)? = null,
     onPlaybackError: ((String) -> Unit)? = null,
+    onPlaybackSpeedChanged: ((Float) -> Unit)? = null,
     onRetry: (() -> Unit)? = null,
     resumeConfig: ResumeConfig = ResumeConfig(),
     resumeEnabled: Boolean = true,
@@ -641,6 +645,10 @@ fun BunnyPlayerComposable(
                     }
 
                     player.onPlaybackError = { message -> onPlaybackError?.invoke(message) }
+
+                    // The engine reapplies the remembered speed to every new video on its own, so
+                    // the selector has to follow the player rather than only its own taps.
+                    player.onPlaybackSpeedChanged = { speed -> onPlaybackSpeedChanged?.invoke(speed) }
 
                     player.controlsEnabled = controlsEnabled
 

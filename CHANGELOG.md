@@ -43,6 +43,15 @@ see [MIGRATING.md](MIGRATING.md) for before/after examples.
   captions, watermark, CDN telemetry), and playback errors are still surfaced on screen and through
   `onPlaybackError`. Your UI takes over what the control bar drew, including the live badge, the
   cast button and the fullscreen and Picture-in-Picture entry points.
+- Player state callbacks on `BunnyStreamPlayer`, so an app drawing its own controls can follow what
+  the engine is doing: `onPlayingChanged`, `onMutedChanged`, `onLoadingChanged`,
+  `onPlaybackSpeedChanged`, `onChaptersUpdated`, `onMomentsUpdated`, `onRetentionGraphUpdated` and
+  `onPlayerTypeChanged` (Chromecast handover). Previously the player view held the engine's only
+  listener slot and forwarded almost nothing, so a custom UI went stale - a speed selector would
+  show 1× over a video the engine had restored to 0.25×.
+- `playbackSpeed` (read and write), `getPlaybackSpeeds()`, `isMuted()`, `mute()` and `unmute()` on
+  `BunnyStreamPlayer`. Speed and mute had no public entry point at all; the demo app was reaching
+  into private fields with reflection to change them.
 - Hosted API reference (Dokka) published from CI, plus task-oriented integration guides under
   `docs/guides/`.
 

@@ -125,14 +125,26 @@ Nothing is drawn over the video and taps on it do nothing, so your own overlay i
 them. Combine it with the progress listener above to render your own timeline.
 
 Everything below the chrome keeps working: DRM, resume positions, captions, watermark, playback
-speed and CDN telemetry. Playback errors are still reported both ways - the SDK paints its error
-banner on the video, and `onPlaybackError` fires so you can show your own instead:
+speed and CDN telemetry.
+
+Drive your UI from the player's callbacks, not from your own taps - playback changes for reasons
+your buttons never see (the video ends, the engine restores the remembered speed on a new video,
+Chromecast takes over):
 
 ```kotlin
-player.onPlaybackError = { message ->
-    // your own error UI
-}
+player.onPlayingChanged = { playing -> playButton.isSelected = playing }
+player.onLoadingChanged = { loading -> spinner.isVisible = loading }
+player.onMutedChanged = { muted -> muteButton.isSelected = muted }
+player.onPlaybackSpeedChanged = { speed -> speedLabel.text = "${speed}x" }
+player.onPlayerTypeChanged = { type -> /* DEFAULT_PLAYER or CAST_PLAYER */ }
+player.onPlaybackError = { message -> showYourOwnError(message) }
 ```
+
+`onChaptersUpdated`, `onMomentsUpdated` and `onRetentionGraphUpdated` deliver the same data the
+built-in seek bar uses, for a custom timeline. `onVideoSizeChanged` gives the real aspect ratio.
+
+Commands and current state: `play()`, `pause()`, `seekTo()`, `mute()`, `unmute()`, `isPlaying()`,
+`isMuted()`, `playbackSpeed` (read and write) and `getPlaybackSpeeds()`.
 
 What you take over: everything the control bar drew. That includes the live badge, the cast button
 and the entry points to fullscreen and Picture-in-Picture, so a custom UI has to provide its own.

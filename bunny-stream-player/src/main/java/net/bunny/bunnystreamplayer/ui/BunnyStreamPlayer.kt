@@ -35,6 +35,10 @@ import net.bunny.bunnystreamplayer.DefaultBunnyPlayer
 import net.bunny.bunnystreamplayer.cmcd.CmcdStreamType
 import net.bunny.bunnystreamplayer.common.DeviceType
 import net.bunny.bunnystreamplayer.config.PlaybackSpeedConfig
+import net.bunny.bunnystreamplayer.PlayerType
+import net.bunny.bunnystreamplayer.model.Chapter
+import net.bunny.bunnystreamplayer.model.Moment
+import net.bunny.bunnystreamplayer.model.RetentionGraphEntry
 import net.bunny.bunnystreamplayer.model.PlayerIconSet
 import net.bunny.bunnystreamplayer.model.getSanitizedRetentionData
 import net.bunny.bunnystreamplayer.ui.fullscreen.FullScreenPlayerActivity
@@ -194,6 +198,105 @@ class BunnyStreamPlayer @JvmOverloads constructor(
         set(value) {
             playerView.controlsEnabled = value
         }
+
+    /**
+     * Invoked whenever the playback rate changes - both when something selects a speed and when the
+     * engine restores the remembered one on the next video ([PlaybackSpeedConfig.rememberLastSpeed],
+     * on by default).
+     *
+     * Keep your own speed selector in sync with this. The remembered rate carries over between
+     * videos without any user action, so a selector that only tracks its own taps will claim 1×
+     * over a video actually playing at 0.25×.
+     *
+     * Forwards from [BunnyPlayerView.onPlaybackSpeedChanged].
+     */
+    var onPlaybackSpeedChanged: ((speed: Float) -> Unit)?
+        get() = playerView.onPlaybackSpeedChanged
+        set(value) {
+            playerView.onPlaybackSpeedChanged = value
+        }
+
+    /**
+     * Invoked when playback starts or stops, whatever the cause - a control, your own code, the end
+     * of the video, or a handover to Chromecast. Drive a custom play/pause button from this rather
+     * than from your own taps.
+     */
+    var onPlayingChanged: ((isPlaying: Boolean) -> Unit)?
+        get() = playerView.onPlayingChanged
+        set(value) {
+            playerView.onPlayingChanged = value
+        }
+
+    /** Invoked when the audio is muted or unmuted, from any source. See [isMuted]. */
+    var onMutedChanged: ((isMuted: Boolean) -> Unit)?
+        get() = playerView.onMutedChanged
+        set(value) {
+            playerView.onMutedChanged = value
+        }
+
+    /** Invoked while the player buffers, so a custom UI can show its own spinner. */
+    var onLoadingChanged: ((isLoading: Boolean) -> Unit)?
+        get() = playerView.onLoadingChanged
+        set(value) {
+            playerView.onLoadingChanged = value
+        }
+
+    /** Invoked with the video's chapters once they are known (empty when it has none). */
+    var onChaptersUpdated: ((chapters: List<Chapter>) -> Unit)?
+        get() = playerView.onChaptersUpdated
+        set(value) {
+            playerView.onChaptersUpdated = value
+        }
+
+    /** Invoked with the video's moments once they are known (empty when it has none). */
+    var onMomentsUpdated: ((moments: List<Moment>) -> Unit)?
+        get() = playerView.onMomentsUpdated
+        set(value) {
+            playerView.onMomentsUpdated = value
+        }
+
+    /** Invoked with the retention graph once it is known, for a custom seek bar. */
+    var onRetentionGraphUpdated: ((points: List<RetentionGraphEntry>) -> Unit)?
+        get() = playerView.onRetentionGraphUpdated
+        set(value) {
+            playerView.onRetentionGraphUpdated = value
+        }
+
+    /**
+     * Invoked when playback moves between this device and a connected Chromecast, so a custom UI
+     * can stop presenting itself as the thing playing the video.
+     */
+    var onPlayerTypeChanged: ((playerType: PlayerType) -> Unit)?
+        get() = playerView.onPlayerTypeChanged
+        set(value) {
+            playerView.onPlayerTypeChanged = value
+        }
+
+    /**
+     * The playback rate. Setting it takes effect immediately and, with
+     * [PlaybackSpeedConfig.rememberLastSpeed] on, is remembered for the next video.
+     *
+     * Reading it is the truth about the engine, which is not necessarily what your UI last
+     * selected: the remembered rate is restored on every new video. Follow [onPlaybackSpeedChanged]
+     * to stay in sync.
+     */
+    var playbackSpeed: Float
+        get() = bunnyPlayer.getSpeed()
+        set(value) {
+            bunnyPlayer.setSpeed(value)
+        }
+
+    /** The speeds offered for this video, from the library's player settings. */
+    fun getPlaybackSpeeds(): List<Float> = bunnyPlayer.getPlaybackSpeeds()
+
+    /** Whether the audio is muted. Changes are reported through [onMutedChanged]. */
+    fun isMuted(): Boolean = bunnyPlayer.isMuted()
+
+    /** Mutes the audio. */
+    fun mute() = bunnyPlayer.mute()
+
+    /** Unmutes the audio. */
+    fun unmute() = bunnyPlayer.unmute()
 
     private val bunnyPlayer = DefaultBunnyPlayer.getInstance(context)
     private var progressListener: BunnyPlayer.ProgressListener? = null
