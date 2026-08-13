@@ -160,8 +160,11 @@ class BunnyPlayerView @JvmOverloads constructor(
             } else {
                 ToggleableImageButton.State.STATE_DEFAULT
             }
-            hideError()
+            // Clear the error only once playback actually runs again. This used to fire on every
+            // change, including `false` — and since an error is exactly what stops playback, the
+            // banner was wiped some 80 ms after it appeared and no playback error was ever readable.
             if (isPlaying) {
+                hideError()
                 overlay.removeAllViews()
             }
             onPlayingChanged?.invoke(isPlaying)
