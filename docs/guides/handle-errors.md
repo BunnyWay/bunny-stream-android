@@ -109,8 +109,20 @@ See [Upload videos](upload-videos.md) for the full flow.
 ## Player errors
 
 The players show their own error states and recover from transient stream problems on their own.
-To also log playback errors in your code, register a `PlayerStateListener` and read
-`onPlayerError(message)`.
+To also handle playback errors in your code, set `onPlaybackError` on the player view:
+
+```kotlin
+player.onPlaybackError = { message ->
+    // log it, report it, show your own UI
+}
+```
+
+Do not assign your own `PlayerStateListener` to the playback engine. There is one listener slot and
+the player view owns it, so taking it over stops the built-in UI updating - the play/pause button,
+the error banner, chapters and the seek bar all go stale. Everything the listener reports is
+available as a callback on the view instead: `onPlaybackError`, `onPlayingChanged`,
+`onMutedChanged`, `onLoadingChanged`, `onPlaybackSpeedChanged`, `onChaptersUpdated`,
+`onMomentsUpdated`, `onRetentionGraphUpdated`, `onPlayerTypeChanged` and `onVideoSizeChanged`.
 
 ## One envelope, everywhere
 
