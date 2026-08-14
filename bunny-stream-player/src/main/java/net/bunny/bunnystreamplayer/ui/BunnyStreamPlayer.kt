@@ -649,6 +649,15 @@ class BunnyStreamPlayer @JvmOverloads constructor(
     override fun playVideo(videoId: String, libraryId: Long?, videoTitle: String, token: String?, expires: Long?) {
         Log.d(TAG, "playVideo videoId=$videoId")
 
+        // Bank the outgoing video's position while it is still the current one. This used to run
+        // after the two assignments below, which meant every switch wrote the previous video's
+        // position and duration under the new video's id — a 5-second clip inheriting "resume at
+        // 0:55 of 1:30" from whatever played before it.
+        saveCurrentPosition()
+        // Nothing may be saved between here and the engine actually loading the new video: the id
+        // is already the new one while the engine still reports the old position.
+        stopAutoSave()
+
         currentVideoId = videoId
         currentLibraryId = libraryId
 
@@ -667,8 +676,7 @@ class BunnyStreamPlayer @JvmOverloads constructor(
         // CMCD (CTA-5004 v2) stream type for VOD playback (st=v).
         (bunnyPlayer as? DefaultBunnyPlayer)?.setCmcdStreamType(CmcdStreamType.VOD)
 
-        // Save previous video position before switching
-        saveCurrentPosition()
+        // The outgoing position was banked at the top of this method, while it was still current.
 
         loadVideoJob?.cancel()
 
@@ -908,17 +916,16 @@ class BunnyStreamPlayer @JvmOverloads constructor(
                 if (bunnyPlayer.isPlaying()) { // Safe on main thread
                     // Move save to background
                     launch(Dispatchers.IO) {
-                        val position = withContext(Dispatchers.Main) {
-                            bunnyPlayer.getCurrentPosition()
-                        }
-                        val duration = withContext(Dispatchers.Main) {
-                            bunnyPlayer.getDuration()
-                        }
-
-                        currentVideoId?.let { videoId ->
-                            if (position > 0 && duration > 0) {
-                                bunnyPlayer.positionManager?.savePosition(videoId, position, duration)
-                            }
+                        // One snapshot rather than three separate reads: the id used to be read
+                        // after the position, so a tick landing on a video switch saved the old
+                        // video's progress under the new video's id.
+                        val snapshot = takeProgressSnapshot() ?: return@launch
+                        if (snapshot.position > 0 && snapshot.duration > 0) {
+                            bunnyPlayer.positionManager?.savePosition(
+                                snapshot.videoId,
+                                snapshot.position,
+                                snapshot.duration,
+                            )
                         }
                     }
                 }
@@ -932,28 +939,56 @@ class BunnyStreamPlayer @JvmOverloads constructor(
         Log.d(TAG, "Auto-save stopped")
     }
 
-    private fun saveCurrentPosition() {
-        currentVideoId?.let { videoId ->
-            scope?.launch {
-                try {
-                    // Get position and duration on main thread
-                    val position = withContext(Dispatchers.Main) {
-                        bunnyPlayer.getCurrentPosition()
-                    }
-                    val duration = withContext(Dispatchers.Main) {
-                        bunnyPlayer.getDuration()
-                    }
+    /**
+     * The video a position belongs to, with the position itself. Read as one unit so the three
+     * values are guaranteed to describe the same video - see [takeProgressSnapshot].
+     */
+    private data class ProgressSnapshot(
+        val videoId: String,
+        val position: Long,
+        val duration: Long,
+    )
 
-                    // Save on background thread
-                    if (position > 0 && duration > 0) {
-                        withContext(Dispatchers.IO) {
-                            bunnyPlayer.positionManager?.savePosition(videoId, position, duration)
-                        }
-                        Log.d(TAG, "Position saved for $videoId: ${formatTime(position)}")
-                    }
-                } catch (e: Exception) {
-                    Log.e(TAG, "Error saving current position", e)
-                }
+    /**
+     * Reads the current video id, position and duration together. Main thread only.
+     *
+     * They must not be read across suspension points. `currentVideoId` is reassigned on the main
+     * thread when a new video starts, so a read either side of a hop can pair one video's id with
+     * another video's position - which is how positions ended up saved against the wrong video.
+     */
+    private fun progressSnapshot(): ProgressSnapshot? {
+        val videoId = currentVideoId ?: return null
+        return ProgressSnapshot(videoId, bunnyPlayer.getCurrentPosition(), bunnyPlayer.getDuration())
+    }
+
+    /** [progressSnapshot] for callers already off the main thread (the auto-save tick). */
+    private suspend fun takeProgressSnapshot(): ProgressSnapshot? =
+        withContext(Dispatchers.Main) { progressSnapshot() }
+
+    /**
+     * Persists where the viewer got to in the video that is current *right now*.
+     *
+     * The snapshot is taken synchronously on purpose. The view's scope runs on the main thread, so
+     * anything read inside a `launch` happens a turn later - and the commonest caller,
+     * [playVideo], reassigns `currentVideoId` in that very turn. Reading inside the coroutine
+     * therefore saved the outgoing video's progress against the incoming video's id, every time.
+     */
+    private fun saveCurrentPosition() {
+        val snapshot = progressSnapshot() ?: return
+        if (snapshot.position <= 0 || snapshot.duration <= 0) return
+        scope?.launch(Dispatchers.IO) {
+            try {
+                bunnyPlayer.positionManager?.savePosition(
+                    snapshot.videoId,
+                    snapshot.position,
+                    snapshot.duration,
+                )
+                Log.d(
+                    TAG,
+                    "Position saved for ${snapshot.videoId}: ${formatTime(snapshot.position)}",
+                )
+            } catch (e: Exception) {
+                Log.e(TAG, "Error saving current position", e)
             }
         }
     }
