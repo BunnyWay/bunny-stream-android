@@ -16,6 +16,24 @@ class DefaultRecordingRepository(
 
     companion object {
         private const val TAG = "DefaultRecordingRepository"
+
+        /**
+         * Builds the VOD ingest URL. The ingest server accepts a publish only as app="ingest"
+         * with stream name "?vid=...&accessKey=...&lib=..." (leading '?' required).
+         *
+         * RootEncoder's UrlParser splits the app name from the stream name on the '/' and strips
+         * exactly one leading '?' from the stream name - so the URL has to carry "/??". Without
+         * the slash the app name parses as "ingest?" and the stream name loses its leading '?',
+         * and the server rejects the publish with "Invalid stream data", which leaves every
+         * camera-upload recording empty.
+         */
+        internal fun buildVodIngestUrl(
+            rtmpEndpoint: String,
+            videoGuid: String?,
+            accessKey: String?,
+            libraryId: Long,
+        ): String =
+            "${rtmpEndpoint.trimEnd('/')}/??vid=$videoGuid&accessKey=$accessKey&lib=$libraryId"
     }
 
     override suspend fun prepareRecording(libraryId: Long): Either<String, String> = withContext(coroutineDispatcher) {
@@ -31,7 +49,12 @@ class DefaultRecordingRepository(
                 videoCreateVideoRequest = createVideoRequest
             )
 
-            val endpoint = "${BuildConfig.RTMP_ENDPOINT}??vid=${result.guid}&accessKey=${ApiClient.apiKey["AccessKey"]}&lib=$libraryId"
+            val endpoint = buildVodIngestUrl(
+                rtmpEndpoint = BuildConfig.RTMP_ENDPOINT,
+                videoGuid = result.guid,
+                accessKey = ApiClient.apiKey["AccessKey"],
+                libraryId = libraryId,
+            )
 
             Log.d(TAG, "endpoint=$endpoint")
 
