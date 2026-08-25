@@ -75,8 +75,8 @@ dependencies {
     implementation(project(":player"))
 
     // Media3 (if not already included in your player module)
-    implementation("androidx.media3:media3-ui:1.2.1")
-    implementation("androidx.media3:media3-exoplayer:1.2.1")
+    implementation("androidx.media3:media3-ui:1.11.0")
+    implementation("androidx.media3:media3-exoplayer:1.11.0")
 
     // Arrow for functional programming (Either, etc.) - Add this if it's missing
     implementation("io.arrow-kt:arrow-core:1.2.1")
