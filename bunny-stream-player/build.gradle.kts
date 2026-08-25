@@ -73,7 +73,7 @@ dependencies {
     // https://developer.android.com/jetpack/androidx/releases/appcompat
     implementation("androidx.appcompat:appcompat:1.7.0")
     // https://github.com/material-components/material-components-android
-    implementation("com.google.android.material:material:1.12.0")
+    implementation("com.google.android.material:material:1.14.0")
 
     // AndroidX Media3
     // https://developer.android.com/jetpack/androidx/releases/media3
@@ -115,7 +115,7 @@ dependencies {
 
     // YAML Parsing (Kaml)
     // https://github.com/charleskorn/kaml
-    implementation("com.charleskorn.kaml:kaml:0.74.0")
+    implementation("com.charleskorn.kaml:kaml:0.104.0")
 
     // Jetpack Compose Dependencies
     // https://developer.android.com/jetpack/compose/bom
