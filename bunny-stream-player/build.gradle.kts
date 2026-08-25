@@ -77,15 +77,15 @@ dependencies {
 
     // AndroidX Media3
     // https://developer.android.com/jetpack/androidx/releases/media3
-    implementation("androidx.media3:media3-exoplayer:1.6.0")
+    implementation("androidx.media3:media3-exoplayer:1.11.0")
     // https://developer.android.com/jetpack/androidx/releases/media3
-    implementation("androidx.media3:media3-ui:1.6.0")
+    implementation("androidx.media3:media3-ui:1.11.0")
     // https://developer.android.com/jetpack/androidx/releases/media3
-    implementation("androidx.media3:media3-exoplayer-hls:1.6.0")
+    implementation("androidx.media3:media3-exoplayer-hls:1.11.0")
     // https://developer.android.com/jetpack/androidx/releases/media3
-    implementation("androidx.media3:media3-cast:1.6.0")
+    implementation("androidx.media3:media3-cast:1.11.0")
     // https://developer.android.com/jetpack/androidx/releases/media3
-    implementation("androidx.media3:media3-exoplayer-ima:1.6.0")
+    implementation("androidx.media3:media3-exoplayer-ima:1.11.0")
 
     // AndroidX Startup
     // https://developer.android.com/jetpack/androidx/releases/startup
