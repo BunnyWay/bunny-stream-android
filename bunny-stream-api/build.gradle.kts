@@ -72,7 +72,7 @@ dependencies {
     // https://developer.android.com/jetpack/androidx/releases/appcompat
     implementation("androidx.appcompat:appcompat:1.7.0")
     // https://github.com/material-components/material-components-android
-    implementation("com.google.android.material:material:1.12.0")
+    implementation("com.google.android.material:material:1.14.0")
 
     // Testing dependencies
     // https://junit.org/junit4/
