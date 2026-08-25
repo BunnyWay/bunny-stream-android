@@ -7,7 +7,7 @@ plugins {
     id("org.openapi.generator")
     id("org.jetbrains.kotlin.plugin.serialization")
     id("org.jetbrains.dokka")
-    id("org.jetbrains.kotlin.plugin.compose") version "2.1.20"
+    id("org.jetbrains.kotlin.plugin.compose") version "2.4.10"
 }
 
 android {
@@ -118,7 +118,7 @@ dependencies {
     // https://github.com/tus/tus-android-client
     implementation("io.tus.android.client:tus-android-client:0.1.11")
     implementation("com.google.code.gson:gson:2.8.9")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.6.4")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")
 
 }
 
