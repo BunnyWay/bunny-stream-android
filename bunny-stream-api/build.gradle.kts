@@ -99,14 +99,14 @@ dependencies {
 
     // Gson
     // https://github.com/google/gson
-    implementation("com.google.code.gson:gson:2.12.1")
+    implementation("com.google.code.gson:gson:2.14.0")
 
     // Ktor
     // https://ktor.io
-    implementation("io.ktor:ktor-client-okhttp:3.1.2")
-    implementation("io.ktor:ktor-client-content-negotiation:3.1.2")
-    implementation("io.ktor:ktor-serialization-kotlinx-json:3.1.2")
-    implementation("io.ktor:ktor-client-logging-jvm:3.1.2")
+    implementation("io.ktor:ktor-client-okhttp:3.5.2")
+    implementation("io.ktor:ktor-client-content-negotiation:3.5.2")
+    implementation("io.ktor:ktor-serialization-kotlinx-json:3.5.2")
+    implementation("io.ktor:ktor-client-logging-jvm:3.5.2")
 
     // Arrow
     // https://arrow-kt.io
@@ -114,10 +114,10 @@ dependencies {
 
     // Tus client libraries (update to newer patch versions if available)
     // https://github.com/tus/tus-java-client
-    implementation("io.tus.java.client:tus-java-client:0.5.0")
+    implementation("io.tus.java.client:tus-java-client:0.5.1")
     // https://github.com/tus/tus-android-client
-    implementation("io.tus.android.client:tus-android-client:0.1.11")
-    implementation("com.google.code.gson:gson:2.8.9")
+    implementation("io.tus.android.client:tus-android-client:0.1.12")
+    implementation("com.google.code.gson:gson:2.14.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.6.4")
 
 }
