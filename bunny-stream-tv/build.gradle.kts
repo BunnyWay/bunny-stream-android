@@ -68,7 +68,7 @@ dependencies {
     implementation("com.github.bumptech.glide:glide:4.16.0")
 
     // Coroutines
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")
 
     // Your SDK modules
     implementation(project(":api"))
