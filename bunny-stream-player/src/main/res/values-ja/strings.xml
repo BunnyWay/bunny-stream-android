@@ -8,4 +8,5 @@
     <string name="label_video_settings_captions_disabled">無効</string>
     <string name="label_video_settings_audio_track">オーディオトラック</string>
     <string name="label_drm_not_supported_exception">このビデオではDRMが有効になっています。このデバイスでは再生がサポートされていません。</string>
+    <string name="error_video_not_available">ビデオは利用できません</string>
 </resources>

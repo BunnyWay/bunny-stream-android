@@ -5,6 +5,7 @@
     <string name="label_video_settings_quality">Quality</string>
     <string name="label_video_quality_auto">Auto</string>
     <string name="error_playing_video">Couldn\'t play video</string>
+    <string name="error_video_not_available">Video is not available</string>
     <string name="label_video_settings_captions_disabled">Disabled</string>
     <string name="label_video_settings_audio_track">Audio track</string>
     <string name="label_drm_not_supported_exception">DRM is enabled for this video, BunnyStreamPlayer does not support DRM protected content.</string>

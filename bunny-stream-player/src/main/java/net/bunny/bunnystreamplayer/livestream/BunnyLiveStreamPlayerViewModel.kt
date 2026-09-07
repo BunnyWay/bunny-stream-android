@@ -27,6 +27,7 @@ import net.bunny.api.livestream.domain.model.LiveStream
 import net.bunny.api.livestream.domain.model.LiveStreamPlayData
 import net.bunny.api.model.LiveStreamStatus
 import net.bunny.api.video.domain.VideoRepository
+import net.bunny.bunnystreamplayer.PlaybackFailureInfo
 
 /**
  * Backing view model for [BunnyLiveStreamPlayer]. Owns the polling loop, the play-data fetches,
@@ -266,6 +267,8 @@ public open class BunnyLiveStreamPlayerViewModel internal constructor(
     }
 
     private fun handlePollFailure(error: BunnyError) {
+        // A poll already in flight when playback went terminal must not overwrite that verdict.
+        if (terminated) return
         if (error.isTerminal) {
             Log.w(TAG, "poll failed with terminal status ${error.httpStatus} — stopping polling")
             terminated = true
@@ -280,6 +283,8 @@ public open class BunnyLiveStreamPlayerViewModel internal constructor(
     }
 
     private suspend fun handleStreamUpdate(stream: LiveStream) {
+        // A poll already in flight when playback went terminal must not flip the state back.
+        if (terminated) return
         val previousStatus = currentStream?.status
         currentStream = stream
         Log.d(TAG, "stream snapshot — status=${stream.status} startedAt=${stream.startedAt}")
@@ -475,6 +480,28 @@ public open class BunnyLiveStreamPlayerViewModel internal constructor(
             return
         }
         viewModelScope.launch { performRecovery(reason = message ?: "playback failure") }
+    }
+
+    /**
+     * Structured counterpart of [onPlaybackFailure] fed by the SDK's own playback surface. A
+     * blocked stream — the CDN answered 403 (geo-blocking, hotlink protection or an expired token;
+     * deliberately not told apart) — is terminal: polling and any pending recovery stop, and
+     * [terminalError] carries the viewer copy ("Video is not available") instead of the raw
+     * error. Every other failure keeps the recovery loop above — a 404 on the manifest is routine
+     * while the stream is RUNNING but the playlist isn't published yet.
+     */
+    internal fun onPlaybackFailure(info: PlaybackFailureInfo) {
+        if (terminated || !started) return
+        if (!info.isBlocked) {
+            onPlaybackFailure(info.rawMessage)
+            return
+        }
+        Log.w(TAG, "playback blocked with HTTP ${info.httpStatus} — stopping: ${info.rawMessage}")
+        terminated = true
+        deferredRecoveryJob?.cancel()
+        pollJob?.cancel()
+        pollJob = null
+        mutableTerminalError.value = info.userMessage
     }
 
     private suspend fun performRecovery(reason: String) {

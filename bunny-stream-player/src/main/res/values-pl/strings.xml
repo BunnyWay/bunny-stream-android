@@ -8,4 +8,5 @@
     <string name="label_video_settings_captions_disabled">Wyłączone</string>
     <string name="label_video_settings_audio_track">Ścieżka dźwiękowa</string>
     <string name="label_drm_not_supported_exception">DRM jest włączone dla tego wideo, odtwarzanie nie jest obsługiwane na tym urządzeniu.</string>
+    <string name="error_video_not_available">Wideo jest niedostępne</string>
 </resources>

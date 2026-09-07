@@ -69,6 +69,7 @@ import net.bunny.api.StreamApi
 import net.bunny.api.BunnyCdn
 import net.bunny.api.livestream.domain.model.LiveStreamPlayData
 import net.bunny.player.R
+import net.bunny.bunnystreamplayer.PlaybackFailureInfo
 import net.bunny.bunnystreamplayer.ui.BunnyStreamPlayer
 import kotlinx.coroutines.delay
 import java.util.Locale
@@ -198,23 +199,28 @@ public fun BunnyLiveStreamPlayer(
 
             is LiveStreamPlayerState.LivePlay -> {
                 Log.d(TAG_UI, "render: LivePlay")
-                BunnyPlayerSurface(
-                    libraryId = libraryId,
-                    streamId = streamId,
-                    title = "",
-                    hlsUrl = s.hlsUrl,
-                    playData = playData,
-                    dvrEnabled = s.dvrEnabled,
-                    rebuildToken = rebuildToken,
-                    onPlaybackError = { message -> viewModel.onPlaybackFailure(message) },
-                    onVideoSizeChanged = onVideoSizeChanged,
-                )
-                LiveBadge(
-                    primaryColor = playData?.keyColor,
-                    modifier = Modifier
-                        .align(Alignment.TopStart)
-                        .padding(16.dp),
-                )
+                // A blocked stream (CDN 403) goes terminal while the state stays LivePlay. Keeping
+                // the surface out of composition takes the engine's own banner down with it, and
+                // a recreated Activity never asks the CDN again — the panel below is the only UI.
+                if (terminalError == null) {
+                    BunnyPlayerSurface(
+                        libraryId = libraryId,
+                        streamId = streamId,
+                        title = "",
+                        hlsUrl = s.hlsUrl,
+                        playData = playData,
+                        dvrEnabled = s.dvrEnabled,
+                        rebuildToken = rebuildToken,
+                        onPlaybackFailureInfo = { info -> viewModel.onPlaybackFailure(info) },
+                        onVideoSizeChanged = onVideoSizeChanged,
+                    )
+                    LiveBadge(
+                        primaryColor = playData?.keyColor,
+                        modifier = Modifier
+                            .align(Alignment.TopStart)
+                            .padding(16.dp),
+                    )
+                }
             }
 
             is LiveStreamPlayerState.VodPlay -> {
@@ -274,7 +280,11 @@ private fun OfflineOverlay(
                     val glideUrl = GlideUrl(posterUrl) {
                         mapOf("Referer" to BunnyCdn.REFERER)
                     }
-                    Glide.with(imageView).load(glideUrl).into(imageView)
+                    // A poster the CDN refuses to serve falls back to a neutral placeholder, silently.
+                    Glide.with(imageView)
+                        .load(glideUrl)
+                        .error(R.drawable.bunny_thumbnail_placeholder)
+                        .into(imageView)
                 },
             )
             Box(
@@ -362,7 +372,11 @@ private fun CountdownOverlay(
                     val glideUrl = GlideUrl(posterUrl) {
                         mapOf("Referer" to BunnyCdn.REFERER)
                     }
-                    Glide.with(imageView).load(glideUrl).into(imageView)
+                    // A poster the CDN refuses to serve falls back to a neutral placeholder, silently.
+                    Glide.with(imageView)
+                        .load(glideUrl)
+                        .error(R.drawable.bunny_thumbnail_placeholder)
+                        .into(imageView)
                 },
             )
         }
@@ -546,6 +560,9 @@ private fun TrailerLoop(hlsUrl: String, uiLanguage: String?) {
  * The view is keyed by [hlsUrl] so a transition (Trailer → Live, Live → VOD recording, or a
  * URL refresh) tears down the previous player instance and rebuilds against the new URL,
  * matching what the engine expects.
+ *
+ * [onPlaybackFailureInfo] is the engine's structured failure report (it fires before
+ * [onPlaybackError]).
  */
 @OptIn(UnstableApi::class)
 @Composable
@@ -559,6 +576,7 @@ private fun BunnyPlayerSurface(
     isVodRecording: Boolean = false,
     rebuildToken: Int = 0,
     onPlaybackError: ((message: String) -> Unit)? = null,
+    onPlaybackFailureInfo: ((PlaybackFailureInfo) -> Unit)? = null,
     onVideoSizeChanged: ((width: Int, height: Int) -> Unit)? = null,
 ) {
     // [AndroidView.update] runs on every recomposition, but `playLiveUrl` tears down the engine
@@ -580,6 +598,7 @@ private fun BunnyPlayerSurface(
                 )
                 this.onVideoSizeChanged = onVideoSizeChanged
                 this.onPlaybackError = onPlaybackError?.let { cb -> { message -> cb(message) } }
+                this.onPlaybackFailureInfo = onPlaybackFailureInfo?.let { cb -> { info -> cb(info) } }
                 // BunnyStreamPlayer queues the play call until it's attached to the window; safe
                 // to invoke from factory.
                 playLiveUrl(
@@ -599,6 +618,7 @@ private fun BunnyPlayerSurface(
         update = { view ->
             view.onVideoSizeChanged = onVideoSizeChanged
             view.onPlaybackError = onPlaybackError?.let { cb -> { message -> cb(message) } }
+            view.onPlaybackFailureInfo = onPlaybackFailureInfo?.let { cb -> { info -> cb(info) } }
             if (lastUrlState.value == hlsUrl &&
                 lastPlayDataState.value == playData &&
                 lastRebuildTokenState.value == rebuildToken

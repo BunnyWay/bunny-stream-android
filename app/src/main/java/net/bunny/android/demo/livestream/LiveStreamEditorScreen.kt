@@ -77,6 +77,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
@@ -716,6 +717,7 @@ private fun LiveStreamEditorScreen(
                         AsyncImage(
                             model = thumbnailUri,
                             contentDescription = stringResource(R.string.live_cd_selected_thumbnail),
+                            error = painterResource(R.drawable.thumbnail_placeholder),
                             contentScale = ContentScale.Crop,
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -1387,6 +1389,7 @@ private fun ThumbnailGallery(
                             model = thumb.url,
                             contentDescription = thumb.timestamp
                                 ?: stringResource(R.string.live_section_thumbnail),
+                            error = painterResource(R.drawable.thumbnail_placeholder),
                             contentScale = ContentScale.Crop,
                             modifier = Modifier
                                 .width(160.dp)
@@ -1417,6 +1420,7 @@ private fun ThumbnailPreviewDialog(url: String, onDismiss: () -> Unit) {
             AsyncImage(
                 model = url,
                 contentDescription = stringResource(R.string.live_cd_thumbnail_preview),
+                error = painterResource(R.drawable.thumbnail_placeholder),
                 contentScale = ContentScale.Fit,
                 modifier = Modifier
                     .fillMaxWidth()

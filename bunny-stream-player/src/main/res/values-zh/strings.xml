@@ -8,4 +8,5 @@
     <string name="label_video_settings_captions_disabled">已禁用</string>
     <string name="label_video_settings_audio_track">音轨</string>
     <string name="label_drm_not_supported_exception">此视频已启用DRM，此设备不支持播放。</string>
+    <string name="error_video_not_available">视频不可用</string>
 </resources>

@@ -1,5 +1,6 @@
 package net.bunny.bunnystreamplayer.livestream
 
+import androidx.media3.common.PlaybackException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -14,6 +15,7 @@ import net.bunny.api.livestream.domain.model.LiveStreamList
 import net.bunny.api.livestream.domain.model.LiveStreamPlayData
 import net.bunny.api.livestream.domain.model.LiveStreamThumbnail
 import net.bunny.api.model.LiveStreamStatus
+import net.bunny.bunnystreamplayer.PlaybackFailureInfo
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -389,6 +391,139 @@ class BunnyLiveStreamPlayerViewModelTest {
         }
     }
 
+    @Test
+    fun `blocked playback failure is terminal and stops polling`() {
+        // The CDN answered 403 (geo-blocking, hotlink protection, expired token — not told apart).
+        // Product decision: show "Video is not available" and stop; no rebuild loop, no re-poll.
+        val pollCount = AtomicInteger(0)
+        val repo = FakeRepo(
+            pollResult = {
+                pollCount.incrementAndGet()
+                BunnyResult.Ok(runningStream())
+            },
+            playData = { BunnyResult.Ok(playDataWithUrl("https://live.test/p.m3u8")) },
+        )
+        val vm = newVm(repo)
+        try {
+            vm.start(libraryId = 1L, streamId = "s")
+            scheduler.runCurrent()
+            vm.onForeground()
+            scheduler.runCurrent()
+            assertTrue(vm.state.value is LiveStreamPlayerState.LivePlay)
+            val pollsBefore = pollCount.get()
+            val tokenBefore = vm.playerRebuildToken.value
+
+            val info = failureInfo(httpStatus = 403)
+            vm.onPlaybackFailure(info)
+            scheduler.runCurrent()
+            assertEquals(info.userMessage, vm.terminalError.value)
+
+            // Twelve poll intervals pass — nothing may fire and nothing may rebuild.
+            scheduler.advanceTimeBy(60_000L)
+            scheduler.runCurrent()
+            assertEquals("no polls after a blocked stream", pollsBefore, pollCount.get())
+            assertEquals(
+                "no rebuild for a blocked stream",
+                tokenBefore,
+                vm.playerRebuildToken.value,
+            )
+        } finally {
+            vm.onBackground()
+        }
+    }
+
+    @Test
+    fun `non-blocked playback failure keeps the recovery loop`() {
+        // A 404 on the manifest is routine while the stream is RUNNING but the playlist isn't
+        // published yet — it must still go through re-poll + rebuild, never the terminal panel.
+        val pollCount = AtomicInteger(0)
+        val repo = FakeRepo(
+            pollResult = {
+                pollCount.incrementAndGet()
+                BunnyResult.Ok(runningStream())
+            },
+            playData = { BunnyResult.Ok(playDataWithUrl("https://live.test/p.m3u8")) },
+        )
+        val vm = newVm(repo)
+        try {
+            vm.start(libraryId = 1L, streamId = "s")
+            scheduler.runCurrent()
+            vm.onForeground()
+            scheduler.runCurrent()
+            assertTrue(vm.state.value is LiveStreamPlayerState.LivePlay)
+            val pollsBefore = pollCount.get()
+
+            vm.onPlaybackFailure(failureInfo(httpStatus = 404))
+            scheduler.runCurrent()
+
+            assertNull("a 404 is transient, never terminal", vm.terminalError.value)
+            assertTrue("failure should trigger an immediate poll", pollCount.get() > pollsBefore)
+            assertEquals(
+                "still-live stream should request a player rebuild",
+                1,
+                vm.playerRebuildToken.value,
+            )
+        } finally {
+            vm.onBackground()
+        }
+    }
+
+    @Test
+    fun `blocked playback failure cancels the pending deferred recovery`() {
+        // A transient failure inside the throttle window leaves one deferred recovery armed. The
+        // 403 that lands next must disarm it — otherwise, one interval later, it would re-poll and
+        // rebuild the player straight over the terminal panel.
+        val pollCount = AtomicInteger(0)
+        val repo = FakeRepo(
+            pollResult = {
+                pollCount.incrementAndGet()
+                BunnyResult.Ok(runningStream())
+            },
+            playData = { BunnyResult.Ok(playDataWithUrl("https://live.test/p.m3u8")) },
+        )
+        val vm = newVm(repo)
+        try {
+            vm.start(libraryId = 1L, streamId = "s")
+            scheduler.runCurrent()
+            vm.onForeground()
+            scheduler.runCurrent()
+            assertTrue(vm.state.value is LiveStreamPlayerState.LivePlay)
+
+            vm.onPlaybackFailure(failureInfo(httpStatus = 404))
+            scheduler.runCurrent()
+            vm.onPlaybackFailure(failureInfo(httpStatus = 404)) // inside the window — deferred
+            scheduler.runCurrent()
+            assertEquals("first recovery rebuilt, second is deferred", 1, vm.playerRebuildToken.value)
+
+            val blocked = failureInfo(httpStatus = 403)
+            vm.onPlaybackFailure(blocked)
+            scheduler.runCurrent()
+            val pollsAtTerminal = pollCount.get()
+            val tokenAtTerminal = vm.playerRebuildToken.value
+
+            // The throttle window closes, with margin — the deferred recovery must not fire.
+            scheduler.advanceTimeBy(6_000L)
+            scheduler.runCurrent()
+            assertEquals(blocked.userMessage, vm.terminalError.value)
+            assertEquals("no poll after the terminal point", pollsAtTerminal, pollCount.get())
+            assertEquals(
+                "no rebuild after the terminal point",
+                tokenAtTerminal,
+                vm.playerRebuildToken.value,
+            )
+        } finally {
+            vm.onBackground()
+        }
+    }
+
+    @Test
+    fun `blocked playback failure before start is ignored`() {
+        val vm = newVm(FakeRepo(pollResult = { BunnyResult.Ok(runningStream()) }))
+        vm.onPlaybackFailure(failureInfo(httpStatus = 403))
+        scheduler.runCurrent()
+        assertNull(vm.terminalError.value)
+    }
+
     // region — Fixtures
 
     private fun newVm(repo: LiveStreamRepository): BunnyLiveStreamPlayerViewModel =
@@ -398,6 +533,18 @@ class BunnyLiveStreamPlayerViewModelTest {
             nowEpochMs = { 0L },
             pollIntervalMs = 5_000L,
         )
+
+    /** The engine's structured report for a bad HTTP status, shaped as DefaultBunnyPlayer builds it. */
+    private fun failureInfo(httpStatus: Int): PlaybackFailureInfo {
+        val raw = "ERROR_CODE_IO_BAD_HTTP_STATUS: Source error"
+        return PlaybackFailureInfo(
+            errorCode = PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS,
+            errorCodeName = "ERROR_CODE_IO_BAD_HTTP_STATUS",
+            httpStatus = httpStatus,
+            rawMessage = raw,
+            userMessage = if (httpStatus == 403) "Video is not available" else raw,
+        )
+    }
 
     private fun runningStream() = LiveStream(
         id = "s",

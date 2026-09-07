@@ -40,6 +40,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import net.bunny.bunnystreamplayer.ui.widget.BunnyPlayerView
+import net.bunny.player.R
 import net.bunny.api.BunnyCdn
 import net.bunny.api.playback.DefaultPlaybackPositionManager
 import net.bunny.api.playback.PlaybackPosition
@@ -176,6 +177,14 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
             playerStateListener?.onRetentionGraphUpdated(retentionData)
         }
 
+    /**
+     * SDK-internal companion to [playerStateListener] for the structured failure report. Fires
+     * before [PlayerStateListener.onPlayerError] so the SDK's own surfaces can settle their state
+     * first. Not part of [BunnyPlayer]: the public interface only speaks in messages, and a
+     * Kotlin interface cannot carry an internal member.
+     */
+    internal var playbackFailureInfoListener: ((PlaybackFailureInfo) -> Unit)? = null
+
     private var mediaItem: MediaItem? = null
     private var mediaItemBuilder: MediaItem.Builder? = null
 
@@ -263,7 +272,17 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
                 }
             }
 
-            playerStateListener?.onPlayerError("${error.errorCodeName}: ${error.message}")
+            val info = PlaybackFailureInfo.from(error) {
+                context.getString(R.string.error_video_not_available)
+            }
+            // The real reason always lands in logcat for the integrator. Viewers of a blocked
+            // stream (HTTP 403: geo-blocking, hotlink protection, expired token — not told apart)
+            // only ever get the generic copy.
+            Log.w(TAG, "playback failure http=${info.httpStatus} ${info.rawMessage}")
+            // SDK surfaces get the structured report first so they can settle their own state
+            // before the public callback paints the built-in error banner.
+            playbackFailureInfoListener?.invoke(info)
+            playerStateListener?.onPlayerError(info.userMessage)
         }
     }
 

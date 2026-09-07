@@ -459,6 +459,7 @@ private fun VideoItem(
                         .crossfade(true)
                         .build(),
                     contentDescription = null,
+                    error = painterResource(R.drawable.thumbnail_placeholder),
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.matchParentSize()
                 )

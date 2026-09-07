@@ -53,6 +53,8 @@ import net.bunny.api.BunnyCdn
 import com.google.android.gms.cast.framework.CastButtonFactory
 import net.bunny.api.settings.capitalizeWords
 import net.bunny.api.settings.domain.model.PlayerSettings
+import net.bunny.bunnystreamplayer.DefaultBunnyPlayer
+import net.bunny.bunnystreamplayer.PlaybackFailureInfo
 import net.bunny.bunnystreamplayer.PlayerStateListener
 import net.bunny.bunnystreamplayer.PlayerType
 import net.bunny.bunnystreamplayer.common.BunnyPlayer
@@ -241,6 +243,13 @@ class BunnyPlayerView @JvmOverloads constructor(
     var onPlaybackError: ((message: String) -> Unit)? = null
 
     /**
+     * Structured counterpart of [onPlaybackError] for the SDK's own surfaces. Fires before it,
+     * straight from the engine, and carries the HTTP status behind the failure — what the live
+     * player needs to tell a blocked stream (403) from a transient error it can recover from.
+     */
+    internal var onPlaybackFailureInfo: ((PlaybackFailureInfo) -> Unit)? = null
+
+    /**
      * Invoked whenever the playback rate changes, including the rate the engine restores by itself
      * when [net.bunny.bunnystreamplayer.config.PlaybackSpeedConfig.rememberLastSpeed] is on.
      *
@@ -282,6 +291,11 @@ class BunnyPlayerView @JvmOverloads constructor(
         set(value) {
             field = value
             field?.playerStateListener = playStateListener
+            // The structured report rides along with the public listener: whichever view holds
+            // the engine's listener slot holds this one too.
+            (field as? DefaultBunnyPlayer)?.playbackFailureInfoListener = { info ->
+                onPlaybackFailureInfo?.invoke(info)
+            }
             player = bunnyPlayer?.currentPlayer
             playerSettings = value?.playerSettings
             setPlayerControls()
@@ -1077,7 +1091,11 @@ class BunnyPlayerView @JvmOverloads constructor(
         val glideUrl = GlideUrl(url) {
             mapOf("Referer" to BunnyCdn.REFERER)
         }
-        Glide.with(context).load(glideUrl).into(thumbnail)
+        // A thumbnail the CDN refuses to serve falls back to a neutral placeholder, silently.
+        Glide.with(context)
+            .load(glideUrl)
+            .error(R.drawable.bunny_thumbnail_placeholder)
+            .into(thumbnail)
     }
 
     fun showError(message: String) {

@@ -31,6 +31,7 @@ import net.bunny.api.playback.ResumePositionListener
 import net.bunny.api.settings.domain.model.PlayerSettings
 import net.bunny.api.livestream.domain.model.LiveStreamPlayData
 import net.bunny.bunnystreamplayer.livestream.livePlayerSettings
+import net.bunny.bunnystreamplayer.PlaybackFailureInfo
 import net.bunny.bunnystreamplayer.DefaultBunnyPlayer
 import net.bunny.bunnystreamplayer.cmcd.CmcdStreamType
 import net.bunny.bunnystreamplayer.common.DeviceType
@@ -166,6 +167,17 @@ class BunnyStreamPlayer @JvmOverloads constructor(
         get() = playerView.onPlaybackError
         set(value) {
             playerView.onPlaybackError = value
+        }
+
+    /**
+     * Structured counterpart of [onPlaybackError] for the SDK's own surfaces: fires first and
+     * carries the HTTP status behind the failure, so the live player can tell a blocked stream
+     * (403) from a transient error. Forwards to [BunnyPlayerView.onPlaybackFailureInfo].
+     */
+    internal var onPlaybackFailureInfo: ((PlaybackFailureInfo) -> Unit)?
+        get() = playerView.onPlaybackFailureInfo
+        set(value) {
+            playerView.onPlaybackFailureInfo = value
         }
 
     /**
