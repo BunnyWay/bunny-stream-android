@@ -39,8 +39,8 @@ android {
         applicationId = "net.bunny.android.demo"
         minSdk = 26
         targetSdk = 36
-        versionCode = 19
-        versionName = "1.23"
+        versionCode = 20
+        versionName = "1.24"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
