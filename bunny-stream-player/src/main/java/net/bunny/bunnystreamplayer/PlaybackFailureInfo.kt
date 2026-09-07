@@ -11,11 +11,11 @@ import java.util.IdentityHashMap
  * What the engine knows about a playback failure, for the SDK's own surfaces.
  *
  * The public [PlayerStateListener.onPlayerError] carries a single String; this keeps what that
- * string flattens away — above all the HTTP status the CDN answered with. A 403 on the media
- * request itself (geo-blocking, hotlink protection or an expired token; deliberately not told
- * apart) means the stream is blocked for this viewer and no retry will help. [rawMessage] is the
- * developer-facing text that always goes to logcat; [userMessage] is what the viewer sees — the
- * generic "Video is not available" copy for a blocked stream, the raw message for everything else.
+ * string flattens away — above all the HTTP status the CDN answered with. Any HTTP 403
+ * (geo-blocking, hotlink protection or an expired token; deliberately not told apart) means the
+ * stream is blocked for this viewer and no retry will help. [rawMessage] is the developer-facing
+ * text that always goes to logcat; [userMessage] is what the viewer sees — the generic "Video is
+ * not available" copy for a blocked stream, the raw message for everything else.
  */
 internal data class PlaybackFailureInfo(
     val errorCode: Int,
@@ -25,15 +25,12 @@ internal data class PlaybackFailureInfo(
     val userMessage: String,
 ) {
     /**
-     * True when the CDN refused the media request outright: HTTP 403 reported as
-     * [PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS]. Terminal — never retried. A 403 that
-     * media3 files under another code — a refused Widevine license, reported as
-     * [PlaybackException.ERROR_CODE_DRM_LICENSE_ACQUISITION_FAILED] — is not a blocked stream,
-     * and its own message must stay visible.
+     * True whenever the failure carries an HTTP 403, wherever media3 files it in the cause chain
+     * (a blocked media request, or a refused Widevine license). Terminal — never retried. Per
+     * Bunny's decision the viewer is never told which flavour of 403 it was.
      */
     val isBlocked: Boolean
-        get() = httpStatus == HttpURLConnection.HTTP_FORBIDDEN &&
-            errorCode == PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS
+        get() = httpStatus == HttpURLConnection.HTTP_FORBIDDEN
 
     companion object {
         /**

@@ -15,10 +15,9 @@ import org.junit.Test
 import java.io.IOException
 
 /**
- * Pins the rule behind "Video is not available": a 403 on the media request counts as blocked
- * wherever media3 buried it in the cause chain, a 403 filed under any other code (a refused
- * license) does not, nothing else does either, and a broken chain can't hang the engine's error
- * callback.
+ * Pins the rule behind "Video is not available": any HTTP 403 counts as blocked wherever media3
+ * buried it in the cause chain, nothing else does, and a broken chain can't hang the engine's
+ * error callback.
  *
  * [HttpDataSource.InvalidResponseCodeException] is built for real — it is final and its only
  * constructor wants a [DataSpec]; [StubUri] is what makes that possible on the plain JVM.
@@ -73,13 +72,14 @@ class PlaybackFailureInfoTest {
     }
 
     @Test
-    fun `isBlocked is true only for a bad-http-status 403`() {
+    fun `isBlocked is true for any 403 regardless of error code`() {
         assertTrue(info(httpStatus = 403).isBlocked)
         assertFalse(info(httpStatus = 401).isBlocked)
         assertFalse(info(httpStatus = 404).isBlocked)
         assertFalse(info(httpStatus = null).isBlocked)
-        // Same status, another code: the 403 came from somewhere else in the chain.
-        assertFalse(
+        // A 403 media3 filed under another code (a refused license) is still blocked: per Bunny's
+        // decision every 403 shows the generic copy, whatever code carries it.
+        assertTrue(
             info(
                 httpStatus = 403,
                 errorCode = PlaybackException.ERROR_CODE_DRM_LICENSE_ACQUISITION_FAILED,
@@ -88,11 +88,10 @@ class PlaybackFailureInfoTest {
     }
 
     @Test
-    fun `a 403 on the license request is not a blocked stream`() {
+    fun `a 403 on the license request is a blocked stream too`() {
         // The shape media3 raises for a refused Widevine license: PlaybackException(DRM code) ->
         // DrmSessionException -> MediaDrmCallbackException -> InvalidResponseCodeException(403).
-        // The status is still found, but the verdict follows the code: media3 already names this
-        // failure, and swapping in the generic copy would hide it.
+        // Bunny's rule is "whenever 403", so the status alone decides — this reads as blocked.
         val license = DataSpec(StubUri("https://video.bunnycdn.com/WidevineLicense/1/v"))
         val error = PlaybackException(
             "DRM license acquisition failed",
@@ -106,13 +105,9 @@ class PlaybackFailureInfoTest {
         var resolved = false
         val info = PlaybackFailureInfo.from(error) { resolved = true; "Video is not available" }
         assertEquals(403, info.httpStatus)
-        assertFalse(info.isBlocked)
-        assertEquals(
-            "ERROR_CODE_DRM_LICENSE_ACQUISITION_FAILED: DRM license acquisition failed",
-            info.rawMessage,
-        )
-        assertEquals(info.rawMessage, info.userMessage)
-        assertFalse(resolved)
+        assertTrue(info.isBlocked)
+        assertEquals("Video is not available", info.userMessage)
+        assertTrue(resolved)
     }
 
     @Test
