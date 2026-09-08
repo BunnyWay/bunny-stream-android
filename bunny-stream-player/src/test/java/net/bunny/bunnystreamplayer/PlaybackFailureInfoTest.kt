@@ -13,6 +13,8 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.IOException
+import java.net.ConnectException
+import java.net.UnknownHostException
 
 /**
  * Pins the rule behind "Video is not available": any HTTP 403 counts as blocked wherever media3
@@ -135,7 +137,73 @@ class PlaybackFailureInfoTest {
         assertFalse(resolved)
     }
 
+    @Test
+    fun `a dns sinkhole connection failure is a blocked stream`() {
+        // The shape media3 raises when Bunny's "Blocked countries" rejects the host at the DNS
+        // level: the CDN name resolves to 127.0.0.1, the socket connect is refused and nothing
+        // ever answers with a status code.
+        val error = PlaybackException(
+            "Source error",
+            HttpDataSource.HttpDataSourceException(
+                connectError("vz-test.b-cdn.net/127.0.0.1:443"),
+                DataSpec(StubUri("https://vz-test.b-cdn.net/s/playlist.m3u8")),
+                PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED,
+                HttpDataSource.HttpDataSourceException.TYPE_OPEN,
+            ),
+            PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED,
+        )
+
+        var resolved = false
+        val info = PlaybackFailureInfo.from(error) { resolved = true; "Video is not available" }
+        assertNull(info.httpStatus)
+        assertEquals("127.0.0.1", info.sinkholeAddress)
+        assertTrue(info.isBlocked)
+        assertEquals("Video is not available", info.userMessage)
+        assertTrue(resolved)
+    }
+
+    @Test
+    fun `a connection failure to a real address is not a blocked stream`() {
+        // A genuine outage: the host resolved to a public edge but the socket never came up. It
+        // must stay transient, so live keeps retrying and the raw message is kept.
+        val error = PlaybackException(
+            "Source error",
+            connectError("vz-test.b-cdn.net/185.59.220.199:443"),
+            PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED,
+        )
+
+        var resolved = false
+        val info = PlaybackFailureInfo.from(error) { resolved = true; "Video is not available" }
+        assertNull(info.sinkholeAddress)
+        assertFalse(info.isBlocked)
+        assertEquals(info.rawMessage, info.userMessage)
+        assertFalse(resolved)
+    }
+
+    @Test
+    fun `sinkholeAddress recognises the unspecified and ipv6 loopback forms`() {
+        assertEquals("0.0.0.0", connectError("h/0.0.0.0:443").sinkholeAddress())
+        assertEquals("::1", connectError("h/[::1]:443").sinkholeAddress())
+        assertEquals("::1", connectError("h/::1:443").sinkholeAddress())
+        assertEquals(
+            "127.0.0.53",
+            buried(connectError("h/127.0.0.53:443"), depth = 3).sinkholeAddress(),
+        )
+    }
+
+    @Test
+    fun `sinkholeAddress is null without a connect failure or without an address`() {
+        assertNull(UnknownHostException("vz-test.b-cdn.net").sinkholeAddress())
+        assertNull(ConnectException("Connection refused").sinkholeAddress())
+        assertNull(httpError(403).sinkholeAddress())
+        assertNull(IOException("plain").sinkholeAddress())
+    }
+
     // region — Fixtures
+
+    /** The message Android's OkHttp puts on a refused socket connect. */
+    private fun connectError(socketAddress: String) =
+        ConnectException("Failed to connect to $socketAddress")
 
     private fun httpError(status: Int) = HttpDataSource.InvalidResponseCodeException(
         status,

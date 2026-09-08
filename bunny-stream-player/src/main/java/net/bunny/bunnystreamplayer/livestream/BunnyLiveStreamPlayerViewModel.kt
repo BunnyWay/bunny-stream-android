@@ -496,7 +496,10 @@ public open class BunnyLiveStreamPlayerViewModel internal constructor(
             onPlaybackFailure(info.rawMessage)
             return
         }
-        Log.w(TAG, "playback blocked with HTTP ${info.httpStatus} — stopping: ${info.rawMessage}")
+        Log.w(
+            TAG,
+            "playback blocked (http=${info.httpStatus}, sinkhole=${info.sinkholeAddress}) - stopping: ${info.rawMessage}",
+        )
         terminated = true
         deferredRecoveryJob?.cancel()
         pollJob?.cancel()

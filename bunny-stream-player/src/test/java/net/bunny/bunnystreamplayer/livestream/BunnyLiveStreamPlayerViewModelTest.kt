@@ -433,6 +433,47 @@ class BunnyLiveStreamPlayerViewModelTest {
     }
 
     @Test
+    fun `dns sinkhole playback failure is terminal like a 403`() {
+        // Bunny's "Blocked countries" rejects the CDN host at the DNS level: it resolves to
+        // 127.0.0.1 and the connect is refused, so there is no status code at all. It still has
+        // to end the same way as a 403 - panel up, polling and rebuilds off.
+        val pollCount = AtomicInteger(0)
+        val repo = FakeRepo(
+            pollResult = {
+                pollCount.incrementAndGet()
+                BunnyResult.Ok(runningStream())
+            },
+            playData = { BunnyResult.Ok(playDataWithUrl("https://live.test/p.m3u8")) },
+        )
+        val vm = newVm(repo)
+        try {
+            vm.start(libraryId = 1L, streamId = "s")
+            scheduler.runCurrent()
+            vm.onForeground()
+            scheduler.runCurrent()
+            assertTrue(vm.state.value is LiveStreamPlayerState.LivePlay)
+            val pollsBefore = pollCount.get()
+            val tokenBefore = vm.playerRebuildToken.value
+
+            val info = sinkholeInfo()
+            vm.onPlaybackFailure(info)
+            scheduler.runCurrent()
+            assertEquals(info.userMessage, vm.terminalError.value)
+
+            scheduler.advanceTimeBy(60_000L)
+            scheduler.runCurrent()
+            assertEquals("no polls after a sinkholed stream", pollsBefore, pollCount.get())
+            assertEquals(
+                "no rebuild for a sinkholed stream",
+                tokenBefore,
+                vm.playerRebuildToken.value,
+            )
+        } finally {
+            vm.onBackground()
+        }
+    }
+
+    @Test
     fun `non-blocked playback failure keeps the recovery loop`() {
         // A 404 on the manifest is routine while the stream is RUNNING but the playlist isn't
         // published yet — it must still go through re-poll + rebuild, never the terminal panel.
@@ -545,6 +586,16 @@ class BunnyLiveStreamPlayerViewModelTest {
             userMessage = if (httpStatus == 403) "Video is not available" else raw,
         )
     }
+
+    /** The engine's report for a DNS-level geo-block: no status, a refused connect to loopback. */
+    private fun sinkholeInfo(): PlaybackFailureInfo = PlaybackFailureInfo(
+        errorCode = PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED,
+        errorCodeName = "ERROR_CODE_IO_NETWORK_CONNECTION_FAILED",
+        httpStatus = null,
+        rawMessage = "ERROR_CODE_IO_NETWORK_CONNECTION_FAILED: Source error",
+        userMessage = "Video is not available",
+        sinkholeAddress = "127.0.0.1",
+    )
 
     private fun runningStream() = LiveStream(
         id = "s",

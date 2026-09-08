@@ -278,7 +278,10 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
             // The real reason always lands in logcat for the integrator. Viewers of a blocked
             // stream (HTTP 403: geo-blocking, hotlink protection, expired token — not told apart)
             // only ever get the generic copy.
-            Log.w(TAG, "playback failure http=${info.httpStatus} ${info.rawMessage}")
+            Log.w(
+                TAG,
+                "playback failure http=${info.httpStatus} sinkhole=${info.sinkholeAddress} ${info.rawMessage}",
+            )
             // SDK surfaces get the structured report first so they can settle their own state
             // before the public callback paints the built-in error banner.
             playbackFailureInfoListener?.invoke(info)
