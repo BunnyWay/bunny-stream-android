@@ -189,6 +189,11 @@ see [MIGRATING.md](MIGRATING.md) for before/after examples.
   "No internet connection" instead of a raw `ERROR_CODE_IO_NETWORK_CONNECTION_FAILED` — the engine
   code still goes to logcat. The outage says nothing about the video, so it stays transient: the
   live player keeps retrying and `Retry` keeps working.
+- The ended stream's recording picks up where it stopped. The recovery rebuild after a dropped
+  connection started the player from scratch, so a viewer who came back online found the recording
+  playing from the beginning instead of from the frame they were left on. The rebuild now resumes
+  at the engine's last position, unless there is nothing to resume or the viewer had already
+  reached the end.
 - The live player's recording recovers from a playback error. Once a stream had ended, its `VodPlay`
   state was marked terminated and every recovery was dropped, so a network drop — or the roughly
   30-second window in which the recording is still being finalised and answers `404` — left the

@@ -604,6 +604,9 @@ private fun BunnyPlayerSurface(
     val lastUrlState = remember { mutableStateOf<String?>(null) }
     val lastPlayDataState = remember { mutableStateOf<LiveStreamPlayData?>(null) }
     val lastRebuildTokenState = remember { mutableStateOf(0) }
+    // Whether the load already running is the ended stream's recording — the only case where the
+    // engine's position means anything to the next load.
+    val lastIsVodRecordingState = remember { mutableStateOf(false) }
     AndroidView(
         modifier = Modifier.fillMaxSize(),
         factory = { ctx ->
@@ -634,6 +637,7 @@ private fun BunnyPlayerSurface(
                 lastUrlState.value = hlsUrl
                 lastPlayDataState.value = playData
                 lastRebuildTokenState.value = rebuildToken
+                lastIsVodRecordingState.value = isVodRecording
             }
         },
         update = { view ->
@@ -651,7 +655,22 @@ private fun BunnyPlayerSurface(
             // because the stream's status changed), the server customization changed, or a
             // playback-failure recovery requested a rebuild. Re-issue so the new source /
             // customization takes effect.
-            Log.d(TAG_PLAYER, "update: switching BunnyStreamPlayer to ${hlsUrl.take(60)}")
+            // Read the engine before the rebuild tears it down: after a playback failure it sits
+            // idle but still reports the position of the frame the viewer is looking at, and a
+            // rebuild that ignored it would drop them back at 00:00 of the recording. Only when
+            // both loads are that recording — the live edge has no position worth restoring, and
+            // in the LivePlay → VOD hand-off the position belongs to the live window, not to the
+            // recording's timeline.
+            val startPositionMs = if (isVodRecording && lastIsVodRecordingState.value) {
+                resumePositionAfterRebuild(view.getCurrentPosition(), view.getDuration())
+            } else {
+                null
+            }
+            Log.d(
+                TAG_PLAYER,
+                "update: switching BunnyStreamPlayer to ${hlsUrl.take(60)} " +
+                    "startPositionMs=$startPositionMs",
+            )
             view.playLiveUrl(
                 libraryId = libraryId,
                 streamId = streamId,
@@ -660,10 +679,12 @@ private fun BunnyPlayerSurface(
                 playData = playData,
                 dvrEnabled = dvrEnabled,
                 isVodRecording = isVodRecording,
+                startPositionMs = startPositionMs,
             )
             lastUrlState.value = hlsUrl
             lastPlayDataState.value = playData
             lastRebuildTokenState.value = rebuildToken
+            lastIsVodRecordingState.value = isVodRecording
         },
     )
 }
