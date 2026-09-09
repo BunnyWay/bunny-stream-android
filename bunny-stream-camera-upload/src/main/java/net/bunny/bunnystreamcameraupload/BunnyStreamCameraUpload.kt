@@ -3,6 +3,7 @@ package net.bunny.bunnystreamcameraupload
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
+import android.content.res.ColorStateList
 import android.util.AttributeSet
 import android.util.Log
 import android.view.LayoutInflater
@@ -14,6 +15,7 @@ import androidx.core.content.res.use
 import androidx.core.view.isVisible
 import kotlinx.coroutines.Dispatchers
 import net.bunny.api.BunnyStreamApi
+import net.bunny.api.StreamApi
 import net.bunny.bunnystreamcameraupload.data.DefaultRecordingRepository
 import net.bunny.bunnystreamcameraupload.domain.DefaultStreamHandler
 import net.bunny.bunnystreamcameraupload.domain.RecordingRepository
@@ -21,6 +23,29 @@ import net.bunny.bunnystreamcameraupload.domain.StreamHandler
 import net.bunny.recording.R
 import net.bunny.recording.databinding.RecordingViewBinding
 
+/**
+ * Camera capture view of the Bunny Stream SDK. Add it to a layout:
+ *
+ * ```xml
+ * <net.bunny.bunnystreamcameraupload.BunnyStreamCameraUpload
+ *     android:id="@+id/cameraUpload"
+ *     android:layout_width="match_parent"
+ *     android:layout_height="match_parent" />
+ * ```
+ *
+ * then request the `CAMERA` and `RECORD_AUDIO` runtime permissions and call [startPreview].
+ * By default the view records the camera to a new video in your library. Set [liveStreamId]
+ * before starting to broadcast to an existing live stream instead - the SDK resolves the ingest,
+ * starts the stream on the server once connected, shows primary/backup badges and reconnects on
+ * network drops. See [StreamCameraUploadView] for the full contract.
+ *
+ * The view resolves its SDK instance when a recording starts, not when it is built, so it is safe
+ * to inflate it before `BunnyStreamApi.initialize(...)` has run. There has to be an instance by
+ * the time the user starts recording — the default one, or one assigned to [bunny].
+ *
+ * XML attributes: `brvDefaultCamera` ("back" or "front") picks the starting camera;
+ * `brvHideDefaultControls` hides the built-in controls, same as [hideDefaultControls].
+ */
 class BunnyStreamCameraUpload @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null,
@@ -33,18 +58,45 @@ class BunnyStreamCameraUpload @JvmOverloads constructor(
 
     private val binding = RecordingViewBinding.inflate(LayoutInflater.from(context), this)
 
-    private val streamRepository: RecordingRepository = DefaultRecordingRepository(Dispatchers.IO)
+    override var bunny: StreamApi? = null
+
+    private val streamRepository: RecordingRepository = DefaultRecordingRepository(
+        coroutineDispatcher = Dispatchers.IO,
+        // Resolved per call, so assigning [bunny] after the view is built still takes effect.
+        sdk = { bunny ?: BunnyStreamApi.getInstance() },
+    )
     private val streamHandler: StreamHandler = DefaultStreamHandler(
         streamRepository = streamRepository,
         coroutineDispatcher = Dispatchers.IO
     )
 
-    private val libraryId = BunnyStreamApi.libraryId
+    override fun onDetachedFromWindow() {
+        super.onDetachedFromWindow()
+        // The view owns the camera pipeline, so once it is gone nothing can reach an active
+        // broadcast — the camera, the encoders and the server-side stream would all stay live
+        // with no handle left to stop them. Leaving the screen therefore ends the broadcast,
+        // exactly as [stopRecording] would (including the server-side stop). The surface
+        // callback already stops the bare preview; this covers the streaming pipeline.
+        if (streamHandler.isStreaming()) {
+            Log.i(TAG, "view detached mid-broadcast — stopping the stream")
+            streamHandler.stopStreaming()
+        }
+    }
 
     override var hideDefaultControls: Boolean = false
         set(value) {
             field = value
             binding.streamControls.isVisible = !value
+        }
+
+    override var liveStreamId: String? = null
+
+    override var liveIngestEndpoint: String? = null
+
+    override var dualPublish: Boolean
+        get() = streamHandler.dualPublish
+        set(value) {
+            streamHandler.dualPublish = value
         }
 
     override var closeStreamClickListener: OnClickListener? = null
@@ -109,6 +161,11 @@ class BunnyStreamCameraUpload @JvmOverloads constructor(
                 binding.mute.isActivated = muted
                 streamStateListener?.onAudioMuted(muted)
             }
+
+            override fun onIngestEndpointChanged(endpoint: IngestEndpoint, state: IngestEndpointState) {
+                updateIngestBadge(endpoint, state)
+                streamStateListener?.onIngestEndpointChanged(endpoint, state)
+            }
         }
 
         binding.switchCamera.setOnClickListener {
@@ -117,7 +174,22 @@ class BunnyStreamCameraUpload @JvmOverloads constructor(
 
         binding.startStop.setOnClickListener {
             if (!streamHandler.isStreaming()) {
-                streamHandler.startStreaming(libraryId)
+                // Resolved here rather than when the view is built. A view inflated from XML is
+                // constructed with its layout, which can happen before the SDK is initialised;
+                // reading the library id then used to freeze "no library yet" into the view for
+                // its whole life, and every recording afterwards went nowhere without an error.
+                if (bunny == null && !BunnyStreamApi.isInitialized()) {
+                    Log.e(TAG, "Unable to start, call BunnyStreamApi.initialize(...) first")
+                    return@setOnClickListener
+                }
+                val libraryId = (bunny ?: BunnyStreamApi.getInstance()).libraryId
+
+                val streamId = liveStreamId
+                if (streamId != null) {
+                    streamHandler.startLiveStreaming(libraryId, streamId, liveIngestEndpoint)
+                } else {
+                    streamHandler.startStreaming(libraryId)
+                }
             } else {
                 AlertDialog.Builder(binding.root.context)
                     .setTitle(context.getString(R.string.dialog_end_stream_title))
@@ -138,7 +210,7 @@ class BunnyStreamCameraUpload @JvmOverloads constructor(
 
         streamHandler.recordingDurationListener = object : RecordingDurationListener {
             override fun onDurationUpdated(durationMillis: Long, durationFormatted: String) {
-                val recText = context.getString(R.string.rec_status_recording)
+                val recText = context.getString(statusLabelRes())
                 binding.status.text = "$recText  •  $durationFormatted"
                 streamDurationListener?.onDurationUpdated(durationMillis, durationFormatted)
             }
@@ -187,7 +259,7 @@ class BunnyStreamCameraUpload @JvmOverloads constructor(
         binding.progress.isVisible = false
 
         binding.status.isActivated = true
-        binding.status.setText(R.string.rec_status_recording)
+        binding.status.setText(statusLabelRes())
 
         binding.close.visibility = View.INVISIBLE
     }
@@ -195,6 +267,13 @@ class BunnyStreamCameraUpload @JvmOverloads constructor(
     private fun setPreparing() {
         binding.startStop.visibility = View.INVISIBLE
         binding.progress.isVisible = true
+        // Live broadcast: reveal the Primary/Backup badges; the handler drives their colours as
+        // each ingest connects (both can be live at once in dual-publish mode).
+        if (liveStreamId != null) {
+            binding.ingestBadges.isVisible = true
+            updateIngestBadge(IngestEndpoint.PRIMARY, IngestEndpointState.OFFLINE)
+            updateIngestBadge(IngestEndpoint.BACKUP, IngestEndpointState.OFFLINE)
+        }
     }
 
     private fun setNotRecording() {
@@ -206,6 +285,26 @@ class BunnyStreamCameraUpload @JvmOverloads constructor(
         binding.status.setText(R.string.rec_status_ready)
 
         binding.close.visibility = View.VISIBLE
+        binding.ingestBadges.isVisible = false
+    }
+
+    /** "LIVE" while broadcasting to a live stream, otherwise "Recording" (VOD capture). */
+    private fun statusLabelRes(): Int =
+        if (liveStreamId != null) R.string.rec_status_live else R.string.rec_status_recording
+
+    /**
+     * Tints one ingest dot by its [state]: green = live, amber = connecting, grey = offline/standby.
+     * Each endpoint is independent, so in dual-publish mode both dots can be green at once. Mirrors
+     * the web / iOS ingest badges.
+     */
+    private fun updateIngestBadge(endpoint: IngestEndpoint, state: IngestEndpointState) {
+        val colorRes = when (state) {
+            IngestEndpointState.LIVE -> R.color.ingest_active
+            IngestEndpointState.CONNECTING -> R.color.ingest_connecting
+            IngestEndpointState.OFFLINE -> R.color.ingest_standby
+        }
+        val dot = if (endpoint == IngestEndpoint.PRIMARY) binding.primaryDot else binding.backupDot
+        dot.imageTintList = ColorStateList.valueOf(ContextCompat.getColor(context, colorRes))
     }
 
     private fun showStreamConnectionErrorDialog(message: String) {

@@ -3,7 +3,7 @@ package net.bunny.bunnystreamcameraupload.domain
 import kotlin.time.DurationUnit
 import kotlin.time.toDuration
 
-fun Long.toFormattedDuration(): String {
+internal fun Long.toFormattedDuration(): String {
     val duration = this.toDuration(DurationUnit.MILLISECONDS)
     val h = duration.inWholeSeconds / 3600
     val m = duration.inWholeSeconds % 3600 / 60

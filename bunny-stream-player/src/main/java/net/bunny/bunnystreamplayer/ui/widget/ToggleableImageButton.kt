@@ -8,7 +8,7 @@ import androidx.appcompat.widget.AppCompatImageButton
 import androidx.core.content.res.use
 import net.bunny.player.R
 
-class ToggleableImageButton @JvmOverloads constructor(
+internal class ToggleableImageButton @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null,
     defStyleAttr: Int = 0,

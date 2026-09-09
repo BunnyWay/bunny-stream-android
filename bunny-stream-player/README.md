@@ -1,117 +1,128 @@
-# BunnyStreamPlayer - Video Playback
+# bunny-stream-player
 
-BunnyStreamPlayer is an Android library that provides an easy-to-use video player implementation built on top of media3 APIs (previously ExoPlayer).
-
-## Overview
-
-This library simplifies video playback in Android applications by providing:
-
-- A flexible player component for seamless integration
-- Support for multiple video formats including HLS
-- Customizable UI components
-- Cast support for Chromecast devices
-- Built-in fullscreen handling
+Playback module of the Bunny Stream Android SDK (`net.bunny:player`), built on media3/ExoPlayer.
+Two entry points: `BunnyStreamPlayer` for videos and `BunnyLiveStreamPlayer` for live streams.
 
 ## Installation
 
-Declare dependency in your project's `build.gradle.kts`:
-```
+```kotlin
 implementation("net.bunny:player:latest.release")
 ```
 
+Requires Android 8.0 (API 26) and the `INTERNET` permission in your manifest.
+
 ## Initialization
 
-After installation, you'll need to configure the package with your Bunny credentials. Initialization is common for all modules.
+```kotlin
+BunnyStreamApi.initialize(context, accessKey = "your-api-key", libraryId = 12345L)
+```
+
+Without this call the player renders a black view and logs an error.
+
+To play from a specific library in an app that uses several, give the view its own instance:
 
 ```kotlin
-// Initialize with your access key (optional) and library ID
-BunnyStreamApi.initialize(context, accessKey, libraryId)
+videoPlayer.bunny = BunnyStreamApi.create(context, BunnyStreamConfig(key, libraryId = 12345L))
+
+// Compose, for live streams
+BunnyLiveStreamPlayer(libraryId, streamId, bunny = marketing)
 ```
 
-### Using `BunnyStreamPlayer` in Compose
+Leave `bunny` unset and the view uses the instance `initialize` registered.
 
-```kotlin
-@Composable
-fun BunnyStreamPlayerComposable(
-    videoId: String,
-    modifier: Modifier = Modifier
-) {
-    AndroidView(
-        factory = { context ->
-            BunnyStreamPlayer(context)
-        },
-        update = {
-            it.playVideo(videoId)
-        },
-        modifier = modifier.background(Color.Gray)
-    )
-}
-```
+## Play a video
 
-Full usage example can be found in demo app.
+XML:
 
-### Using `BunnyStreamPlayer` in XML Views
-
-1. Add `BunnyStreamPlayer` into your layout:
-```
+```xml
 <net.bunny.bunnystreamplayer.ui.BunnyStreamPlayer
-      android:id="@+id/videoPlayer"
-      android:layout_width="match_parent"
-      android:layout_height="match_parent"/>
+    android:id="@+id/videoPlayer"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent" />
 ```
-2. Call `playVideo()`:
-```
-bunnyStreamPlayer.playVideo(videoId)
-```
-
-`bunnyStreamPlayer` comes from `findViewById()` or from View binding.
-
-**Customizing Player:**
-
-You can customize the BunnyStreamPlayer by passing custom icons. Other costumizations like primary color, font, handling control visibilty, captions, heatmap can be controlled from the Bunny dashboard.
-
-1. Override icons you want to change from `PlayerIconSet` class:
 
 ```kotlin
-@Parcelize
-data class PlayerIconSet(
-    @DrawableRes
-    val playIcon: Int = R.drawable.ic_play_48dp,
-
-    @DrawableRes
-    val pauseIcon: Int = R.drawable.ic_pause_48dp,
-
-    @DrawableRes
-    val rewindIcon: Int = R.drawable.ic_replay_10s_48dp,
-
-    @DrawableRes
-    val forwardIcon: Int = R.drawable.ic_forward_10s_48dp,
-
-    @DrawableRes
-    val settingsIcon: Int = R.drawable.ic_settings_24dp,
-
-    @DrawableRes
-    val volumeOnIcon: Int = R.drawable.ic_volume_on_24dp,
-
-    @DrawableRes
-    val volumeOffIcon: Int = R.drawable.ic_volume_off_24dp,
-
-    @DrawableRes
-    val fullscreenOnIcon: Int = R.drawable.ic_fullscreen_24dp,
-
-    @DrawableRes
-    val fullscreenOffIcon: Int = R.drawable.ic_fullscreen_exit_24dp,
-) : Parcelable
-```
-2. Set new icon set:
-```
-bunnyStreamPlayer.iconSet = newIconSet
+binding.videoPlayer.playVideo(videoId = "your-video-guid")
 ```
 
-Full player usage example and permissions handling can be found in demo app.
+Compose:
 
-For more information, see [class level documentation](docs/index.md).
+```kotlin
+AndroidView(
+    factory = { context -> BunnyStreamPlayer(context) },
+    update = { it.playVideo(videoId) },
+)
+```
+
+The player brings its own controls: play/pause, seek bar with preview thumbnails, chapters,
+moments, captions, quality and speed menus, fullscreen, Chromecast, Picture-in-Picture. Resume
+positions and speed behaviour are opt-in - see [Play a video](../docs/guides/play-a-video.md).
+
+## Play a live stream
+
+Compose-only:
+
+```kotlin
+BunnyLiveStreamPlayer(libraryId = 12345L, streamId = "stream-guid")
+```
+
+The live player follows the stream on its own: countdown for scheduled streams, a looping muted
+pre-stream trailer, automatic connect when the stream goes live, DVR seeking, recovery after
+hiccups, and the switch to the recording once the stream ends. Details:
+[Play a live stream](../docs/guides/play-a-live-stream.md).
+
+## Appearance
+
+Colors, captions styling and the player language come from the library's player settings in the
+Bunny dashboard. (The dashboard's list of visible controls is applied to live playback; VOD shows
+the full control bar.) In code you can replace the control icons:
+
+```kotlin
+binding.videoPlayer.iconSet = PlayerIconSet(
+    playIcon = R.drawable.my_play,
+    pauseIcon = R.drawable.my_pause,
+)
+```
+
+To drop the built-in chrome altogether and drive playback from your own UI:
+
+```kotlin
+binding.videoPlayer.controlsEnabled = false
+```
+
+The video surface is then bare and taps on it do nothing. Playback errors are still shown and
+reported through `onPlaybackError`. See
+[Play a video](../docs/guides/play-a-video.md#your-own-controls-instead-of-the-built-in-ones).
+
+## Picture-in-Picture
+
+The player shows a PiP button whenever the player settings include the `pip` control and the
+device supports it. **Entering PiP requires opt-in from the host Activity** - without it the
+button is a silent no-op. Add to the Activity that hosts the player (and keep `configChanges` so
+the window resize doesn't recreate it):
+
+```xml
+<activity
+    android:name=".YourPlayerActivity"
+    android:supportsPictureInPicture="true"
+    android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation" />
+```
+
+The SDK handles the rest: playback keeps running inside the PiP window, the window uses the
+video's real aspect ratio, and dismissing the window pauses playback.
+
+## Guides
+
+- [Play a video](../docs/guides/play-a-video.md)
+- [Play a live stream](../docs/guides/play-a-live-stream.md)
+- [Secure playback](../docs/guides/secure-playback.md) (tokens, hotlink protection)
+- [Picture-in-Picture and Chromecast](../docs/guides/picture-in-picture-and-cast.md)
+- [Troubleshooting](../docs/guides/troubleshooting.md)
+
+## Reference
+
+[API reference](https://bunnyway.github.io/bunny-stream-android/api/) (generated from the source)
 
 ## License
 
-Bunny Stream Android is licensed under the [MIT License](LICENSE). See the LICENSE file for more details.
+Bunny Stream Android is licensed under the [MIT License](../LICENSE).

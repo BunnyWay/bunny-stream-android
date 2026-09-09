@@ -1,13 +1,12 @@
 plugins {
     id("com.android.library")
-    id("org.jetbrains.kotlin.android")
     id("org.jetbrains.dokka")
-    id("org.jetbrains.kotlin.plugin.compose") version "2.1.20"
+    id("org.jetbrains.kotlin.plugin.compose") version "2.2.20"
 }
 
 android {
     namespace = "net.bunny.recording"
-    compileSdk = 35
+    compileSdk = 36
 
     viewBinding.enable = true
 
@@ -40,9 +39,6 @@ android {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
-    kotlinOptions {
-        jvmTarget = "11"
-    }
     composeOptions {
         kotlinCompilerExtensionVersion = "1.5.14" // Replace with the correct version
     }
@@ -50,16 +46,7 @@ android {
 
 }
 
-tasks.dokkaGfm {
-    outputDirectory.set(file("docs"))
-    dependsOn("compileDebugKotlin", "compileDebugSources")
 
-    dokkaSourceSets {
-        named("main") {
-            moduleName.set("BunnyStreamCameraUpload")
-        }
-    }
-}
 
 dependencies {
     // Project module dependency
@@ -67,11 +54,11 @@ dependencies {
 
     // AndroidX and Material
     // https://developer.android.com/jetpack/androidx/releases/core
-    implementation("androidx.core:core-ktx:1.15.0")
+    implementation("androidx.core:core-ktx:1.18.0")
     // https://developer.android.com/jetpack/androidx/releases/appcompat
-    implementation("androidx.appcompat:appcompat:1.7.0")
+    implementation("androidx.appcompat:appcompat:1.7.1")
     // https://github.com/material-components/material-components-android
-    implementation("com.google.android.material:material:1.12.0")
+    implementation("com.google.android.material:material:1.14.0")
 
 
     // Jetpack Compose BOM for consistent versioning
@@ -86,16 +73,37 @@ dependencies {
     // https://junit.org/junit4/
     testImplementation("junit:junit:4.13.2")
     // https://developer.android.com/jetpack/androidx/releases/test
-    androidTestImplementation("androidx.test.ext:junit:1.2.1")
+    androidTestImplementation("androidx.test.ext:junit:1.3.0")
     // https://developer.android.com/jetpack/androidx/releases/test#espresso
-    androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")
-
-    // Functional programming library (Arrow)
-    // https://arrow-kt.io
-    implementation("io.arrow-kt:arrow-core:2.0.1")
+    androidTestImplementation("androidx.test.espresso:espresso-core:3.7.0")
 
     // Tus client libraries (update to newer patch versions if available)
     // https://github.com/pedroSG94/RootEncoder
-    implementation("com.github.pedroSG94.RootEncoder:library:2.6.6")
-    implementation("com.github.pedroSG94.RootEncoder:extra-sources:2.6.6")
+    implementation("com.github.pedroSG94.RootEncoder:library:2.7.2")
+    implementation("com.github.pedroSG94.RootEncoder:extra-sources:2.7.2")
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
+    }
+}
+
+// API reference content. Dokka 2 runs in v2 mode (see gradle.properties), where every output is
+// configured through this extension rather than per-task.
+dokka {
+    moduleName.set("BunnyStreamCameraUpload")
+    dokkaSourceSets.configureEach {
+        // Android variant source sets (debug/release/staging) carry no sources of their own but,
+        // left unsuppressed, they break Dokka's source-link merging.
+        if (name != "main") suppress.set(true)
+        includes.from("Module.md")
+        sourceLink {
+            localDirectory.set(file("src/main/java"))
+            remoteUrl.set(
+                uri("https://github.com/BunnyWay/bunny-stream-android/tree/main/bunny-stream-camera-upload/src/main/java")
+            )
+            remoteLineSuffix.set("#L")
+        }
+    }
 }

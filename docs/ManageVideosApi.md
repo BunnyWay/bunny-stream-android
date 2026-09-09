@@ -2,36 +2,38 @@
 
 All URIs are relative to *https://video.bunnycdn.com*
 
-Method | HTTP request | Description
-------------- | ------------- | -------------
-[**videoAddCaption**](ManageVideosApi.md#videoAddCaption) | **POST** /library/{libraryId}/videos/{videoId}/captions/{srclang} | Add Caption
-[**videoCreateVideo**](ManageVideosApi.md#videoCreateVideo) | **POST** /library/{libraryId}/videos | Create Video
-[**videoDeleteCaption**](ManageVideosApi.md#videoDeleteCaption) | **DELETE** /library/{libraryId}/videos/{videoId}/captions/{srclang} | Delete Caption
-[**videoDeleteResolutions**](ManageVideosApi.md#videoDeleteResolutions) | **POST** /library/{libraryId}/videos/{videoId}/resolutions/cleanup | Cleanup Unconfigured Resolutions
-[**videoDeleteVideo**](ManageVideosApi.md#videoDeleteVideo) | **DELETE** /library/{libraryId}/videos/{videoId} | Delete Video
-[**videoFetchNewVideo**](ManageVideosApi.md#videoFetchNewVideo) | **POST** /library/{libraryId}/videos/fetch | Fetch Video
-[**videoGetVideo**](ManageVideosApi.md#videoGetVideo) | **GET** /library/{libraryId}/videos/{videoId} | Get Video
-[**videoGetVideoHeatmap**](ManageVideosApi.md#videoGetVideoHeatmap) | **GET** /library/{libraryId}/videos/{videoId}/heatmap | Get Video Heatmap
-[**videoGetVideoPlayData**](ManageVideosApi.md#videoGetVideoPlayData) | **GET** /library/{libraryId}/videos/{videoId}/play | Get Video Play Data
-[**videoGetVideoResolutions**](ManageVideosApi.md#videoGetVideoResolutions) | **GET** /library/{libraryId}/videos/{videoId}/resolutions | Video Resolutions Info
-[**videoGetVideoStatistics**](ManageVideosApi.md#videoGetVideoStatistics) | **GET** /library/{libraryId}/statistics | Get Video Statistics
-[**videoList**](ManageVideosApi.md#videoList) | **GET** /library/{libraryId}/videos | List Videos
-[**videoReencodeUsingCodec**](ManageVideosApi.md#videoReencodeUsingCodec) | **PUT** /library/{libraryId}/videos/{videoId}/outputs/{outputCodecId} | Add output codec to video
-[**videoReencodeVideo**](ManageVideosApi.md#videoReencodeVideo) | **POST** /library/{libraryId}/videos/{videoId}/reencode | Reencode Video
-[**videoRepackage**](ManageVideosApi.md#videoRepackage) | **POST** /library/{libraryId}/videos/{videoId}/repackage | Repackage Video
-[**videoSetThumbnail**](ManageVideosApi.md#videoSetThumbnail) | **POST** /library/{libraryId}/videos/{videoId}/thumbnail | Set Thumbnail
-[**videoTranscribeVideo**](ManageVideosApi.md#videoTranscribeVideo) | **POST** /library/{libraryId}/videos/{videoId}/transcribe | Transcribe Video
-[**videoUpdateVideo**](ManageVideosApi.md#videoUpdateVideo) | **POST** /library/{libraryId}/videos/{videoId} | Update Video
-[**videoUploadVideo**](ManageVideosApi.md#videoUploadVideo) | **PUT** /library/{libraryId}/videos/{videoId} | Upload Video
+| Method | HTTP request | Description |
+| ------------- | ------------- | ------------- |
+| [**videoAddCaption**](ManageVideosApi.md#videoAddCaption) | **POST** /library/{libraryId}/videos/{videoId}/captions/{srclang} | Add Caption |
+| [**videoCreateVideo**](ManageVideosApi.md#videoCreateVideo) | **POST** /library/{libraryId}/videos | Create Video |
+| [**videoDeleteCaption**](ManageVideosApi.md#videoDeleteCaption) | **DELETE** /library/{libraryId}/videos/{videoId}/captions/{srclang} | Delete Caption |
+| [**videoDeleteResolutions**](ManageVideosApi.md#videoDeleteResolutions) | **POST** /library/{libraryId}/videos/{videoId}/resolutions/cleanup | Cleanup unconfigured resolutions |
+| [**videoDeleteVideo**](ManageVideosApi.md#videoDeleteVideo) | **DELETE** /library/{libraryId}/videos/{videoId} | Delete Video |
+| [**videoFetchNewVideo**](ManageVideosApi.md#videoFetchNewVideo) | **POST** /library/{libraryId}/videos/fetch | Fetch Video |
+| [**videoFetchVideo**](ManageVideosApi.md#videoFetchVideo) | **POST** /library/{libraryId}/videos/{videoId}/fetch | Fetch Video |
+| [**videoGetVideo**](ManageVideosApi.md#videoGetVideo) | **GET** /library/{libraryId}/videos/{videoId} | Get Video |
+| [**videoGetVideoHeatmap**](ManageVideosApi.md#videoGetVideoHeatmap) | **GET** /library/{libraryId}/videos/{videoId}/heatmap | Get Video Heatmap |
+| [**videoGetVideoHeatmapData**](ManageVideosApi.md#videoGetVideoHeatmapData) | **GET** /library/{libraryId}/videos/{videoId}/play/heatmap | Get Video heatmap data |
+| [**videoGetVideoPlayData**](ManageVideosApi.md#videoGetVideoPlayData) | **GET** /library/{libraryId}/videos/{videoId}/play | Get Video play data |
+| [**videoGetVideoResolutions**](ManageVideosApi.md#videoGetVideoResolutions) | **GET** /library/{libraryId}/videos/{videoId}/resolutions | Video resolutions info |
+| [**videoGetVideoStatistics**](ManageVideosApi.md#videoGetVideoStatistics) | **GET** /library/{libraryId}/statistics | Get Video Statistics |
+| [**videoGetVideoStorageSize**](ManageVideosApi.md#videoGetVideoStorageSize) | **GET** /library/{libraryId}/videos/{videoId}/storage | Get video storage size info |
+| [**videoList**](ManageVideosApi.md#videoList) | **GET** /library/{libraryId}/videos | List Videos |
+| [**videoReencodeUsingCodec**](ManageVideosApi.md#videoReencodeUsingCodec) | **PUT** /library/{libraryId}/videos/{videoId}/outputs/{outputCodecId} | Add output codec to video |
+| [**videoReencodeVideo**](ManageVideosApi.md#videoReencodeVideo) | **POST** /library/{libraryId}/videos/{videoId}/reencode | Reencode Video |
+| [**videoRepackage**](ManageVideosApi.md#videoRepackage) | **POST** /library/{libraryId}/videos/{videoId}/repackage | Repackage Video |
+| [**videoSetThumbnail**](ManageVideosApi.md#videoSetThumbnail) | **POST** /library/{libraryId}/videos/{videoId}/thumbnail | Set Thumbnail |
+| [**videoSmartGenerate**](ManageVideosApi.md#videoSmartGenerate) | **POST** /library/{libraryId}/videos/{videoId}/smart | Trigger Smart actions |
+| [**videoTranscribeVideo**](ManageVideosApi.md#videoTranscribeVideo) | **POST** /library/{libraryId}/videos/{videoId}/transcribe | Transcribe video |
+| [**videoUpdateVideo**](ManageVideosApi.md#videoUpdateVideo) | **POST** /library/{libraryId}/videos/{videoId} | Update Video |
+| [**videoUploadVideo**](ManageVideosApi.md#videoUploadVideo) | **PUT** /library/{libraryId}/videos/{videoId} | Upload Video |
 
 
 <a id="videoAddCaption"></a>
 # **videoAddCaption**
-> StatusModel videoAddCaption(libraryId, videoId, srclang, videoAddCaptionRequest)
+> StatusModel videoAddCaption(libraryId, videoId, srclang, captionModelAdd)
 
 Add Caption
-
-Adds caption data to the specified video for the given language. The caption file should be provided as a base64 encoded string.
 
 ### Example
 ```kotlin
@@ -40,12 +42,12 @@ Adds caption data to the specified video for the given language. The caption fil
 //import org.openapitools.client.models.*
 
 val apiInstance = ManageVideosApi()
-val libraryId : kotlin.Long = 789 // kotlin.Long | The ID of the video library.
-val videoId : kotlin.String = videoId_example // kotlin.String | The unique identifier of the video.
-val srclang : kotlin.String = srclang_example // kotlin.String | The ISO 639-1 language code for the caption (e.g., 'en', 'fr').
-val videoAddCaptionRequest : VideoAddCaptionRequest =  // VideoAddCaptionRequest | Caption model including language, label, and base64 encoded captions file.
+val libraryId : kotlin.Long = 789 // kotlin.Long | 
+val videoId : kotlin.String = videoId_example // kotlin.String | 
+val srclang : kotlin.String = srclang_example // kotlin.String | 
+val captionModelAdd : CaptionModelAdd =  // CaptionModelAdd | 
 try {
-    val result : StatusModel = apiInstance.videoAddCaption(libraryId, videoId, srclang, videoAddCaptionRequest)
+    val result : StatusModel = apiInstance.videoAddCaption(libraryId, videoId, srclang, captionModelAdd)
     println(result)
 } catch (e: ClientException) {
     println("4xx response calling ManageVideosApi#videoAddCaption")
@@ -57,13 +59,12 @@ try {
 ```
 
 ### Parameters
-
-Name | Type | Description  | Notes
-------------- | ------------- | ------------- | -------------
- **libraryId** | **kotlin.Long**| The ID of the video library. |
- **videoId** | **kotlin.String**| The unique identifier of the video. |
- **srclang** | **kotlin.String**| The ISO 639-1 language code for the caption (e.g., &#39;en&#39;, &#39;fr&#39;). |
- **videoAddCaptionRequest** | [**VideoAddCaptionRequest**](VideoAddCaptionRequest.md)| Caption model including language, label, and base64 encoded captions file. |
+| **libraryId** | **kotlin.Long**|  | |
+| **videoId** | **kotlin.String**|  | |
+| **srclang** | **kotlin.String**|  | |
+| Name | Type | Description  | Notes |
+| ------------- | ------------- | ------------- | ------------- |
+| **captionModelAdd** | [**CaptionModelAdd**](CaptionModelAdd.md)|  | |
 
 ### Return type
 
@@ -83,11 +84,9 @@ Configure AccessKey:
 
 <a id="videoCreateVideo"></a>
 # **videoCreateVideo**
-> VideoModel videoCreateVideo(libraryId, videoCreateVideoRequest)
+> VideoModel videoCreateVideo(libraryId, createVideoModel)
 
 Create Video
-
-Creates a new video entry in the specified library. Provide the video details, such as title and optional thumbnail extraction time, in the request body.
 
 ### Example
 ```kotlin
@@ -96,10 +95,10 @@ Creates a new video entry in the specified library. Provide the video details, s
 //import org.openapitools.client.models.*
 
 val apiInstance = ManageVideosApi()
-val libraryId : kotlin.Long = 789 // kotlin.Long | The ID of the video library where the video will be created.
-val videoCreateVideoRequest : VideoCreateVideoRequest =  // VideoCreateVideoRequest | Video model containing details for the new video. Title is required.
+val libraryId : kotlin.Long = 789 // kotlin.Long | 
+val createVideoModel : CreateVideoModel =  // CreateVideoModel | 
 try {
-    val result : VideoModel = apiInstance.videoCreateVideo(libraryId, videoCreateVideoRequest)
+    val result : VideoModel = apiInstance.videoCreateVideo(libraryId, createVideoModel)
     println(result)
 } catch (e: ClientException) {
     println("4xx response calling ManageVideosApi#videoCreateVideo")
@@ -111,11 +110,10 @@ try {
 ```
 
 ### Parameters
-
-Name | Type | Description  | Notes
-------------- | ------------- | ------------- | -------------
- **libraryId** | **kotlin.Long**| The ID of the video library where the video will be created. |
- **videoCreateVideoRequest** | [**VideoCreateVideoRequest**](VideoCreateVideoRequest.md)| Video model containing details for the new video. Title is required. |
+| **libraryId** | **kotlin.Long**|  | |
+| Name | Type | Description  | Notes |
+| ------------- | ------------- | ------------- | ------------- |
+| **createVideoModel** | [**CreateVideoModel**](CreateVideoModel.md)|  | |
 
 ### Return type
 
@@ -139,8 +137,6 @@ Configure AccessKey:
 
 Delete Caption
 
-Deletes the caption for the specified language from the video.
-
 ### Example
 ```kotlin
 // Import classes:
@@ -148,9 +144,9 @@ Deletes the caption for the specified language from the video.
 //import org.openapitools.client.models.*
 
 val apiInstance = ManageVideosApi()
-val libraryId : kotlin.Long = 789 // kotlin.Long | The ID of the video library.
-val videoId : kotlin.String = videoId_example // kotlin.String | The unique identifier of the video.
-val srclang : kotlin.String = srclang_example // kotlin.String | The ISO 639-1 language code of the caption to be deleted.
+val libraryId : kotlin.Long = 789 // kotlin.Long | 
+val videoId : kotlin.String = videoId_example // kotlin.String | 
+val srclang : kotlin.String = srclang_example // kotlin.String | 
 try {
     val result : StatusModel = apiInstance.videoDeleteCaption(libraryId, videoId, srclang)
     println(result)
@@ -164,12 +160,11 @@ try {
 ```
 
 ### Parameters
-
-Name | Type | Description  | Notes
-------------- | ------------- | ------------- | -------------
- **libraryId** | **kotlin.Long**| The ID of the video library. |
- **videoId** | **kotlin.String**| The unique identifier of the video. |
- **srclang** | **kotlin.String**| The ISO 639-1 language code of the caption to be deleted. |
+| **libraryId** | **kotlin.Long**|  | |
+| **videoId** | **kotlin.String**|  | |
+| Name | Type | Description  | Notes |
+| ------------- | ------------- | ------------- | ------------- |
+| **srclang** | **kotlin.String**|  | |
 
 ### Return type
 
@@ -189,11 +184,9 @@ Configure AccessKey:
 
 <a id="videoDeleteResolutions"></a>
 # **videoDeleteResolutions**
-> StatusModel videoDeleteResolutions(libraryId, videoId, resolutionsToDelete, deleteNonConfiguredResolutions, deleteOriginal, deleteMp4Files, dryRun)
+> StatusModel videoDeleteResolutions(libraryId, videoId, resolutionsToDelete, deleteNonConfiguredResolutions, allResolutions, deleteOriginal, outputs, deleteMp4Files, dryRun)
 
-Cleanup Unconfigured Resolutions
-
-Cleans up unconfigured resolutions for the specified video. Query parameters allow you to specify which resolutions to delete and whether to perform a dry run without actual file deletion.
+Cleanup unconfigured resolutions
 
 ### Example
 ```kotlin
@@ -202,15 +195,17 @@ Cleans up unconfigured resolutions for the specified video. Query parameters all
 //import org.openapitools.client.models.*
 
 val apiInstance = ManageVideosApi()
-val libraryId : kotlin.Long = 789 // kotlin.Long | The ID of the video library.
-val videoId : kotlin.String = videoId_example // kotlin.String | The unique identifier of the video.
-val resolutionsToDelete : kotlin.String = resolutionsToDelete_example // kotlin.String | Comma separated list of resolutions to delete.
-val deleteNonConfiguredResolutions : kotlin.Boolean = true // kotlin.Boolean | If true, deletes resolutions that are not configured.
-val deleteOriginal : kotlin.Boolean = true // kotlin.Boolean | If true, deletes the original video file.
-val deleteMp4Files : kotlin.Boolean = true // kotlin.Boolean | If true, deletes MP4 fallback files.
-val dryRun : kotlin.Boolean = true // kotlin.Boolean | If set to true, no files will be actually deleted; only informational data is returned.
+val libraryId : kotlin.Long = 789 // kotlin.Long | 
+val videoId : kotlin.String = videoId_example // kotlin.String | 
+val resolutionsToDelete : kotlin.String = resolutionsToDelete_example // kotlin.String | 
+val deleteNonConfiguredResolutions : kotlin.Boolean = true // kotlin.Boolean | 
+val allResolutions : kotlin.Boolean = true // kotlin.Boolean | 
+val deleteOriginal : kotlin.Boolean = true // kotlin.Boolean | 
+val outputs : kotlin.String = outputs_example // kotlin.String | Outputs to clean. Supported values: hls, mp4, all
+val deleteMp4Files : kotlin.Boolean = true // kotlin.Boolean | 
+val dryRun : kotlin.Boolean = true // kotlin.Boolean | If set to true, no actual file manipulation will happen, only informational data will be returned
 try {
-    val result : StatusModel = apiInstance.videoDeleteResolutions(libraryId, videoId, resolutionsToDelete, deleteNonConfiguredResolutions, deleteOriginal, deleteMp4Files, dryRun)
+    val result : StatusModel = apiInstance.videoDeleteResolutions(libraryId, videoId, resolutionsToDelete, deleteNonConfiguredResolutions, allResolutions, deleteOriginal, outputs, deleteMp4Files, dryRun)
     println(result)
 } catch (e: ClientException) {
     println("4xx response calling ManageVideosApi#videoDeleteResolutions")
@@ -222,16 +217,17 @@ try {
 ```
 
 ### Parameters
-
-Name | Type | Description  | Notes
-------------- | ------------- | ------------- | -------------
- **libraryId** | **kotlin.Long**| The ID of the video library. |
- **videoId** | **kotlin.String**| The unique identifier of the video. |
- **resolutionsToDelete** | **kotlin.String**| Comma separated list of resolutions to delete. | [optional]
- **deleteNonConfiguredResolutions** | **kotlin.Boolean**| If true, deletes resolutions that are not configured. | [optional] [default to false]
- **deleteOriginal** | **kotlin.Boolean**| If true, deletes the original video file. | [optional] [default to false]
- **deleteMp4Files** | **kotlin.Boolean**| If true, deletes MP4 fallback files. | [optional] [default to false]
- **dryRun** | **kotlin.Boolean**| If set to true, no files will be actually deleted; only informational data is returned. | [optional] [default to false]
+| **libraryId** | **kotlin.Long**|  | |
+| **videoId** | **kotlin.String**|  | |
+| **resolutionsToDelete** | **kotlin.String**|  | [optional] |
+| **deleteNonConfiguredResolutions** | **kotlin.Boolean**|  | [optional] [default to false] |
+| **allResolutions** | **kotlin.Boolean**|  | [optional] [default to false] |
+| **deleteOriginal** | **kotlin.Boolean**|  | [optional] [default to false] |
+| **outputs** | **kotlin.String**| Outputs to clean. Supported values: hls, mp4, all | [optional] |
+| **deleteMp4Files** | **kotlin.Boolean**|  | [optional] [default to false] |
+| Name | Type | Description  | Notes |
+| ------------- | ------------- | ------------- | ------------- |
+| **dryRun** | **kotlin.Boolean**| If set to true, no actual file manipulation will happen, only informational data will be returned | [optional] [default to false] |
 
 ### Return type
 
@@ -255,8 +251,6 @@ Configure AccessKey:
 
 Delete Video
 
-Deletes the specified video permanently from the video library.
-
 ### Example
 ```kotlin
 // Import classes:
@@ -264,8 +258,8 @@ Deletes the specified video permanently from the video library.
 //import org.openapitools.client.models.*
 
 val apiInstance = ManageVideosApi()
-val libraryId : kotlin.Long = 789 // kotlin.Long | The ID of the video library.
-val videoId : kotlin.String = videoId_example // kotlin.String | The unique identifier of the video to be deleted.
+val libraryId : kotlin.Long = 789 // kotlin.Long | 
+val videoId : kotlin.String = videoId_example // kotlin.String | 
 try {
     val result : StatusModel = apiInstance.videoDeleteVideo(libraryId, videoId)
     println(result)
@@ -279,11 +273,10 @@ try {
 ```
 
 ### Parameters
-
-Name | Type | Description  | Notes
-------------- | ------------- | ------------- | -------------
- **libraryId** | **kotlin.Long**| The ID of the video library. |
- **videoId** | **kotlin.String**| The unique identifier of the video to be deleted. |
+| **libraryId** | **kotlin.Long**|  | |
+| Name | Type | Description  | Notes |
+| ------------- | ------------- | ------------- | ------------- |
+| **videoId** | **kotlin.String**|  | |
 
 ### Return type
 
@@ -303,11 +296,9 @@ Configure AccessKey:
 
 <a id="videoFetchNewVideo"></a>
 # **videoFetchNewVideo**
-> StatusModel videoFetchNewVideo(libraryId, videoFetchNewVideoRequest, collectionId, thumbnailTime)
+> StatusModel videoFetchNewVideo(libraryId, fetchVideoRequest, collectionId, thumbnailTime)
 
 Fetch Video
-
-Fetches a video from a remote URL and adds it to the specified library. Optional parameters allow you to specify a collection and the time (in ms) to extract a thumbnail.
 
 ### Example
 ```kotlin
@@ -316,12 +307,12 @@ Fetches a video from a remote URL and adds it to the specified library. Optional
 //import org.openapitools.client.models.*
 
 val apiInstance = ManageVideosApi()
-val libraryId : kotlin.Long = 789 // kotlin.Long | The ID of the video library.
-val videoFetchNewVideoRequest : VideoFetchNewVideoRequest =  // VideoFetchNewVideoRequest | Fetch video request model containing the URL and optional headers for the fetch operation.
-val collectionId : kotlin.String = collectionId_example // kotlin.String | Optional collection ID to assign the fetched video to.
-val thumbnailTime : kotlin.Int = 56 // kotlin.Int | Optional video time in milliseconds to extract the main video thumbnail.
+val libraryId : kotlin.Long = 789 // kotlin.Long | 
+val fetchVideoRequest : FetchVideoRequest =  // FetchVideoRequest | 
+val collectionId : kotlin.String = collectionId_example // kotlin.String | 
+val thumbnailTime : kotlin.Int = 56 // kotlin.Int | (Optional) Video time in ms to extract the main video thumbnail.
 try {
-    val result : StatusModel = apiInstance.videoFetchNewVideo(libraryId, videoFetchNewVideoRequest, collectionId, thumbnailTime)
+    val result : StatusModel = apiInstance.videoFetchNewVideo(libraryId, fetchVideoRequest, collectionId, thumbnailTime)
     println(result)
 } catch (e: ClientException) {
     println("4xx response calling ManageVideosApi#videoFetchNewVideo")
@@ -333,13 +324,71 @@ try {
 ```
 
 ### Parameters
+| **libraryId** | **kotlin.Long**|  | |
+| **fetchVideoRequest** | [**FetchVideoRequest**](FetchVideoRequest.md)|  | |
+| **collectionId** | **kotlin.String**|  | [optional] |
+| Name | Type | Description  | Notes |
+| ------------- | ------------- | ------------- | ------------- |
+| **thumbnailTime** | **kotlin.Int**| (Optional) Video time in ms to extract the main video thumbnail. | [optional] |
 
-Name | Type | Description  | Notes
-------------- | ------------- | ------------- | -------------
- **libraryId** | **kotlin.Long**| The ID of the video library. |
- **videoFetchNewVideoRequest** | [**VideoFetchNewVideoRequest**](VideoFetchNewVideoRequest.md)| Fetch video request model containing the URL and optional headers for the fetch operation. |
- **collectionId** | **kotlin.String**| Optional collection ID to assign the fetched video to. | [optional]
- **thumbnailTime** | **kotlin.Int**| Optional video time in milliseconds to extract the main video thumbnail. | [optional]
+### Return type
+
+[**StatusModel**](StatusModel.md)
+
+### Authorization
+
+
+Configure AccessKey:
+    ApiClient.apiKey["AccessKey"] = ""
+    ApiClient.apiKeyPrefix["AccessKey"] = ""
+
+### HTTP request headers
+
+ - **Content-Type**: application/json
+ - **Accept**: application/json
+
+<a id="videoFetchVideo"></a>
+# **videoFetchVideo**
+> StatusModel videoFetchVideo(libraryId, videoId, fetchVideoRequest, collectionId, enabledResolutions, lowPriority, thumbnailTime)
+
+Fetch Video
+
+### Example
+```kotlin
+// Import classes:
+//import org.openapitools.client.infrastructure.*
+//import org.openapitools.client.models.*
+
+val apiInstance = ManageVideosApi()
+val libraryId : kotlin.Long = 789 // kotlin.Long | 
+val videoId : kotlin.String = videoId_example // kotlin.String | 
+val fetchVideoRequest : FetchVideoRequest =  // FetchVideoRequest | 
+val collectionId : kotlin.String = collectionId_example // kotlin.String | 
+val enabledResolutions : kotlin.String = enabledResolutions_example // kotlin.String | 
+val lowPriority : kotlin.Boolean = true // kotlin.Boolean | 
+val thumbnailTime : kotlin.Int = 56 // kotlin.Int | (Optional) Video time in ms to extract the main video thumbnail.
+try {
+    val result : StatusModel = apiInstance.videoFetchVideo(libraryId, videoId, fetchVideoRequest, collectionId, enabledResolutions, lowPriority, thumbnailTime)
+    println(result)
+} catch (e: ClientException) {
+    println("4xx response calling ManageVideosApi#videoFetchVideo")
+    e.printStackTrace()
+} catch (e: ServerException) {
+    println("5xx response calling ManageVideosApi#videoFetchVideo")
+    e.printStackTrace()
+}
+```
+
+### Parameters
+| **libraryId** | **kotlin.Long**|  | |
+| **videoId** | **kotlin.String**|  | |
+| **fetchVideoRequest** | [**FetchVideoRequest**](FetchVideoRequest.md)|  | |
+| **collectionId** | **kotlin.String**|  | [optional] |
+| **enabledResolutions** | **kotlin.String**|  | [optional] [default to &quot;&quot;] |
+| **lowPriority** | **kotlin.Boolean**|  | [optional] [default to false] |
+| Name | Type | Description  | Notes |
+| ------------- | ------------- | ------------- | ------------- |
+| **thumbnailTime** | **kotlin.Int**| (Optional) Video time in ms to extract the main video thumbnail. | [optional] |
 
 ### Return type
 
@@ -363,8 +412,6 @@ Configure AccessKey:
 
 Get Video
 
-Retrieves detailed metadata for the specified video, including status, dimensions, encoding progress, and more.
-
 ### Example
 ```kotlin
 // Import classes:
@@ -372,8 +419,8 @@ Retrieves detailed metadata for the specified video, including status, dimension
 //import org.openapitools.client.models.*
 
 val apiInstance = ManageVideosApi()
-val libraryId : kotlin.Long = 789 // kotlin.Long | The ID of the video library.
-val videoId : kotlin.String = videoId_example // kotlin.String | The unique identifier of the video.
+val libraryId : kotlin.Long = 789 // kotlin.Long | 
+val videoId : kotlin.String = videoId_example // kotlin.String | 
 try {
     val result : VideoModel = apiInstance.videoGetVideo(libraryId, videoId)
     println(result)
@@ -387,11 +434,10 @@ try {
 ```
 
 ### Parameters
-
-Name | Type | Description  | Notes
-------------- | ------------- | ------------- | -------------
- **libraryId** | **kotlin.Long**| The ID of the video library. |
- **videoId** | **kotlin.String**| The unique identifier of the video. |
+| **libraryId** | **kotlin.Long**|  | |
+| Name | Type | Description  | Notes |
+| ------------- | ------------- | ------------- | ------------- |
+| **videoId** | **kotlin.String**|  | |
 
 ### Return type
 
@@ -399,7 +445,10 @@ Name | Type | Description  | Notes
 
 ### Authorization
 
-No authorization required
+
+Configure AccessKey:
+    ApiClient.apiKey["AccessKey"] = ""
+    ApiClient.apiKeyPrefix["AccessKey"] = ""
 
 ### HTTP request headers
 
@@ -412,7 +461,7 @@ No authorization required
 
 Get Video Heatmap
 
-Retrieves the heatmap data for the specified video, indicating the percentage of watch time across the video&#39;s duration.
+Returns the attention heatmap for a specific video, showing relative viewer interest across the timeline. May be unavailable if the feature is disabled or there isn&#39;t enough viewing data.
 
 ### Example
 ```kotlin
@@ -422,7 +471,7 @@ Retrieves the heatmap data for the specified video, indicating the percentage of
 
 val apiInstance = ManageVideosApi()
 val libraryId : kotlin.Long = 789 // kotlin.Long | The ID of the video library.
-val videoId : kotlin.String = videoId_example // kotlin.String | The unique identifier of the video.
+val videoId : kotlin.String = videoId_example // kotlin.String | The GUID of the video.
 try {
     val result : VideoHeatmapModel = apiInstance.videoGetVideoHeatmap(libraryId, videoId)
     println(result)
@@ -436,11 +485,10 @@ try {
 ```
 
 ### Parameters
-
-Name | Type | Description  | Notes
-------------- | ------------- | ------------- | -------------
- **libraryId** | **kotlin.Long**| The ID of the video library. |
- **videoId** | **kotlin.String**| The unique identifier of the video. |
+| **libraryId** | **kotlin.Long**| The ID of the video library. | |
+| Name | Type | Description  | Notes |
+| ------------- | ------------- | ------------- | ------------- |
+| **videoId** | **kotlin.String**| The GUID of the video. | |
 
 ### Return type
 
@@ -458,13 +506,11 @@ Configure AccessKey:
  - **Content-Type**: Not defined
  - **Accept**: application/json
 
-<a id="videoGetVideoPlayData"></a>
-# **videoGetVideoPlayData**
-> VideoPlayDataModel videoGetVideoPlayData(libraryId, videoId, token, expires)
+<a id="videoGetVideoHeatmapData"></a>
+# **videoGetVideoHeatmapData**
+> VideoPlayDataModel videoGetVideoHeatmapData(libraryId, videoId, token, expires)
 
-Get Video Play Data
-
-Retrieves playback data for the specified video including video URLs, captions path, authentication tokens, and player settings.
+Get Video heatmap data
 
 ### Example
 ```kotlin
@@ -473,10 +519,60 @@ Retrieves playback data for the specified video including video URLs, captions p
 //import org.openapitools.client.models.*
 
 val apiInstance = ManageVideosApi()
-val libraryId : kotlin.Long = 789 // kotlin.Long | The ID of the video library.
-val videoId : kotlin.String = videoId_example // kotlin.String | The unique identifier of the video.
-val token : kotlin.String = token_example // kotlin.String | Authentication token for accessing the video playback data.
-val expires : kotlin.Long = 789 // kotlin.Long | Expiration timestamp for the provided token.
+val libraryId : kotlin.Long = 789 // kotlin.Long | 
+val videoId : kotlin.String = videoId_example // kotlin.String | 
+val token : kotlin.String = token_example // kotlin.String | 
+val expires : kotlin.Long = 789 // kotlin.Long | 
+try {
+    val result : VideoPlayDataModel = apiInstance.videoGetVideoHeatmapData(libraryId, videoId, token, expires)
+    println(result)
+} catch (e: ClientException) {
+    println("4xx response calling ManageVideosApi#videoGetVideoHeatmapData")
+    e.printStackTrace()
+} catch (e: ServerException) {
+    println("5xx response calling ManageVideosApi#videoGetVideoHeatmapData")
+    e.printStackTrace()
+}
+```
+
+### Parameters
+| **libraryId** | **kotlin.Long**|  | |
+| **videoId** | **kotlin.String**|  | |
+| **token** | **kotlin.String**|  | [optional] [default to &quot;&quot;] |
+| Name | Type | Description  | Notes |
+| ------------- | ------------- | ------------- | ------------- |
+| **expires** | **kotlin.Long**|  | [optional] [default to 0L] |
+
+### Return type
+
+[**VideoPlayDataModel**](VideoPlayDataModel.md)
+
+### Authorization
+
+No authorization required
+
+### HTTP request headers
+
+ - **Content-Type**: Not defined
+ - **Accept**: application/json
+
+<a id="videoGetVideoPlayData"></a>
+# **videoGetVideoPlayData**
+> VideoPlayDataModel videoGetVideoPlayData(libraryId, videoId, token, expires)
+
+Get Video play data
+
+### Example
+```kotlin
+// Import classes:
+//import org.openapitools.client.infrastructure.*
+//import org.openapitools.client.models.*
+
+val apiInstance = ManageVideosApi()
+val libraryId : kotlin.Long = 789 // kotlin.Long | 
+val videoId : kotlin.String = videoId_example // kotlin.String | 
+val token : kotlin.String = token_example // kotlin.String | 
+val expires : kotlin.Long = 789 // kotlin.Long | 
 try {
     val result : VideoPlayDataModel = apiInstance.videoGetVideoPlayData(libraryId, videoId, token, expires)
     println(result)
@@ -490,13 +586,12 @@ try {
 ```
 
 ### Parameters
-
-Name | Type | Description  | Notes
-------------- | ------------- | ------------- | -------------
- **libraryId** | **kotlin.Long**| The ID of the video library. |
- **videoId** | **kotlin.String**| The unique identifier of the video. |
- **token** | **kotlin.String**| Authentication token for accessing the video playback data. | [optional] [default to &quot;&quot;]
- **expires** | **kotlin.Long**| Expiration timestamp for the provided token. | [optional] [default to 0L]
+| **libraryId** | **kotlin.Long**|  | |
+| **videoId** | **kotlin.String**|  | |
+| **token** | **kotlin.String**|  | [optional] [default to &quot;&quot;] |
+| Name | Type | Description  | Notes |
+| ------------- | ------------- | ------------- | ------------- |
+| **expires** | **kotlin.Long**|  | [optional] [default to 0L] |
 
 ### Return type
 
@@ -515,9 +610,7 @@ No authorization required
 # **videoGetVideoResolutions**
 > StatusModelOfVideoResolutionsInfoModel videoGetVideoResolutions(libraryId, videoId)
 
-Video Resolutions Info
-
-Retrieves information about the available and configured resolutions for the specified video. This includes data on storage resolutions and MP4 fallback files if available.
+Video resolutions info
 
 ### Example
 ```kotlin
@@ -526,8 +619,8 @@ Retrieves information about the available and configured resolutions for the spe
 //import org.openapitools.client.models.*
 
 val apiInstance = ManageVideosApi()
-val libraryId : kotlin.Long = 789 // kotlin.Long | The ID of the video library.
-val videoId : kotlin.String = videoId_example // kotlin.String | The unique identifier of the video.
+val libraryId : kotlin.Long = 789 // kotlin.Long | 
+val videoId : kotlin.String = videoId_example // kotlin.String | 
 try {
     val result : StatusModelOfVideoResolutionsInfoModel = apiInstance.videoGetVideoResolutions(libraryId, videoId)
     println(result)
@@ -541,11 +634,10 @@ try {
 ```
 
 ### Parameters
-
-Name | Type | Description  | Notes
-------------- | ------------- | ------------- | -------------
- **libraryId** | **kotlin.Long**| The ID of the video library. |
- **videoId** | **kotlin.String**| The unique identifier of the video. |
+| **libraryId** | **kotlin.Long**|  | |
+| Name | Type | Description  | Notes |
+| ------------- | ------------- | ------------- | ------------- |
+| **videoId** | **kotlin.String**|  | |
 
 ### Return type
 
@@ -569,7 +661,7 @@ Configure AccessKey:
 
 Get Video Statistics
 
-Retrieves statistical data for videos in the specified library. Supports filtering by date range, hourly grouping, and filtering by video GUID.
+Returns time-series views and watch time, plus country-level aggregates, at the library level or for a specific video. Control the time window with dateFrom/dateTo and the granularity with hourly. Basic safeguards prevent spam and bot inflation by de-duplicating sessions and ignoring obviously invalid events.
 
 ### Example
 ```kotlin
@@ -578,11 +670,11 @@ Retrieves statistical data for videos in the specified library. Supports filteri
 //import org.openapitools.client.models.*
 
 val apiInstance = ManageVideosApi()
-val libraryId : kotlin.Long = 789 // kotlin.Long | The ID of the video library.
-val dateFrom : kotlin.String = 2013-10-20T19:20:30+01:00 // kotlin.String | Optional start date (ISO 8601 format) for the statistics. Defaults to the last 30 days if not provided.
-val dateTo : kotlin.String = 2013-10-20T19:20:30+01:00 // kotlin.String | Optional end date (ISO 8601 format) for the statistics. Defaults to the last 30 days if not provided.
-val hourly : kotlin.Boolean = true // kotlin.Boolean | If true, returns statistics data grouped by hour.
-val videoGuid : kotlin.String = videoGuid_example // kotlin.String | Optional GUID of a specific video to retrieve statistics for.
+val libraryId : kotlin.Long = 789 // kotlin.Long | 
+val dateFrom : kotlin.String = 2013-10-20T19:20:30+01:00 // kotlin.String | Optional start of the time range (UTC). If omitted or invalid, the last 30 days are returned.
+val dateTo : kotlin.String = 2013-10-20T19:20:30+01:00 // kotlin.String | Optional end of the time range (UTC). If omitted with a valid start, defaults to now; otherwise the last 30 days are returned.
+val hourly : kotlin.Boolean = true // kotlin.Boolean | Optional. If true, returns hourly data; otherwise daily (UTC). Default is daily.
+val videoGuid : kotlin.String = videoGuid_example // kotlin.String | Optional video GUID to filter results. When omitted, returns library-level aggregates.
 try {
     val result : VideoStatisticsModel = apiInstance.videoGetVideoStatistics(libraryId, dateFrom, dateTo, hourly, videoGuid)
     println(result)
@@ -596,18 +688,66 @@ try {
 ```
 
 ### Parameters
-
-Name | Type | Description  | Notes
-------------- | ------------- | ------------- | -------------
- **libraryId** | **kotlin.Long**| The ID of the video library. |
- **dateFrom** | **kotlin.String**| Optional start date (ISO 8601 format) for the statistics. Defaults to the last 30 days if not provided. | [optional]
- **dateTo** | **kotlin.String**| Optional end date (ISO 8601 format) for the statistics. Defaults to the last 30 days if not provided. | [optional]
- **hourly** | **kotlin.Boolean**| If true, returns statistics data grouped by hour. | [optional] [default to false]
- **videoGuid** | **kotlin.String**| Optional GUID of a specific video to retrieve statistics for. | [optional]
+| **libraryId** | **kotlin.Long**|  | |
+| **dateFrom** | **kotlin.String**| Optional start of the time range (UTC). If omitted or invalid, the last 30 days are returned. | [optional] |
+| **dateTo** | **kotlin.String**| Optional end of the time range (UTC). If omitted with a valid start, defaults to now; otherwise the last 30 days are returned. | [optional] |
+| **hourly** | **kotlin.Boolean**| Optional. If true, returns hourly data; otherwise daily (UTC). Default is daily. | [optional] [default to false] |
+| Name | Type | Description  | Notes |
+| ------------- | ------------- | ------------- | ------------- |
+| **videoGuid** | **kotlin.String**| Optional video GUID to filter results. When omitted, returns library-level aggregates. | [optional] |
 
 ### Return type
 
 [**VideoStatisticsModel**](VideoStatisticsModel.md)
+
+### Authorization
+
+
+Configure AccessKey:
+    ApiClient.apiKey["AccessKey"] = ""
+    ApiClient.apiKeyPrefix["AccessKey"] = ""
+
+### HTTP request headers
+
+ - **Content-Type**: Not defined
+ - **Accept**: application/json
+
+<a id="videoGetVideoStorageSize"></a>
+# **videoGetVideoStorageSize**
+> StatusModelOfVideoStorageSizeModel videoGetVideoStorageSize(libraryId, videoId)
+
+Get video storage size info
+
+### Example
+```kotlin
+// Import classes:
+//import org.openapitools.client.infrastructure.*
+//import org.openapitools.client.models.*
+
+val apiInstance = ManageVideosApi()
+val libraryId : kotlin.Long = 789 // kotlin.Long | 
+val videoId : kotlin.String = videoId_example // kotlin.String | 
+try {
+    val result : StatusModelOfVideoStorageSizeModel = apiInstance.videoGetVideoStorageSize(libraryId, videoId)
+    println(result)
+} catch (e: ClientException) {
+    println("4xx response calling ManageVideosApi#videoGetVideoStorageSize")
+    e.printStackTrace()
+} catch (e: ServerException) {
+    println("5xx response calling ManageVideosApi#videoGetVideoStorageSize")
+    e.printStackTrace()
+}
+```
+
+### Parameters
+| **libraryId** | **kotlin.Long**|  | |
+| Name | Type | Description  | Notes |
+| ------------- | ------------- | ------------- | ------------- |
+| **videoId** | **kotlin.String**|  | |
+
+### Return type
+
+[**StatusModelOfVideoStorageSizeModel**](StatusModelOfVideoStorageSizeModel.md)
 
 ### Authorization
 
@@ -627,8 +767,6 @@ Configure AccessKey:
 
 List Videos
 
-Retrieves a paginated list of videos from the specified video library. Supports filtering by search term, collection, and ordering by date.
-
 ### Example
 ```kotlin
 // Import classes:
@@ -636,12 +774,12 @@ Retrieves a paginated list of videos from the specified video library. Supports 
 //import org.openapitools.client.models.*
 
 val apiInstance = ManageVideosApi()
-val libraryId : kotlin.Long = 789 // kotlin.Long | The ID of the video library.
-val page : kotlin.Int = 56 // kotlin.Int | The page number to retrieve.
-val itemsPerPage : kotlin.Int = 56 // kotlin.Int | The number of videos per page.
-val search : kotlin.String = search_example // kotlin.String | A search term to filter videos by title or metadata.
-val collection : kotlin.String = collection_example // kotlin.String | The ID of the collection to filter videos by.
-val orderBy : kotlin.String = orderBy_example // kotlin.String | Specifies the field by which to order the video list.
+val libraryId : kotlin.Long = 789 // kotlin.Long | 
+val page : kotlin.Int = 56 // kotlin.Int | 
+val itemsPerPage : kotlin.Int = 56 // kotlin.Int | 
+val search : kotlin.String = search_example // kotlin.String | 
+val collection : kotlin.String = collection_example // kotlin.String | 
+val orderBy : kotlin.String = orderBy_example // kotlin.String | 
 try {
     val result : PaginationListOfVideoModel = apiInstance.videoList(libraryId, page, itemsPerPage, search, collection, orderBy)
     println(result)
@@ -655,15 +793,14 @@ try {
 ```
 
 ### Parameters
-
-Name | Type | Description  | Notes
-------------- | ------------- | ------------- | -------------
- **libraryId** | **kotlin.Long**| The ID of the video library. |
- **page** | **kotlin.Int**| The page number to retrieve. | [optional] [default to 1]
- **itemsPerPage** | **kotlin.Int**| The number of videos per page. | [optional] [default to 100]
- **search** | **kotlin.String**| A search term to filter videos by title or metadata. | [optional] [default to &quot;&quot;]
- **collection** | **kotlin.String**| The ID of the collection to filter videos by. | [optional] [default to &quot;&quot;]
- **orderBy** | **kotlin.String**| Specifies the field by which to order the video list. | [optional] [default to &quot;date&quot;]
+| **libraryId** | **kotlin.Long**|  | |
+| **page** | **kotlin.Int**|  | [optional] [default to 1] |
+| **itemsPerPage** | **kotlin.Int**|  | [optional] [default to 100] |
+| **search** | **kotlin.String**|  | [optional] [default to &quot;&quot;] |
+| **collection** | **kotlin.String**|  | [optional] [default to &quot;&quot;] |
+| Name | Type | Description  | Notes |
+| ------------- | ------------- | ------------- | ------------- |
+| **orderBy** | **kotlin.String**|  | [optional] [default to &quot;date&quot;] |
 
 ### Return type
 
@@ -687,8 +824,6 @@ Configure AccessKey:
 
 Add output codec to video
 
-Adds a specified output codec to the video. This enables additional encoding options for the video file.
-
 ### Example
 ```kotlin
 // Import classes:
@@ -696,9 +831,9 @@ Adds a specified output codec to the video. This enables additional encoding opt
 //import org.openapitools.client.models.*
 
 val apiInstance = ManageVideosApi()
-val libraryId : kotlin.Long = 789 // kotlin.Long | The ID of the video library.
-val videoId : kotlin.String = videoId_example // kotlin.String | The unique identifier of the video.
-val outputCodecId : EncoderOutputCodec =  // EncoderOutputCodec | The output codec to add (e.g., x264, vp9, hevc, av1).
+val libraryId : kotlin.Long = 789 // kotlin.Long | 
+val videoId : kotlin.String = videoId_example // kotlin.String | 
+val outputCodecId : EncoderOutputCodec =  // EncoderOutputCodec | 
 try {
     val result : VideoModel = apiInstance.videoReencodeUsingCodec(libraryId, videoId, outputCodecId)
     println(result)
@@ -712,12 +847,11 @@ try {
 ```
 
 ### Parameters
-
-Name | Type | Description  | Notes
-------------- | ------------- | ------------- | -------------
- **libraryId** | **kotlin.Long**| The ID of the video library. |
- **videoId** | **kotlin.String**| The unique identifier of the video. |
- **outputCodecId** | [**EncoderOutputCodec**](.md)| The output codec to add (e.g., x264, vp9, hevc, av1). | [enum: 0, 1, 2, 3]
+| **libraryId** | **kotlin.Long**|  | |
+| **videoId** | **kotlin.String**|  | |
+| Name | Type | Description  | Notes |
+| ------------- | ------------- | ------------- | ------------- |
+| **outputCodecId** | [**EncoderOutputCodec**](.md)|  | [enum: 0, 1, 2, 3] |
 
 ### Return type
 
@@ -741,8 +875,6 @@ Configure AccessKey:
 
 Reencode Video
 
-Initiates a re-encoding process for the specified video. This operation can be used to adjust encoding settings or to fix issues with the original encoding.
-
 ### Example
 ```kotlin
 // Import classes:
@@ -750,8 +882,8 @@ Initiates a re-encoding process for the specified video. This operation can be u
 //import org.openapitools.client.models.*
 
 val apiInstance = ManageVideosApi()
-val libraryId : kotlin.Long = 789 // kotlin.Long | The ID of the video library.
-val videoId : kotlin.String = videoId_example // kotlin.String | The unique identifier of the video to reencode.
+val libraryId : kotlin.Long = 789 // kotlin.Long | 
+val videoId : kotlin.String = videoId_example // kotlin.String | 
 try {
     val result : VideoModel = apiInstance.videoReencodeVideo(libraryId, videoId)
     println(result)
@@ -765,11 +897,10 @@ try {
 ```
 
 ### Parameters
-
-Name | Type | Description  | Notes
-------------- | ------------- | ------------- | -------------
- **libraryId** | **kotlin.Long**| The ID of the video library. |
- **videoId** | **kotlin.String**| The unique identifier of the video to reencode. |
+| **libraryId** | **kotlin.Long**|  | |
+| Name | Type | Description  | Notes |
+| ------------- | ------------- | ------------- | ------------- |
+| **videoId** | **kotlin.String**|  | |
 
 ### Return type
 
@@ -793,8 +924,6 @@ Configure AccessKey:
 
 Repackage Video
 
-Repackages the video, with an option to retain original files for faster future operations. This process may adjust resolution outputs and file formats.
-
 ### Example
 ```kotlin
 // Import classes:
@@ -802,9 +931,9 @@ Repackages the video, with an option to retain original files for faster future 
 //import org.openapitools.client.models.*
 
 val apiInstance = ManageVideosApi()
-val libraryId : kotlin.Long = 789 // kotlin.Long | The ID of the video library.
-val videoId : kotlin.String = videoId_example // kotlin.String | The unique identifier of the video to repackage.
-val keepOriginalFiles : kotlin.Boolean = true // kotlin.Boolean | If true, previous file versions are kept in storage, allowing for faster future repackaging. Default is true.
+val libraryId : kotlin.Long = 789 // kotlin.Long | 
+val videoId : kotlin.String = videoId_example // kotlin.String | 
+val keepOriginalFiles : kotlin.Boolean = true // kotlin.Boolean | Marks whether previous file versions should be kept in storage, allows for faster repackage later on. Default is true.
 try {
     val result : VideoModel = apiInstance.videoRepackage(libraryId, videoId, keepOriginalFiles)
     println(result)
@@ -818,12 +947,11 @@ try {
 ```
 
 ### Parameters
-
-Name | Type | Description  | Notes
-------------- | ------------- | ------------- | -------------
- **libraryId** | **kotlin.Long**| The ID of the video library. |
- **videoId** | **kotlin.String**| The unique identifier of the video to repackage. |
- **keepOriginalFiles** | **kotlin.Boolean**| If true, previous file versions are kept in storage, allowing for faster future repackaging. Default is true. | [optional] [default to true]
+| **libraryId** | **kotlin.Long**|  | |
+| **videoId** | **kotlin.String**|  | |
+| Name | Type | Description  | Notes |
+| ------------- | ------------- | ------------- | ------------- |
+| **keepOriginalFiles** | **kotlin.Boolean**| Marks whether previous file versions should be kept in storage, allows for faster repackage later on. Default is true. | [optional] [default to true] |
 
 ### Return type
 
@@ -843,11 +971,9 @@ Configure AccessKey:
 
 <a id="videoSetThumbnail"></a>
 # **videoSetThumbnail**
-> StatusModel videoSetThumbnail(libraryId, videoId, thumbnailUrl)
+> StatusModel videoSetThumbnail(libraryId, videoId, thumbnailUrl, body)
 
 Set Thumbnail
-
-Sets or updates the thumbnail image for the specified video using the provided thumbnail URL.
 
 ### Example
 ```kotlin
@@ -856,11 +982,12 @@ Sets or updates the thumbnail image for the specified video using the provided t
 //import org.openapitools.client.models.*
 
 val apiInstance = ManageVideosApi()
-val libraryId : kotlin.Long = 789 // kotlin.Long | The ID of the video library.
-val videoId : kotlin.String = videoId_example // kotlin.String | The unique identifier of the video.
-val thumbnailUrl : kotlin.String = thumbnailUrl_example // kotlin.String | The URL of the thumbnail image to set for the video.
+val libraryId : kotlin.Long = 789 // kotlin.Long | 
+val videoId : kotlin.String = videoId_example // kotlin.String | 
+val thumbnailUrl : kotlin.String = thumbnailUrl_example // kotlin.String | 
+val body : java.io.File = BINARY_DATA_HERE // java.io.File | Optional thumbnail file to upload
 try {
-    val result : StatusModel = apiInstance.videoSetThumbnail(libraryId, videoId, thumbnailUrl)
+    val result : StatusModel = apiInstance.videoSetThumbnail(libraryId, videoId, thumbnailUrl, body)
     println(result)
 } catch (e: ClientException) {
     println("4xx response calling ManageVideosApi#videoSetThumbnail")
@@ -872,12 +999,12 @@ try {
 ```
 
 ### Parameters
-
-Name | Type | Description  | Notes
-------------- | ------------- | ------------- | -------------
- **libraryId** | **kotlin.Long**| The ID of the video library. |
- **videoId** | **kotlin.String**| The unique identifier of the video. |
- **thumbnailUrl** | **kotlin.String**| The URL of the thumbnail image to set for the video. | [optional]
+| **libraryId** | **kotlin.Long**|  | |
+| **videoId** | **kotlin.String**|  | |
+| **thumbnailUrl** | **kotlin.String**|  | [optional] |
+| Name | Type | Description  | Notes |
+| ------------- | ------------- | ------------- | ------------- |
+| **body** | **java.io.File**| Optional thumbnail file to upload | [optional] |
 
 ### Return type
 
@@ -892,16 +1019,14 @@ Configure AccessKey:
 
 ### HTTP request headers
 
- - **Content-Type**: Not defined
+ - **Content-Type**: application/octet-stream
  - **Accept**: application/json
 
-<a id="videoTranscribeVideo"></a>
-# **videoTranscribeVideo**
-> StatusModel videoTranscribeVideo(libraryId, videoId, language, force, videoTranscribeVideoRequest)
+<a id="videoSmartGenerate"></a>
+# **videoSmartGenerate**
+> StatusModel videoSmartGenerate(libraryId, videoId, smartGenerateModel)
 
-Transcribe Video
-
-Initiates the transcription process for the specified video. You can optionally override the video library transcription settings using the provided request body.
+Trigger Smart actions
 
 ### Example
 ```kotlin
@@ -910,13 +1035,63 @@ Initiates the transcription process for the specified video. You can optionally 
 //import org.openapitools.client.models.*
 
 val apiInstance = ManageVideosApi()
-val libraryId : kotlin.Long = 789 // kotlin.Long | The ID of the video library.
-val videoId : kotlin.String = videoId_example // kotlin.String | The unique identifier of the video to transcribe.
-val language : kotlin.String = language_example // kotlin.String | The ISO 639-1 language code of the video source. This parameter is used only if not overridden by the request body.
-val force : kotlin.Boolean = true // kotlin.Boolean | If true, forces the transcription process even if the video has been transcribed before.
-val videoTranscribeVideoRequest : VideoTranscribeVideoRequest =  // VideoTranscribeVideoRequest | Optional transcription settings that override the default video library settings.
+val libraryId : kotlin.Long = 789 // kotlin.Long | 
+val videoId : kotlin.String = videoId_example // kotlin.String | 
+val smartGenerateModel : SmartGenerateModel =  // SmartGenerateModel | 
 try {
-    val result : StatusModel = apiInstance.videoTranscribeVideo(libraryId, videoId, language, force, videoTranscribeVideoRequest)
+    val result : StatusModel = apiInstance.videoSmartGenerate(libraryId, videoId, smartGenerateModel)
+    println(result)
+} catch (e: ClientException) {
+    println("4xx response calling ManageVideosApi#videoSmartGenerate")
+    e.printStackTrace()
+} catch (e: ServerException) {
+    println("5xx response calling ManageVideosApi#videoSmartGenerate")
+    e.printStackTrace()
+}
+```
+
+### Parameters
+| **libraryId** | **kotlin.Long**|  | |
+| **videoId** | **kotlin.String**|  | |
+| Name | Type | Description  | Notes |
+| ------------- | ------------- | ------------- | ------------- |
+| **smartGenerateModel** | [**SmartGenerateModel**](SmartGenerateModel.md)|  | |
+
+### Return type
+
+[**StatusModel**](StatusModel.md)
+
+### Authorization
+
+
+Configure AccessKey:
+    ApiClient.apiKey["AccessKey"] = ""
+    ApiClient.apiKeyPrefix["AccessKey"] = ""
+
+### HTTP request headers
+
+ - **Content-Type**: application/json
+ - **Accept**: application/json
+
+<a id="videoTranscribeVideo"></a>
+# **videoTranscribeVideo**
+> StatusModel videoTranscribeVideo(libraryId, videoId, force, transcribeSettings)
+
+Transcribe video
+
+### Example
+```kotlin
+// Import classes:
+//import org.openapitools.client.infrastructure.*
+//import org.openapitools.client.models.*
+
+val apiInstance = ManageVideosApi()
+val libraryId : kotlin.Long = 789 // kotlin.Long | 
+val videoId : kotlin.String = videoId_example // kotlin.String | 
+val force : kotlin.Boolean = true // kotlin.Boolean | 
+val transcribeSettings : TranscribeSettings =  // TranscribeSettings | Used to override video library transcription settings, null by default
+try {
+    val result : StatusModel = apiInstance.videoTranscribeVideo(libraryId, videoId, force, transcribeSettings)
     println(result)
 } catch (e: ClientException) {
     println("4xx response calling ManageVideosApi#videoTranscribeVideo")
@@ -928,14 +1103,12 @@ try {
 ```
 
 ### Parameters
-
-Name | Type | Description  | Notes
-------------- | ------------- | ------------- | -------------
- **libraryId** | **kotlin.Long**| The ID of the video library. |
- **videoId** | **kotlin.String**| The unique identifier of the video to transcribe. |
- **language** | **kotlin.String**| The ISO 639-1 language code of the video source. This parameter is used only if not overridden by the request body. | [optional]
- **force** | **kotlin.Boolean**| If true, forces the transcription process even if the video has been transcribed before. | [optional] [default to false]
- **videoTranscribeVideoRequest** | [**VideoTranscribeVideoRequest**](VideoTranscribeVideoRequest.md)| Optional transcription settings that override the default video library settings. | [optional]
+| **libraryId** | **kotlin.Long**|  | |
+| **videoId** | **kotlin.String**|  | |
+| **force** | **kotlin.Boolean**|  | [optional] [default to false] |
+| Name | Type | Description  | Notes |
+| ------------- | ------------- | ------------- | ------------- |
+| **transcribeSettings** | [**TranscribeSettings**](TranscribeSettings.md)| Used to override video library transcription settings, null by default | [optional] |
 
 ### Return type
 
@@ -955,11 +1128,9 @@ Configure AccessKey:
 
 <a id="videoUpdateVideo"></a>
 # **videoUpdateVideo**
-> StatusModel videoUpdateVideo(libraryId, videoId, videoUpdateVideoRequest)
+> StatusModel videoUpdateVideo(libraryId, videoId, updateVideoModel)
 
 Update Video
-
-Updates metadata and other details for the specified video. Provide updated fields in the request body using the UpdateVideoModel.
 
 ### Example
 ```kotlin
@@ -968,11 +1139,11 @@ Updates metadata and other details for the specified video. Provide updated fiel
 //import org.openapitools.client.models.*
 
 val apiInstance = ManageVideosApi()
-val libraryId : kotlin.Long = 789 // kotlin.Long | The ID of the video library.
-val videoId : kotlin.String = videoId_example // kotlin.String | The unique identifier of the video to update.
-val videoUpdateVideoRequest : VideoUpdateVideoRequest =  // VideoUpdateVideoRequest | Video model containing the fields to update.
+val libraryId : kotlin.Long = 789 // kotlin.Long | 
+val videoId : kotlin.String = videoId_example // kotlin.String | 
+val updateVideoModel : UpdateVideoModel =  // UpdateVideoModel | 
 try {
-    val result : StatusModel = apiInstance.videoUpdateVideo(libraryId, videoId, videoUpdateVideoRequest)
+    val result : StatusModel = apiInstance.videoUpdateVideo(libraryId, videoId, updateVideoModel)
     println(result)
 } catch (e: ClientException) {
     println("4xx response calling ManageVideosApi#videoUpdateVideo")
@@ -984,12 +1155,11 @@ try {
 ```
 
 ### Parameters
-
-Name | Type | Description  | Notes
-------------- | ------------- | ------------- | -------------
- **libraryId** | **kotlin.Long**| The ID of the video library. |
- **videoId** | **kotlin.String**| The unique identifier of the video to update. |
- **videoUpdateVideoRequest** | [**VideoUpdateVideoRequest**](VideoUpdateVideoRequest.md)| Video model containing the fields to update. |
+| **libraryId** | **kotlin.Long**|  | |
+| **videoId** | **kotlin.String**|  | |
+| Name | Type | Description  | Notes |
+| ------------- | ------------- | ------------- | ------------- |
+| **updateVideoModel** | [**UpdateVideoModel**](UpdateVideoModel.md)|  | |
 
 ### Return type
 
@@ -1009,11 +1179,9 @@ Configure AccessKey:
 
 <a id="videoUploadVideo"></a>
 # **videoUploadVideo**
-> StatusModel videoUploadVideo(libraryId, videoId, jitEnabled, enabledResolutions, enabledOutputCodecs)
+> StatusModel videoUploadVideo(libraryId, videoId, body, jitEnabled, enabledResolutions, enabledOutputCodecs, transcribeEnabled, transcribeLanguages, sourceLanguage, generateTitle, generateDescription, generateChapters, generateMoments)
 
 Upload Video
-
-Uploads a new video file to the specified video library. Additional query parameters allow customization of encoding options such as JIT encoding, enabled resolutions, and output codecs.
 
 ### Example
 ```kotlin
@@ -1022,13 +1190,21 @@ Uploads a new video file to the specified video library. Additional query parame
 //import org.openapitools.client.models.*
 
 val apiInstance = ManageVideosApi()
-val libraryId : kotlin.Long = 789 // kotlin.Long | The ID of the video library.
-val videoId : kotlin.String = videoId_example // kotlin.String | The unique identifier to assign to the new video.
-val jitEnabled : kotlin.Boolean = true // kotlin.Boolean | Determines whether JIT encoding should be enabled for this video. Works only when Premium Encoding is enabled; overrides library settings.
-val enabledResolutions : kotlin.String = enabledResolutions_example // kotlin.String | A comma-separated list of resolutions to enable for encoding. Options include: 240p, 360p, 480p, 720p, 1080p, 1440p, 2160p.
-val enabledOutputCodecs : kotlin.String = enabledOutputCodecs_example // kotlin.String | Specifies the codecs that will be used to encode the video. Overrides library settings. Available values: x264, vp9.
+val libraryId : kotlin.Long = 789 // kotlin.Long | 
+val videoId : kotlin.String = videoId_example // kotlin.String | 
+val body : java.io.File = BINARY_DATA_HERE // java.io.File | Video file to upload
+val jitEnabled : kotlin.Boolean = true // kotlin.Boolean | Marks whether JIT encoding should be enabled for this video (works only when Premium Encoding is enabled), overrides library settings
+val enabledResolutions : kotlin.String = enabledResolutions_example // kotlin.String | Comma separated list of resolutions enabled for encoding, available options: 240p, 360p, 480p, 720p, 1080p, 1440p, 2160p
+val enabledOutputCodecs : kotlin.String = enabledOutputCodecs_example // kotlin.String | List of codecs that will be used to encode the file (overrides library settings). Available values: x264, vp9
+val transcribeEnabled : kotlin.Boolean = true // kotlin.Boolean | Setting this to true will enable transcription on this video. Enabling this will incur transcription charges
+val transcribeLanguages : kotlin.String = transcribeLanguages_example // kotlin.String | Comma separated list of languages that will be used as target languages, use ISO 639-1 language codes.
+val sourceLanguage : kotlin.String = sourceLanguage_example // kotlin.String | Language spoken in the video, use ISO 639-1 language codes.
+val generateTitle : kotlin.Boolean = true // kotlin.Boolean | Whether video title should be generated from transcription.
+val generateDescription : kotlin.Boolean = true // kotlin.Boolean | Whether video description should be generated from transcription.
+val generateChapters : kotlin.Boolean = true // kotlin.Boolean | Whether video chapters should be generated from transcription.
+val generateMoments : kotlin.Boolean = true // kotlin.Boolean | Whether video moments should be generated from transcription.
 try {
-    val result : StatusModel = apiInstance.videoUploadVideo(libraryId, videoId, jitEnabled, enabledResolutions, enabledOutputCodecs)
+    val result : StatusModel = apiInstance.videoUploadVideo(libraryId, videoId, body, jitEnabled, enabledResolutions, enabledOutputCodecs, transcribeEnabled, transcribeLanguages, sourceLanguage, generateTitle, generateDescription, generateChapters, generateMoments)
     println(result)
 } catch (e: ClientException) {
     println("4xx response calling ManageVideosApi#videoUploadVideo")
@@ -1040,14 +1216,21 @@ try {
 ```
 
 ### Parameters
-
-Name | Type | Description  | Notes
-------------- | ------------- | ------------- | -------------
- **libraryId** | **kotlin.Long**| The ID of the video library. |
- **videoId** | **kotlin.String**| The unique identifier to assign to the new video. |
- **jitEnabled** | **kotlin.Boolean**| Determines whether JIT encoding should be enabled for this video. Works only when Premium Encoding is enabled; overrides library settings. | [optional]
- **enabledResolutions** | **kotlin.String**| A comma-separated list of resolutions to enable for encoding. Options include: 240p, 360p, 480p, 720p, 1080p, 1440p, 2160p. | [optional] [default to &quot;&quot;]
- **enabledOutputCodecs** | **kotlin.String**| Specifies the codecs that will be used to encode the video. Overrides library settings. Available values: x264, vp9. | [optional] [default to &quot;&quot;]
+| **libraryId** | **kotlin.Long**|  | |
+| **videoId** | **kotlin.String**|  | |
+| **body** | **java.io.File**| Video file to upload | |
+| **jitEnabled** | **kotlin.Boolean**| Marks whether JIT encoding should be enabled for this video (works only when Premium Encoding is enabled), overrides library settings | [optional] |
+| **enabledResolutions** | **kotlin.String**| Comma separated list of resolutions enabled for encoding, available options: 240p, 360p, 480p, 720p, 1080p, 1440p, 2160p | [optional] [default to &quot;&quot;] |
+| **enabledOutputCodecs** | **kotlin.String**| List of codecs that will be used to encode the file (overrides library settings). Available values: x264, vp9 | [optional] [default to &quot;&quot;] |
+| **transcribeEnabled** | **kotlin.Boolean**| Setting this to true will enable transcription on this video. Enabling this will incur transcription charges | [optional] |
+| **transcribeLanguages** | **kotlin.String**| Comma separated list of languages that will be used as target languages, use ISO 639-1 language codes. | [optional] |
+| **sourceLanguage** | **kotlin.String**| Language spoken in the video, use ISO 639-1 language codes. | [optional] |
+| **generateTitle** | **kotlin.Boolean**| Whether video title should be generated from transcription. | [optional] |
+| **generateDescription** | **kotlin.Boolean**| Whether video description should be generated from transcription. | [optional] |
+| **generateChapters** | **kotlin.Boolean**| Whether video chapters should be generated from transcription. | [optional] |
+| Name | Type | Description  | Notes |
+| ------------- | ------------- | ------------- | ------------- |
+| **generateMoments** | **kotlin.Boolean**| Whether video moments should be generated from transcription. | [optional] |
 
 ### Return type
 
@@ -1062,6 +1245,6 @@ Configure AccessKey:
 
 ### HTTP request headers
 
- - **Content-Type**: Not defined
+ - **Content-Type**: application/octet-stream
  - **Accept**: application/json
 

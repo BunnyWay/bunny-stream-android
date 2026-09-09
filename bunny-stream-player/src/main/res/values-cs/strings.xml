@@ -8,4 +8,5 @@
     <string name="label_video_settings_captions_disabled">Zakázáno</string>
     <string name="label_video_settings_audio_track">Zvuková stopa</string>
     <string name="label_drm_not_supported_exception">Pro toto video je povoleno DRM, přehrávání není na tomto zařízení podporováno.</string>
+    <string name="error_video_not_available">Video není k dispozici</string>
 </resources>

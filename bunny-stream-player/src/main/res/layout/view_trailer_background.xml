@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Pre-stream trailer background for the live countdown. Deliberately uses a TEXTURE_VIEW surface
+  (not the PlayerView default SurfaceView): a TextureView composites inside the view hierarchy and
+  clips to its bounds. RESIZE_MODE_ZOOM enlarges the surface to crop-fill a portrait trailer into
+  the landscape player box; with a SurfaceView that oversized separate hardware layer bleeds past
+  the box and shows behind the metadata cards, whereas a TextureView stays clipped. surface_type
+  can only be set via this XML attribute, which is why the trailer inflates from a layout.
+-->
+<androidx.media3.ui.PlayerView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    app:surface_type="texture_view"
+    app:resize_mode="zoom"
+    app:use_controller="false" />

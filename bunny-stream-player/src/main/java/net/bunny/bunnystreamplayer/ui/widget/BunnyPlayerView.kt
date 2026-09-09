@@ -1,20 +1,28 @@
 package net.bunny.bunnystreamplayer.ui.widget
 
+import android.app.Activity
+import android.app.PictureInPictureParams
 import android.content.Context
+import android.content.ContextWrapper
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.Rect
 import android.graphics.Typeface
+import android.graphics.drawable.Drawable
+import android.os.Build
 import android.os.Handler
 import android.os.HandlerThread
 import android.os.Looper
 import android.util.AttributeSet
 import android.util.Log
+import android.util.Rational
 import android.view.Gravity
 import android.view.Menu
 import android.view.PixelCopy
 import android.view.SurfaceView
 import android.view.TextureView
+import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
@@ -38,9 +46,15 @@ import androidx.media3.ui.SubtitleView
 import androidx.media3.ui.TimeBar
 import androidx.mediarouter.app.MediaRouteButton
 import com.bumptech.glide.Glide
+import com.bumptech.glide.load.model.GlideUrl
+import com.bumptech.glide.request.target.CustomTarget
+import com.bumptech.glide.request.transition.Transition
+import net.bunny.api.BunnyCdn
 import com.google.android.gms.cast.framework.CastButtonFactory
 import net.bunny.api.settings.capitalizeWords
 import net.bunny.api.settings.domain.model.PlayerSettings
+import net.bunny.bunnystreamplayer.DefaultBunnyPlayer
+import net.bunny.bunnystreamplayer.PlaybackFailureInfo
 import net.bunny.bunnystreamplayer.PlayerStateListener
 import net.bunny.bunnystreamplayer.PlayerType
 import net.bunny.bunnystreamplayer.common.BunnyPlayer
@@ -80,6 +94,26 @@ class BunnyPlayerView @JvmOverloads constructor(
 
         /** Cap sample bitmap dimensions so we don't burn CPU on 4K surfaces. */
         private const val MAX_SAMPLE_DIMENSION = 64
+
+        /** How often the live-edge badge re-evaluates the player position. */
+        private const val LIVE_EDGE_UPDATE_INTERVAL_MS = 1_000L
+
+        /** System-permitted picture-in-picture aspect-ratio bounds (see PictureInPictureParams). */
+        private const val MAX_PIP_ASPECT = 2.39f
+        private const val MIN_PIP_ASPECT = 1f / 2.39f
+
+        /**
+         * Live offset (ms behind the live edge) below which playback counts as "at the edge".
+         * HLS live offset hovers around a few target durations even when fully caught up, so
+         * this needs headroom above one segment length.
+         */
+        private const val LIVE_EDGE_THRESHOLD_MS = 15_000L
+
+        /** Badge tint when playback is at the live edge. */
+        private const val LIVE_EDGE_COLOR = 0xFFE53935.toInt()
+
+        /** Badge tint when playback is time-shifted into the DVR window. */
+        private const val BEHIND_LIVE_COLOR = 0xFF757575.toInt()
     }
 
     interface FullscreenListener {
@@ -92,6 +126,35 @@ class BunnyPlayerView @JvmOverloads constructor(
             applyStyle()
         }
 
+    /**
+     * Condensed control bar. When `true`, secondary controls (settings, captions, duration readout)
+     * are hidden to reduce clutter on small surfaces, leaving the essentials (play, progress, mute,
+     * PiP, fullscreen). Driven for live playback by the dashboard's `enableCompactControls` from
+     * the live `/play` customization.
+     */
+    var compactControls: Boolean = false
+        set(value) {
+            field = value
+            updateControlsVisibility()
+        }
+
+    /**
+     * Whether the built-in control bar is used. Set it to `false` to get a bare video surface and
+     * drive playback from your own UI; taps on the player then do nothing and no control ever
+     * appears. Defaults to `true`.
+     *
+     * Playback errors are still reported: the error banner is attached to the player view rather
+     * than the control bar, and [onPlaybackError] fires either way.
+     *
+     * The live badge is part of the control bar, so it disappears with the rest — a custom live UI
+     * has to draw its own.
+     */
+    var controlsEnabled: Boolean = true
+        set(value) {
+            field = value
+            useController = value
+        }
+
     private val playStateListener = object : PlayerStateListener {
         override fun onPlayingChanged(isPlaying: Boolean) {
             playPauseButton.state = if (isPlaying) {
@@ -99,10 +162,14 @@ class BunnyPlayerView @JvmOverloads constructor(
             } else {
                 ToggleableImageButton.State.STATE_DEFAULT
             }
-            errorWrapper.isVisible = false
+            // Clear the error only once playback actually runs again. This used to fire on every
+            // change, including `false` — and since an error is exactly what stops playback, the
+            // banner was wiped some 80 ms after it appeared and no playback error was ever readable.
             if (isPlaying) {
+                hideError()
                 overlay.removeAllViews()
             }
+            onPlayingChanged?.invoke(isPlaying)
         }
 
         override fun onMutedChanged(isMuted: Boolean) {
@@ -111,45 +178,124 @@ class BunnyPlayerView @JvmOverloads constructor(
             } else {
                 ToggleableImageButton.State.STATE_DEFAULT
             }
+            onMutedChanged?.invoke(isMuted)
         }
 
         override fun onPlaybackSpeedChanged(speed: Float) {
-
+            onPlaybackSpeedChanged?.invoke(speed)
         }
 
         override fun onLoadingChanged(isLoading: Boolean) {
-
+            onLoadingChanged?.invoke(isLoading)
         }
 
         override fun onChaptersUpdated(chapters: List<Chapter>) {
             Log.d(TAG, "onChaptersUpdated: $chapters")
             timeBar?.chapters = chapters
+            onChaptersUpdated?.invoke(chapters)
         }
 
         override fun onMomentsUpdated(moments: List<Moment>) {
             Log.d(TAG, "onMomentsUpdated: $moments")
             timeBar?.moments = moments
+            onMomentsUpdated?.invoke(moments)
         }
 
         override fun onRetentionGraphUpdated(points: List<RetentionGraphEntry>) {
             timeBar?.retentionGraphData = points
+            onRetentionGraphUpdated?.invoke(points)
         }
 
         override fun onPlayerTypeChanged(player: Player, playerType: PlayerType) {
             updatePlayer(player, playerType)
+            // Only the enum goes out: `player` is a media3 type and part of the engine's internals.
+            onPlayerTypeChanged?.invoke(playerType)
         }
 
         override fun onPlayerError(message: String) {
             showError(message)
+            onPlaybackError?.invoke(message)
+        }
+
+        override fun onVideoSizeChanged(width: Int, height: Int) {
+            if (width > 0 && height > 0) lastVideoSize = width to height
+            this@BunnyPlayerView.onVideoSizeChanged?.invoke(width, height)
         }
     }
 
+    /** Latest decoded video dimensions — used to size the picture-in-picture window. */
+    private var lastVideoSize: Pair<Int, Int>? = null
+
     var fullscreenListener: FullscreenListener? = null
+
+    /**
+     * Invoked with the current video's pixel dimensions (first frame and on change) so the host can
+     * size its container to the real aspect ratio — enabling correct display of both 16:9 and 9:16
+     * (vertical) content.
+     */
+    var onVideoSizeChanged: ((width: Int, height: Int) -> Unit)? = null
+
+    /**
+     * Invoked when the engine reports a playback error (after the built-in error overlay is
+     * shown). Lets hosts react — the live player uses it to re-poll the stream status and rebuild
+     * playback from the live edge.
+     */
+    var onPlaybackError: ((message: String) -> Unit)? = null
+
+    /**
+     * Structured counterpart of [onPlaybackError] for the SDK's own surfaces. Fires before it,
+     * straight from the engine, and carries the HTTP status behind the failure — what the live
+     * player needs to tell a blocked stream (403) from a transient error it can recover from.
+     */
+    internal var onPlaybackFailureInfo: ((PlaybackFailureInfo) -> Unit)? = null
+
+    /**
+     * Invoked whenever the playback rate changes, including the rate the engine restores by itself
+     * when [net.bunny.bunnystreamplayer.config.PlaybackSpeedConfig.rememberLastSpeed] is on.
+     *
+     * Hosts that draw their own speed selector need this: the remembered rate is applied to the
+     * next video without anyone touching the UI, and a selector that only tracks its own taps ends
+     * up showing 1× over a video playing at 0.25×.
+     */
+    var onPlaybackSpeedChanged: ((speed: Float) -> Unit)? = null
+
+    /**
+     * Invoked when playback starts or stops, whatever the cause - a control, your own code, the end
+     * of the video, or a handover to Chromecast. Keep a custom play/pause button in sync with this
+     * rather than with your own taps.
+     */
+    var onPlayingChanged: ((isPlaying: Boolean) -> Unit)? = null
+
+    /** Invoked when the audio is muted or unmuted, from any source. */
+    var onMutedChanged: ((isMuted: Boolean) -> Unit)? = null
+
+    /** Invoked while the player buffers, so a custom UI can show its own spinner. */
+    var onLoadingChanged: ((isLoading: Boolean) -> Unit)? = null
+
+    /** Invoked with the video's chapters once they are known (empty when it has none). */
+    var onChaptersUpdated: ((chapters: List<Chapter>) -> Unit)? = null
+
+    /** Invoked with the video's moments once they are known (empty when it has none). */
+    var onMomentsUpdated: ((moments: List<Moment>) -> Unit)? = null
+
+    /** Invoked with the retention graph once it is known, for a custom seek bar. */
+    var onRetentionGraphUpdated: ((points: List<RetentionGraphEntry>) -> Unit)? = null
+
+    /**
+     * Invoked when playback moves between this device and a connected Chromecast. A custom UI needs
+     * it to stop presenting itself as the thing playing the video.
+     */
+    var onPlayerTypeChanged: ((playerType: PlayerType) -> Unit)? = null
 
     var bunnyPlayer: BunnyPlayer? = null
         set(value) {
             field = value
             field?.playerStateListener = playStateListener
+            // The structured report rides along with the public listener: whichever view holds
+            // the engine's listener slot holds this one too.
+            (field as? DefaultBunnyPlayer)?.playbackFailureInfoListener = { info ->
+                onPlaybackFailureInfo?.invoke(info)
+            }
             player = bunnyPlayer?.currentPlayer
             playerSettings = value?.playerSettings
             setPlayerControls()
@@ -235,6 +381,10 @@ class BunnyPlayerView @JvmOverloads constructor(
         findViewById<ImageButton>(R.id.bunny_fullscreen)
     }
 
+    private val pipButton by lazy {
+        findViewById<ImageButton>(R.id.bunny_pip)
+    }
+
     private val progressTextView by lazy {
         findViewById<TextView>(R.id.exo_position)
     }
@@ -263,16 +413,29 @@ class BunnyPlayerView @JvmOverloads constructor(
         findViewById<ToggleableImageButton>(R.id.bunny_subtitle)
     }
 
-    private val errorWrapper by lazy {
-        findViewById<ViewGroup>(R.id.errorWrapper)
-    }
+    /**
+     * The error banner, inflated on first use and attached to the player view itself.
+     *
+     * It deliberately does not live in the control bar layout: with [controlsEnabled] off that
+     * whole subtree stops rendering, and an app drawing its own chrome would get a player that
+     * silently shows nothing instead of saying why playback stopped.
+     */
+    private var errorView: View? = null
 
-    private val errorMessage by lazy {
-        findViewById<TextView>(R.id.errorMessage)
-    }
+    private fun requireErrorView(): View =
+        errorView ?: LayoutInflater.from(context)
+            .inflate(R.layout.view_player_error, this, false)
+            .also {
+                addView(it)
+                errorView = it
+            }
 
     private val overlay by lazy {
         findViewById<FrameLayout>(androidx.media3.ui.R.id.exo_overlay)
+    }
+
+    private val liveBadge by lazy {
+        findViewById<TextView>(R.id.bunny_live_badge)
     }
 
     private val bottomBar by lazy {
@@ -379,6 +542,19 @@ class BunnyPlayerView @JvmOverloads constructor(
 
         fullScreenButton.setOnClickListener {
             fullscreenListener?.onFullscreenToggleClicked()
+        }
+
+        pipButton.setOnClickListener {
+            enterPip()
+        }
+
+        // DVR: tapping the badge while time-shifted snaps back to the live edge
+        // (mirrors the web player's LIVE pill behavior).
+        liveBadge.setOnClickListener {
+            player?.let {
+                it.seekToDefaultPosition()
+                it.play()
+            }
         }
 
         subtitle.isVisible = bunnyPlayer?.getSubtitles()?.subtitles?.isNotEmpty() == true
@@ -624,6 +800,7 @@ class BunnyPlayerView @JvmOverloads constructor(
         when (playerType) {
             PlayerType.DEFAULT_PLAYER -> {
                 controllerShowTimeoutMs = PlayerControlView.DEFAULT_SHOW_TIMEOUT_MS
+                clearCastPosterArtwork()
                 defaultArtwork = null
                 controllerHideOnTouch = true
                 muteButton.isVisible = true
@@ -637,10 +814,46 @@ class BunnyPlayerView @JvmOverloads constructor(
                     R.drawable.ic_cast_connected_400,
                     null
                 )
+                loadCastPosterArtwork()
                 controllerHideOnTouch = false
                 muteButton.isVisible = false
             }
         }
+    }
+
+    // The in-flight cast poster request; cleared when leaving the cast UI
+    // state so a slow response can't repaint artwork on the local player.
+    private var castPosterTarget: CustomTarget<Drawable>? = null
+
+    /**
+     * Show the video poster behind the controls while casting (the generic
+     * cast icon set by the caller stays as the fallback). Same Referer'd
+     * GlideUrl as every other CDN image load — libraries with hotlink
+     * protection 403 bare requests — and decoded at view size, not full
+     * resolution.
+     */
+    private fun loadCastPosterArtwork() {
+        clearCastPosterArtwork()
+        val url = playerSettings?.thumbnailUrl?.takeIf { it.isNotBlank() } ?: return
+        val glideUrl = GlideUrl(url) { mapOf("Referer" to BunnyCdn.REFERER) }
+        val targetWidth = width.takeIf { it > 0 } ?: 1280
+        val targetHeight = height.takeIf { it > 0 } ?: 720
+        val target = object : CustomTarget<Drawable>(targetWidth, targetHeight) {
+            override fun onResourceReady(resource: Drawable, transition: Transition<in Drawable>?) {
+                if (castPosterTarget === this) {
+                    defaultArtwork = resource
+                }
+            }
+
+            override fun onLoadCleared(placeholder: Drawable?) = Unit
+        }
+        castPosterTarget = target
+        Glide.with(context).load(glideUrl).into(target)
+    }
+
+    private fun clearCastPosterArtwork() {
+        castPosterTarget?.let { Glide.with(context).clear(it) }
+        castPosterTarget = null
     }
 
     private fun applyStyle() {
@@ -668,7 +881,10 @@ class BunnyPlayerView @JvmOverloads constructor(
             timeBar.tintColor = Color.WHITE
             subtitles.setStyle(CaptionStyleCompat.DEFAULT)
         } else {
-            timeBar.tintColor = settings.keyColor
+            // A fully-transparent keyColor (alpha 0) means "no colour set" — the live path passes
+            // keyColor = config.primaryColor ?: 0, so the default live config would otherwise tint
+            // the scrub bar transparent (invisible). Fall back to the same WHITE default used above.
+            timeBar.tintColor = settings.keyColor.takeIf { Color.alpha(it) != 0 } ?: Color.WHITE
 
             subtitles.setStyle(
                 getSubtitleStyle(
@@ -788,42 +1004,175 @@ class BunnyPlayerView @JvmOverloads constructor(
     }
 
     private fun updateControlsVisibility() {
-        replyButton.isVisible = playerSettings?.rewindEnabled == true
-        forwardButton.isVisible = playerSettings?.fastForwardEnabled == true
+        // In compact mode the secondary controls (settings, captions, duration readout) are hidden
+        // to declutter; the essentials (play, progress, mute, PiP, fullscreen) stay.
+        val compact = compactControls
+
+        replyButton.isVisible = playerSettings?.rewindEnabled == true && !compact
+        forwardButton.isVisible = playerSettings?.fastForwardEnabled == true && !compact
         progressTextView.isVisible = playerSettings?.currentTimeEnabled == true
-        durationTextView.isVisible = playerSettings?.durationEnabled == true
+        durationTextView.isVisible = playerSettings?.durationEnabled == true && !compact
         fullScreenButton.isVisible = playerSettings?.fullScreenEnabled == true
-        muteButton.isVisible = playerSettings?.muteEnabled == true
-        settingsButton.isVisible = playerSettings?.settingsEnabled == true
-        subtitle.isVisible = playerSettings?.subtitlesEnabled == true
+        // The mute button doubles as the volume affordance on mobile, so show it when either is on.
+        muteButton.isVisible =
+            (playerSettings?.muteEnabled == true || playerSettings?.volumeEnabled == true)
+        settingsButton.isVisible = playerSettings?.settingsEnabled == true && !compact
+        subtitle.isVisible = playerSettings?.subtitlesEnabled == true && !compact
         timeBar.isVisible = playerSettings?.progressEnabled == true
         playPauseButton.isVisible = playerSettings?.playButtonEnabled == true
         castButton.isVisible = playerSettings?.castButtonEnabled == true
+        // PiP is hidden in compact mode and on devices/contexts that can't enter PiP.
+        pipButton.isVisible = playerSettings?.pipEnabled == true && !compact && canEnterPip()
 
         progressDurationDivider.isVisible = progressTextView.isVisible && durationTextView.isVisible
     }
 
+    /** Walks the context chain to find the hosting [Activity], or null if there isn't one. */
+    private fun hostActivity(): Activity? {
+        var ctx: Context? = context
+        while (ctx is ContextWrapper) {
+            if (ctx is Activity) return ctx
+            ctx = ctx.baseContext
+        }
+        return null
+    }
+
+    /** True when the device + host support entering picture-in-picture. */
+    private fun canEnterPip(): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return false
+        val activity = hostActivity() ?: return false
+        return activity.packageManager.hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)
+    }
+
+    /** Enters picture-in-picture via the host activity. No-op when unsupported. */
+    private fun enterPip() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+        val activity = hostActivity() ?: run {
+            Log.w(TAG, "Cannot enter PiP — no host Activity")
+            return
+        }
+        try {
+            val params = PictureInPictureParams.Builder()
+                .setAspectRatio(pipAspectRatio())
+                // Where the video currently is on screen — the system animates the shrink from
+                // this rect instead of the whole Activity.
+                .setSourceRectHint(Rect().also(::getGlobalVisibleRect))
+                .build()
+            activity.enterPictureInPictureMode(params)
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to enter PiP: ${e.message}")
+        }
+    }
+
+    /**
+     * Aspect ratio for the PiP window from the latest decoded video size, clamped to the
+     * system-permitted range (~2.39:1 down to 1:2.39); 16:9 until the first frame is known.
+     */
+    private fun pipAspectRatio(): Rational {
+        val (w, h) = lastVideoSize ?: return Rational(16, 9)
+        val ratio = w.toFloat() / h.toFloat()
+        return when {
+            ratio > MAX_PIP_ASPECT -> Rational(239, 100)
+            ratio < MIN_PIP_ASPECT -> Rational(100, 239)
+            else -> Rational(w, h)
+        }
+    }
+
     fun showPreviewThumbnail(url: String) {
         Log.d(TAG, "onShowPreviewThumbnail: $url")
-        val thumbnail = ImageView(context)
         overlay.removeAllViews()
+        // Live streams (and still-processing uploads) carry no preview thumbnail — the synthetic
+        // live PlayerSettings pass an empty URL here. GlideUrl's constructor throws on a null/empty
+        // string, so skip rendering rather than crash the player.
+        if (url.isBlank()) return
+        val thumbnail = ImageView(context)
         overlay.addView(thumbnail)
-        Glide.with(context).load(url).into(thumbnail)
+        // Referer for the CDN's block-direct-url (hotlink) protection — see the player data source.
+        val glideUrl = GlideUrl(url) {
+            mapOf("Referer" to BunnyCdn.REFERER)
+        }
+        // A thumbnail the CDN refuses to serve falls back to a neutral placeholder, silently.
+        Glide.with(context)
+            .load(glideUrl)
+            .error(R.drawable.bunny_thumbnail_placeholder)
+            .into(thumbnail)
     }
 
     fun showError(message: String) {
-        errorWrapper.isVisible = true
-        errorMessage.text = message
+        val view = requireErrorView()
+        view.findViewById<TextView>(R.id.errorMessage).text = message
+        view.isVisible = true
+        // The banner is added on first use, so it can end up below views added earlier (the cast
+        // thumbnail, the speed badge). Lift it so an error is never painted over.
+        view.bringToFront()
+    }
+
+    /**
+     * Hides the error overlay. Called when a new source load starts so a late-arriving error from
+     * the previous player instance (e.g. the stale live URL during a live→VOD hand-off) doesn't
+     * stay painted over working playback.
+     */
+    fun hideError() {
+        // Nothing to hide before the first error — don't inflate the banner just to keep it gone.
+        errorView?.isVisible = false
     }
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
         if (autoProgressTextColor) progressColorSampler.start()
+        liveEdgeUpdater.start()
     }
 
     override fun onDetachedFromWindow() {
         progressColorSampler.stop()
+        liveEdgeUpdater.stop()
         super.onDetachedFromWindow()
+    }
+
+    private val liveEdgeUpdater = LiveEdgeUpdater()
+
+    /**
+     * Keeps the LIVE badge in sync with playback: hidden for VOD, red at the live edge, gray
+     * when the viewer has paused/rewound into the DVR window. Ticks once a second while the
+     * view is attached — the work is a couple of player getters, so this is negligible.
+     */
+    private inner class LiveEdgeUpdater {
+
+        private val handler = Handler(Looper.getMainLooper())
+        private var running = false
+
+        private val tick = object : Runnable {
+            override fun run() {
+                if (!running) return
+                update()
+                handler.postDelayed(this, LIVE_EDGE_UPDATE_INTERVAL_MS)
+            }
+        }
+
+        fun start() {
+            if (running) return
+            running = true
+            handler.post(tick)
+        }
+
+        fun stop() {
+            running = false
+            handler.removeCallbacks(tick)
+        }
+
+        private fun update() {
+            val p = player
+            val isLive = p != null && p.isCurrentMediaItemLive
+            if (liveBadge.isVisible != isLive) liveBadge.isVisible = isLive
+            if (!isLive || p == null) return
+
+            val offset = p.currentLiveOffset
+            val atEdge = p.playWhenReady &&
+                offset != androidx.media3.common.C.TIME_UNSET &&
+                offset <= LIVE_EDGE_THRESHOLD_MS
+            liveBadge.background.setTint(if (atEdge) LIVE_EDGE_COLOR else BEHIND_LIVE_COLOR)
+            liveBadge.alpha = if (atEdge) 1f else 0.9f
+        }
     }
 
     /**

@@ -8,4 +8,5 @@
     <string name="label_video_settings_captions_disabled">Inaktiverad</string>
     <string name="label_video_settings_audio_track">Ljudspår</string>
     <string name="label_drm_not_supported_exception">DRM är aktiverat för denna video, uppspelning stöds inte på denna enhet.</string>
+    <string name="error_video_not_available">Videon är inte tillgänglig</string>
 </resources>

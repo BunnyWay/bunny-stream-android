@@ -8,4 +8,5 @@
     <string name="label_video_settings_captions_disabled">비활성화됨</string>
     <string name="label_video_settings_audio_track">오디오 트랙</string>
     <string name="label_drm_not_supported_exception">이 비디오에 DRM이 활성화되어 있습니다. 이 기기에서는 재생이 지원되지 않습니다.</string>
+    <string name="error_video_not_available">비디오를 사용할 수 없습니다</string>
 </resources>

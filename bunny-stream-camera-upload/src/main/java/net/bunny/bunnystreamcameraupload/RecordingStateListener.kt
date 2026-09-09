@@ -44,4 +44,15 @@ interface RecordingStateListener {
      * @param muted true if audio is now muted
      */
     fun onAudioMuted(muted: Boolean)
+
+    /**
+     * Called while broadcasting to a live stream when a RTMP ingest endpoint's connection state
+     * changes. Fired per endpoint, so with dual-publish both [IngestEndpoint.PRIMARY] and
+     * [IngestEndpoint.BACKUP] can independently be [IngestEndpointState.LIVE]. Not fired for VOD
+     * recording. Default no-op for backward compatibility.
+     *
+     * @see IngestEndpoint
+     * @see IngestEndpointState
+     */
+    fun onIngestEndpointChanged(endpoint: IngestEndpoint, state: IngestEndpointState) {}
 }

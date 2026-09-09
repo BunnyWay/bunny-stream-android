@@ -120,6 +120,22 @@
                 android:layout_height="wrap_content"/>
 
             <TextView
+                android:id="@+id/bunny_live_badge"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_vertical"
+                android:layout_marginEnd="8dp"
+                android:background="@drawable/live_badge_background"
+                android:paddingHorizontal="6dp"
+                android:paddingVertical="2dp"
+                android:text="@string/label_live_badge"
+                android:textColor="@android:color/white"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                android:visibility="gone"
+                tools:visibility="visible"/>
+
+            <TextView
                 android:id="@+id/exo_position"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
@@ -171,6 +187,16 @@
                 app:tint="@android:color/white"/>
 
             <ImageButton
+                android:id="@+id/bunny_pip"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:src="@drawable/ic_pip_24dp"
+                android:padding="8dp"
+                android:background="@null"
+                android:visibility="gone"
+                app:tint="@android:color/white"/>
+
+            <ImageButton
                 android:id="@+id/bunny_settings"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
@@ -191,63 +217,5 @@
         </LinearLayout>
 
     </androidx.constraintlayout.widget.ConstraintLayout>
-
-    <FrameLayout
-        android:id="@+id/errorWrapper"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        app:layout_constraintLeft_toLeftOf="parent"
-        app:layout_constraintRight_toRightOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        android:layout_marginTop="40dp"
-        android:layout_marginLeft="20dp"
-        android:layout_marginRight="20dp"
-        android:paddingHorizontal="8dp"
-        android:paddingVertical="8dp"
-        android:visibility="gone"
-        tools:visibility="visible">
-
-        <LinearLayout
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:background="@drawable/player_error_background"
-            android:paddingHorizontal="8dp"
-            android:paddingVertical="8dp"
-            android:layout_gravity="center">
-
-            <ImageView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:src="@drawable/ic_error_24dp"
-                android:layout_gravity="center_vertical"/>
-
-            <LinearLayout
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:orientation="vertical">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_gravity="center_vertical"
-                    android:layout_marginLeft="5dp"
-                    android:text="@string/error_playing_video"
-                    android:textColor="@color/white"/>
-
-                <TextView
-                    android:id="@+id/errorMessage"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_gravity="center_vertical"
-                    android:layout_marginLeft="5dp"
-                    tools:text="Error playing video"
-                    android:textColor="@color/white"/>
-            </LinearLayout>
-
-        </LinearLayout>
-
-    </FrameLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

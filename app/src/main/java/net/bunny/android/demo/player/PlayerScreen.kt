@@ -1,6 +1,8 @@
 package net.bunny.android.demo.player
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,6 +12,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -27,6 +30,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -43,23 +47,33 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import kotlinx.coroutines.delay
 import net.bunny.android.demo.App
 import net.bunny.android.demo.R
+import net.bunny.android.demo.livestream.EmbedToken
 import net.bunny.android.demo.ui.AppState
 import net.bunny.android.demo.ui.theme.BunnyStreamTheme
 import net.bunny.android.demo.library.model.Video
 import net.bunny.android.demo.library.model.VideoStatus
+import net.bunny.api.BunnyStreamApi
 import net.bunny.api.playback.PlaybackPosition
 import net.bunny.api.playback.ResumeConfig
 import net.bunny.bunnystreamplayer.config.PlaybackSpeedConfig
 import net.bunny.bunnystreamplayer.ui.BunnyStreamPlayer
 import java.util.Locale
 import java.util.concurrent.TimeUnit
+
+/** Playback tokens are short-lived; an hour outlasts any session in the demo. */
+private const val PLAYBACK_TOKEN_TTL_SECONDS = 3600L
 
 @Composable
 fun PlayerRoute(
@@ -77,9 +91,23 @@ fun PlayerRoute(
         libraryId = libraryId,
         uiState,
         onBackClicked = { appState.navController.popBackStack() },
+        onReloadVideo = { viewModel.loadVideo(videoId, libraryId) },
     )
 
     LaunchedEffect(key1 = "load", block = { viewModel.loadVideo(videoId, libraryId) })
+
+    // While the video is still processing, re-check its status so playback starts by
+    // itself once encoding finishes. Gated on the screen being visible; the ViewModel
+    // skips the fetch entirely for settled videos.
+    val lifecycleOwner = LocalLifecycleOwner.current
+    LaunchedEffect(lifecycleOwner) {
+        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            while (true) {
+                delay(PlayerViewModel.STATUS_POLL_INTERVAL_MS)
+                viewModel.onStatusPollTick()
+            }
+        }
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -90,12 +118,16 @@ fun PlayerScreen(
     libraryId: Long?,
     uiState: VideoUiState,
     onBackClicked: () -> Unit,
+    onReloadVideo: () -> Unit = {},
 ) {
     var playerController by remember { mutableStateOf<PlayerController?>(null) }
     var currentSpeed by remember { mutableStateOf(1.0f) }
     var showResumeDialog by remember { mutableStateOf(false) }
     var resumePosition by remember { mutableStateOf<PlaybackPosition?>(null) }
     var resumeCallback by remember { mutableStateOf<((Boolean) -> Unit)?>(null) }
+    var playbackError by remember { mutableStateOf<String?>(null) }
+    var playbackAttempt by remember { mutableStateOf(0) }
+    var nativeControls by remember { mutableStateOf(true) }
 
     // Get resume position preferences
     val resumePrefs = App.di.resumePositionPrefs
@@ -130,6 +162,8 @@ fun PlayerScreen(
             BunnyPlayerComposable(
                 videoId = videoId,
                 libraryId = libraryId,
+                uiState = uiState,
+                playbackAttempt = playbackAttempt,
                 onPlayerReady = { player ->
                     playerController = PlayerController(player)
                 },
@@ -138,44 +172,137 @@ fun PlayerScreen(
                     resumeCallback = callback
                     showResumeDialog = true
                 },
+                onPlaybackError = { message ->
+                    playbackError = message
+                },
+                onPlaybackSpeedChanged = { speed ->
+                    currentSpeed = speed
+                },
+                onRetry = {
+                    playbackAttempt++
+                    onReloadVideo()
+                },
                 resumeConfig = resumePrefs.getResumeConfig(),
                 resumeEnabled = resumePrefs.isResumeEnabled(),
+                controlsEnabled = nativeControls,
                 modifier = Modifier
                     .fillMaxWidth()
                     .aspectRatio(16f / 9f)
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
+            // Only the panels below the player scroll. Wrapping the player in the scrolling
+            // container makes the scroll gesture detector swallow taps on the video, and the
+            // built-in controls then never come up.
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                Spacer(modifier = Modifier.height(16.dp))
 
-            // Speed Control Section
-            SpeedControlSection(
-                currentSpeed = currentSpeed,
-                onSpeedChanged = { speed ->
-                    currentSpeed = speed
-                    playerController?.setSpeed(speed)
-                }
-            )
+                NativeControlsSection(
+                    controlsEnabled = nativeControls,
+                    onControlsEnabledChanged = { nativeControls = it }
+                )
 
-            Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
-            when (uiState) {
-                VideoUiState.VideoUiEmpty -> {}
-                is VideoUiState.VideoUiLoaded -> {
-                    val props = listOf(
-                        VideoProperty("Title", uiState.video.name),
-                        VideoProperty("Duration", uiState.video.duration),
-                        VideoProperty("Views", uiState.video.viewCount),
-                        VideoProperty(
-                            "Size",
-                            String.format(Locale.US, "%.2f MB", uiState.video.size)
+                // Speed Control Section
+                SpeedControlSection(
+                    currentSpeed = currentSpeed,
+                    onSpeedChanged = { speed ->
+                        currentSpeed = speed
+                        playerController?.setSpeed(speed)
+                    }
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                when (uiState) {
+                    VideoUiState.VideoUiEmpty -> {}
+                    is VideoUiState.VideoUiLoaded -> {
+                        val props = buildList {
+                            add(VideoProperty(stringResource(R.string.label_title), uiState.video.name))
+                            add(
+                                VideoProperty(
+                                    stringResource(R.string.label_duration),
+                                    uiState.video.duration
+                                )
+                            )
+                            add(
+                                VideoProperty(
+                                    stringResource(R.string.label_views),
+                                    uiState.video.viewCount
+                                )
+                            )
+                            add(
+                                VideoProperty(
+                                    stringResource(R.string.label_size),
+                                    stringResource(
+                                        R.string.value_size_mb,
+                                        String.format(Locale.US, "%.2f", uiState.video.size)
+                                    )
+                                )
+                            )
+                            if (uiState.video.status != VideoStatus.FINISHED) {
+                                add(
+                                    VideoProperty(
+                                        stringResource(R.string.label_status),
+                                        uiState.video.status.name
+                                    )
+                                )
+                            }
+                        }
+                        VideoPropertiesCard(properties = props)
+                    }
+
+                    is VideoUiState.VideoUiLoadFailed -> {
+                        VideoPropertiesCard(
+                            properties = listOf(
+                                VideoProperty(
+                                    stringResource(R.string.label_metadata),
+                                    stringResource(R.string.value_metadata_unavailable)
+                                )
+                            )
                         )
-                    )
-                    VideoPropertiesCard(properties = props)
+                    }
+
+                    VideoUiState.VideoUiLoading -> {}
                 }
 
-                VideoUiState.VideoUiLoading -> {}
+                Spacer(modifier = Modifier.height(16.dp))
             }
         }
+    }
+
+    // Playback error dialog — translates raw ExoPlayer error codes into an actionable
+    // explanation (processing state, cross-library access, token auth).
+    playbackError?.let { rawError ->
+        AlertDialog(
+            onDismissRequest = { playbackError = null },
+            title = { Text(stringResource(R.string.dialog_playback_failed_title)) },
+            text = {
+                Text(
+                    text = describePlaybackError(
+                        rawError = rawError,
+                        uiState = uiState,
+                        requestedLibraryId = libraryId,
+                    )
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        playbackError = null
+                        playbackAttempt++
+                        onReloadVideo()
+                    }
+                ) {
+                    Text(stringResource(R.string.button_retry))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { playbackError = null }) {
+                    Text(stringResource(R.string.button_close))
+                }
+            }
+        )
     }
 
     // Resume Dialog
@@ -209,7 +336,7 @@ fun ResumeDialog(
         onDismissRequest = onDismiss,
         title = {
             Text(
-                text = "Resume Playback",
+                text = stringResource(R.string.resume_playback),
                 style = MaterialTheme.typography.titleLarge,
                 color = MaterialTheme.colorScheme.onSurface
             )
@@ -217,13 +344,19 @@ fun ResumeDialog(
         text = {
             Column {
                 Text(
-                    text = "Continue watching from ${formatTime(position.position)}?",
+                    text = stringResource(
+                        R.string.continue_watching_from,
+                        formatTime(position.position)
+                    ),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "Progress: ${(position.watchPercentage * 100).toInt()}%",
+                    text = stringResource(
+                        R.string.progress_percentage,
+                        (position.watchPercentage * 100).toInt()
+                    ),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -231,15 +364,68 @@ fun ResumeDialog(
         },
         confirmButton = {
             TextButton(onClick = onResume) {
-                Text("Resume", color = MaterialTheme.colorScheme.primary)
+                Text(stringResource(R.string.resume), color = MaterialTheme.colorScheme.primary)
             }
         },
         dismissButton = {
             TextButton(onClick = onStartOver) {
-                Text("Start Over")
+                Text(stringResource(R.string.start_over))
             }
         }
     )
+}
+
+/**
+ * Toggles [BunnyStreamPlayer.controlsEnabled] so the demo can show both halves of the option: the
+ * SDK's own chrome, and the bare video surface an app gets when it draws its own.
+ */
+@Composable
+fun NativeControlsSection(
+    controlsEnabled: Boolean,
+    onControlsEnabledChanged: (Boolean) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        shape = RoundedCornerShape(12.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = stringResource(R.string.label_native_controls),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = stringResource(
+                        if (controlsEnabled) R.string.hint_native_controls_on
+                        else R.string.hint_native_controls_off
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            Switch(
+                checked = controlsEnabled,
+                onCheckedChange = onControlsEnabledChanged
+            )
+        }
+    }
 }
 
 @Composable
@@ -262,7 +448,7 @@ fun SpeedControlSection(
             modifier = Modifier.padding(16.dp)
         ) {
             Text(
-                text = "Playback Speed",
+                text = stringResource(R.string.label_playback_speed),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onSurface
@@ -277,12 +463,12 @@ fun SpeedControlSection(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Current Speed:",
+                    text = stringResource(R.string.label_current_speed),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
-                    text = "${currentSpeed}x",
+                    text = stringResource(R.string.value_speed, currentSpeed.toString()),
                     style = MaterialTheme.typography.bodyLarge,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
@@ -351,7 +537,7 @@ private fun SpeedButtonRow(
                     )
                 ) {
                     Text(
-                        text = "${speed}x",
+                        text = stringResource(R.string.value_speed, speed.toString()),
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.SemiBold
                     )
@@ -362,7 +548,7 @@ private fun SpeedButtonRow(
                     modifier = Modifier.weight(1f)
                 ) {
                     Text(
-                        text = "${speed}x",
+                        text = stringResource(R.string.value_speed, speed.toString()),
                         style = MaterialTheme.typography.bodyMedium
                     )
                 }
@@ -375,10 +561,18 @@ private fun SpeedButtonRow(
 fun BunnyPlayerComposable(
     videoId: String,
     libraryId: Long?,
+    // Null means the caller supplies no metadata (e.g. the live editor's trailer
+    // preview) — playback starts immediately, exactly like before the gating existed.
+    uiState: VideoUiState? = null,
+    playbackAttempt: Int = 0,
     onPlayerReady: (BunnyStreamPlayer) -> Unit = {},
     onResumePosition: ((PlaybackPosition, (Boolean) -> Unit) -> Unit)? = null,
+    onPlaybackError: ((String) -> Unit)? = null,
+    onPlaybackSpeedChanged: ((Float) -> Unit)? = null,
+    onRetry: (() -> Unit)? = null,
     resumeConfig: ResumeConfig = ResumeConfig(),
     resumeEnabled: Boolean = true,
+    controlsEnabled: Boolean = true,
     modifier: Modifier = Modifier
 ) {
     if (LocalInspectionMode.current) {
@@ -395,47 +589,241 @@ fun BunnyPlayerComposable(
                     .padding(16.dp),
             )
         }
-    } else {
-        AndroidView(
-            factory = { context ->
-                val player = BunnyStreamPlayer(context)
+        return
+    }
 
-                val speedConfig = PlaybackSpeedConfig(
-                    enableSpeedControl = true,
-                    defaultSpeed = 1.0f,
-                    allowedSpeeds = null,
-                    showSpeedBadge = true,
-                    rememberLastSpeed = true
-                )
+    // Gate playback on the video's processing state: a video that hasn't finished
+    // encoding has no playable HLS manifest yet, and starting the player would only
+    // surface a raw ERROR_CODE_IO_BAD_HTTP_STATUS overlay.
+    val loadedStatus = ((uiState as? VideoUiState.VideoUiLoaded)?.video?.status)
+    val playbackAllowed = when (uiState) {
+        null -> true
+        is VideoUiState.VideoUiLoaded -> loadedStatus == VideoStatus.FINISHED
+        // Metadata fetch failed — the player's own play-data call (same endpoint, same
+        // credentials) would fail identically, so explain instead of dying silently.
+        is VideoUiState.VideoUiLoadFailed -> false
+        VideoUiState.VideoUiEmpty, VideoUiState.VideoUiLoading -> false
+    }
 
-                player.setPlaybackSpeedConfig(speedConfig)
+    when {
+        playbackAllowed -> {
+            var playerView by remember { mutableStateOf<BunnyStreamPlayer?>(null) }
+            // Guards against double kickoff: the first LaunchedEffect run already sees
+            // the player written by the factory, and the playerView key change then
+            // restarts the effect once more for the same (player, request) pair.
+            var lastStarted by remember {
+                mutableStateOf<Pair<BunnyStreamPlayer, Triple<String, Long?, Int>>?>(null)
+            }
 
-                // Opt the demo app in to auto-contrast for the position/duration readout so the
-                // text stays legible regardless of scene brightness. Off by default in the SDK.
-                player.autoProgressTextColor = true
+            AndroidView(
+                factory = { context ->
+                    val player = BunnyStreamPlayer(context)
 
+                    val speedConfig = PlaybackSpeedConfig(
+                        enableSpeedControl = true,
+                        defaultSpeed = 1.0f,
+                        allowedSpeeds = null,
+                        showSpeedBadge = true,
+                        rememberLastSpeed = true
+                    )
+
+                    player.setPlaybackSpeedConfig(speedConfig)
+
+                    // Opt the demo app in to auto-contrast for the position/duration readout so the
+                    // text stays legible regardless of scene brightness. Off by default in the SDK.
+                    player.autoProgressTextColor = true
 //                player.progressTextColor = android.graphics.Color.RED
 
-                // Enable resume position only if enabled in settings
-                if (resumeEnabled) {
-                    player.enableResumePosition(
-                        config = resumeConfig,
-                        onResumePositionCallback = onResumePosition
+                    // Enable resume position only if enabled in settings
+                    if (resumeEnabled) {
+                        player.enableResumePosition(
+                            config = resumeConfig,
+                            onResumePositionCallback = onResumePosition
+                        )
+                    } else {
+                        player.disableResumePosition()
+                    }
+
+                    player.onPlaybackError = { message -> onPlaybackError?.invoke(message) }
+
+                    // The engine reapplies the remembered speed to every new video on its own, so
+                    // the selector has to follow the player rather than only its own taps.
+                    player.onPlaybackSpeedChanged = { speed -> onPlaybackSpeedChanged?.invoke(speed) }
+
+                    player.controlsEnabled = controlsEnabled
+
+                    onPlayerReady(player)
+                    playerView = player
+                    player
+                },
+                update = {
+                    // Re-applied here so flipping the toggle takes effect on the player already on
+                    // screen, without recreating it.
+                    it.controlsEnabled = controlsEnabled
+                    onPlayerReady(it)
+                },
+                modifier = modifier.background(Color.Gray)
+            )
+
+            // Token authentication: when the library has a token-auth key configured, sign a
+            // short-lived playback token. Without it a token-protected library returns no media
+            // and the player shows a black picture with working controls — the live screen has
+            // done this since it shipped; VOD never did.
+            // NOTE: demo-only — generate tokens server-side in production, never ship the key.
+            val tokenAuthKey = App.di.localPrefs.tokenAuthKey
+            val tokenExpires = remember(videoId, tokenAuthKey) {
+                if (tokenAuthKey.isBlank()) null
+                else System.currentTimeMillis() / 1000 + PLAYBACK_TOKEN_TTL_SECONDS
+            }
+            val playbackToken = remember(videoId, tokenAuthKey, tokenExpires) {
+                if (tokenAuthKey.isBlank() || tokenExpires == null) null
+                else EmbedToken.generate(tokenAuthKey, videoId, tokenExpires)
+            }
+
+            LaunchedEffect(playerView, videoId, libraryId, playbackAttempt, playbackToken) {
+                val player = playerView ?: return@LaunchedEffect
+                val request = player to Triple(videoId, libraryId, playbackAttempt)
+                if (lastStarted != request) {
+                    lastStarted = request
+                    player.playVideo(
+                        videoId,
+                        libraryId,
+                        videoTitle = "",
+                        token = playbackToken,
+                        expires = tokenExpires,
+                    )
+                }
+            }
+        }
+
+        uiState is VideoUiState.VideoUiLoadFailed -> {
+            val configuredLibraryId = App.di.libraryId
+            val requestedLibraryId = libraryId
+            PlayerStatusPlaceholder(
+                title = stringResource(R.string.player_status_cant_load_title),
+                message = if (requestedLibraryId != null && requestedLibraryId != configuredLibraryId) {
+                    stringResource(
+                        R.string.player_load_failed_cross_library,
+                        requestedLibraryId,
+                        configuredLibraryId
                     )
                 } else {
-                    player.disableResumePosition()
-                }
+                    stringResource(R.string.player_load_failed_generic) +
+                        (uiState.message?.let {
+                            "\n\n" + stringResource(R.string.playback_error_details, it)
+                        } ?: "")
+                },
+                showProgress = false,
+                onRetry = onRetry,
+                modifier = modifier
+            )
+        }
 
-                onPlayerReady(player)
-                player
-            },
-            update = {
-                it.playVideo(videoId, libraryId, videoTitle = "")
-                onPlayerReady(it)
-            },
-            modifier = modifier.background(Color.Gray)
-        )
+        loadedStatus != null -> {
+            // Loaded but not FINISHED — show the processing state instead of a dead
+            // player. Transitional states auto-refresh via the screen's status poll,
+            // so playback starts by itself once encoding finishes.
+            PlayerStatusPlaceholder(
+                title = when (loadedStatus) {
+                    VideoStatus.ERROR, VideoStatus.UPLOAD_FAILED ->
+                        stringResource(R.string.player_status_cant_play_title)
+                    else -> stringResource(R.string.player_status_not_ready_title)
+                },
+                message = when (loadedStatus) {
+                    VideoStatus.CREATED -> stringResource(R.string.player_status_created)
+                    VideoStatus.UPLOADED, VideoStatus.PROCESSING, VideoStatus.TRANSCODING ->
+                        stringResource(R.string.player_status_processing, loadedStatus.name)
+                    VideoStatus.ERROR -> stringResource(R.string.player_status_encoding_error)
+                    VideoStatus.UPLOAD_FAILED ->
+                        stringResource(R.string.player_status_upload_failed)
+                    VideoStatus.FINISHED -> "" // unreachable — FINISHED is playbackAllowed
+                },
+                showProgress = loadedStatus in VideoStatus.TRANSITIONAL &&
+                    loadedStatus != VideoStatus.CREATED,
+                onRetry = if (loadedStatus == VideoStatus.CREATED) onRetry else null,
+                modifier = modifier
+            )
+        }
+
+        else -> {
+            // Metadata still loading — brief spinner before the player appears.
+            Box(modifier = modifier.background(Color.Black)) {
+                androidx.compose.material3.CircularProgressIndicator(
+                    modifier = Modifier.align(Alignment.Center)
+                )
+            }
+        }
     }
+}
+
+@Composable
+private fun PlayerStatusPlaceholder(
+    title: String,
+    message: String,
+    showProgress: Boolean,
+    modifier: Modifier = Modifier,
+    onRetry: (() -> Unit)? = null,
+) {
+    Box(modifier = modifier.background(Color.Black)) {
+        Column(
+            modifier = Modifier
+                .align(Alignment.Center)
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            if (showProgress) {
+                androidx.compose.material3.CircularProgressIndicator()
+            }
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                color = Color.White
+            )
+            Text(
+                text = message,
+                style = MaterialTheme.typography.bodySmall,
+                color = Color.White.copy(alpha = 0.8f),
+                textAlign = TextAlign.Center
+            )
+            if (onRetry != null) {
+                OutlinedButton(onClick = onRetry) {
+                    Text(stringResource(R.string.button_retry), color = Color.White)
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Maps a raw engine error (e.g. "ERROR_CODE_IO_BAD_HTTP_STATUS: Source error") plus what we
+ * know about the video to a message that tells the user what to actually do about it.
+ */
+@Composable
+private fun describePlaybackError(
+    rawError: String,
+    uiState: VideoUiState,
+    requestedLibraryId: Long?,
+): String {
+    val video = (uiState as? VideoUiState.VideoUiLoaded)?.video
+
+    val configuredLibraryId = App.di.libraryId
+
+    val explanation = when {
+        video != null && video.status in VideoStatus.TRANSITIONAL ->
+            stringResource(R.string.playback_error_not_ready, video.status.name)
+
+        requestedLibraryId != null && requestedLibraryId != configuredLibraryId ->
+            stringResource(
+                R.string.playback_error_cross_library,
+                requestedLibraryId,
+                configuredLibraryId
+            )
+
+        else -> stringResource(R.string.playback_error_generic)
+    }
+
+    return explanation + "\n\n" + stringResource(R.string.playback_error_details, rawError)
 }
 
 private fun formatTime(positionMs: Long): String {

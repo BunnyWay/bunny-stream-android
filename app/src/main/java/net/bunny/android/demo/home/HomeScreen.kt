@@ -24,6 +24,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.annotation.StringRes
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -41,37 +42,36 @@ import net.bunny.android.demo.ui.theme.BunnyStreamTheme
 
 /**
  * The sealed class that describes each button, with an optional override for its text color.
- */
-/**
- * Now each option carries a small @Composable lambda for its text color,
- * defaulting to MaterialTheme.colorScheme.onSurface
+ * Titles live in string resources so the demo stays localizable.
  */
 sealed class HomeOption(
-    val title: String,
+    @StringRes val titleRes: Int,
     val textColor: @Composable () -> Color = { MaterialTheme.colorScheme.onSurface }
 ) {
-    object VideoPlayer : HomeOption("Video player")
+    object VideoPlayer : HomeOption(R.string.home_option_video_player)
 
-    object VideoUpload : HomeOption("Video Upload")
+    object VideoUpload : HomeOption(R.string.home_option_video_upload)
 
-    object CameraUpload : HomeOption("Camera upload")
+    object CameraUpload : HomeOption(R.string.home_option_camera_upload)
+
+    object LiveStreams : HomeOption(R.string.home_option_live_streams)
 
     object DirectVideoPlay : HomeOption(
-        "Direct video play",
+        R.string.home_option_direct_play,
         textColor = { MaterialTheme.colorScheme.primary })
 
     object BunnyStreamConfiguration : HomeOption(
-        "Bunny Stream Configuration",
+        R.string.screen_settings,
         textColor = { MaterialTheme.colorScheme.primary }
     )
 
     object ResumePositionSettings : HomeOption(
-        "Resume Position Settings",
+        R.string.resume_position_settings,
         textColor = { MaterialTheme.colorScheme.primary }
     )
 
     object ResumePositionManagement : HomeOption(
-        "Manage Resume Positions",
+        R.string.home_option_resume_management,
         textColor = { MaterialTheme.colorScheme.primary }
     )
 }
@@ -88,6 +88,7 @@ fun HomeScreenRoute(
     navigateToPlayer: (String, Long) -> Unit,
     navigateToResumeSettings: () -> Unit,
     navigateToResumeManagement: () -> Unit,
+    navigateToLiveStreams: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var showDialog by remember { mutableStateOf(false) }
@@ -106,6 +107,10 @@ fun HomeScreenRoute(
 
                 HomeOption.CameraUpload -> {
                     navigateToStreaming()
+                }
+
+                HomeOption.LiveStreams -> {
+                    navigateToLiveStreams()
                 }
 
                 HomeOption.DirectVideoPlay -> {
@@ -127,7 +132,7 @@ fun HomeScreenRoute(
         },
         onPlayDirect = { videoId, libraryId ->
             showDialog = false
-            navigateToPlayer(videoId, libraryId.toLong())
+            navigateToPlayer(videoId, libraryId)
         },
         onDismiss = {
             showDialog = false
@@ -141,7 +146,7 @@ fun HomeScreenContent(
     modifier: Modifier,
     showDialog: Boolean = false,
     onOptionClick: (HomeOption) -> Unit,
-    onPlayDirect: (String, String) -> Unit,
+    onPlayDirect: (String, Long) -> Unit,
     onDismiss: () -> Unit
 ) {
     Scaffold(
@@ -186,6 +191,7 @@ fun OptionsList(
         HomeOption.VideoPlayer,
         HomeOption.VideoUpload,
         HomeOption.CameraUpload,
+        HomeOption.LiveStreams,
         HomeOption.DirectVideoPlay
     )
 
@@ -204,19 +210,19 @@ fun OptionsList(
             .background(MaterialTheme.colorScheme.background)
     ) {
         item {
-            OptionsCategory(title = "Actions")
+            OptionsCategory(title = stringResource(R.string.home_category_actions))
             OptionsGroupCard(items = actionItems, onItemClick = onOptionClick)
         }
 
         item {
             Spacer(modifier = Modifier.height(24.dp))
-            OptionsCategory(title = "Resume Positions")
+            OptionsCategory(title = stringResource(R.string.home_category_resume))
             OptionsGroupCard(items = resumeItems, onItemClick = onOptionClick)
         }
 
         item {
             Spacer(modifier = Modifier.height(24.dp))
-            OptionsCategory(title = "Configuration")
+            OptionsCategory(title = stringResource(R.string.home_category_configuration))
             OptionsGroupCard(items = configItems, onItemClick = onOptionClick)
         }
     }
@@ -265,7 +271,7 @@ fun OptionsItem(
             .padding(horizontal = 16.dp, vertical = 16.dp)
     ) {
         Text(
-            text = option.title,
+            text = stringResource(option.titleRes),
             style = MaterialTheme.typography.bodyLarge,
             color = option.textColor()
         )
@@ -287,17 +293,20 @@ fun OptionsCategory(title: String) {
 @Composable
 private fun EnterVideoIdDialog(
     initialValue: String = "",
-    onPlay: (String, String) -> Unit,
+    onPlay: (String, Long) -> Unit,
     onDismiss: () -> Unit
 ) {
     var videoId by remember { mutableStateOf(initialValue) }
     var libraryId by remember { mutableStateOf(initialValue) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+    val errorVideoIdEmpty = stringResource(R.string.error_video_id_empty)
+    val errorLibraryIdInvalid = stringResource(R.string.error_library_id_invalid)
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
             Text(
-                text = "Enter Video ID",
+                text = stringResource(R.string.dialog_enter_video_id_title),
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onSurface
             )
@@ -305,46 +314,80 @@ private fun EnterVideoIdDialog(
         text = {
             Column {
                 Text(
-                    text = "Please enter the ID of the video you want to play",
+                    text = stringResource(R.string.dialog_enter_video_id_message),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 TextField(
                     value = videoId,
-                    onValueChange = { videoId = it },
-                    placeholder = { Text("Video ID") },
+                    onValueChange = {
+                        videoId = it
+                        errorMessage = null
+                    },
+                    placeholder = { Text(stringResource(R.string.placeholder_video_id)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "Please enter the Library ID of the video you want to play",
+                    text = stringResource(R.string.dialog_enter_library_id_message),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 TextField(
                     value = libraryId,
-                    onValueChange = { libraryId = it },
-                    placeholder = { Text("Video Library ID") },
+                    onValueChange = {
+                        libraryId = it
+                        errorMessage = null
+                    },
+                    placeholder = { Text(stringResource(R.string.placeholder_library_id)) },
                     singleLine = true,
+                    isError = errorMessage != null,
                     modifier = Modifier.fillMaxWidth(),
+                )
+                errorMessage?.let { message ->
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = message,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = stringResource(R.string.note_direct_play_access_key),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         },
         confirmButton = {
             TextButton(
-                onClick = { onPlay(videoId, libraryId) }
+                onClick = {
+                    val trimmedVideoId = videoId.trim().substringBefore('?')
+                    val trimmedLibraryId = libraryId.trim().substringBefore('?')
+                    val parsedLibraryId = trimmedLibraryId.toLongOrNull()
+                    when {
+                        trimmedVideoId.isEmpty() -> {
+                            errorMessage = errorVideoIdEmpty
+                        }
+                        parsedLibraryId == null -> {
+                            errorMessage = errorLibraryIdInvalid
+                        }
+                        else -> onPlay(trimmedVideoId, parsedLibraryId)
+                    }
+                }
             ) {
-                Text("Play", color = MaterialTheme.colorScheme.primary)
+                Text(stringResource(R.string.button_play), color = MaterialTheme.colorScheme.primary)
             }
         },
         dismissButton = {
             TextButton(
                 onClick = onDismiss
             ) {
-                Text("Cancel")
+                Text(stringResource(R.string.button_cancel))
             }
         }
     )
@@ -358,8 +401,7 @@ fun OptionsScreenPreview() {
         HomeScreenContent(
             modifier = Modifier.fillMaxSize(),
             onOptionClick = {},
-            onPlayDirect = { videoId, libraryId ->
-            },
+            onPlayDirect = { _, _ -> },
             onDismiss = { },
         )
     }

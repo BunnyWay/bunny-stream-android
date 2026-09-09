@@ -8,4 +8,8 @@
     <color name="control_buttons_background">#4F000000</color>
     <color name="black">#000</color>
     <color name="white">#fff</color>
+    <!-- Ingest (Primary/Backup) badge dots -->
+    <color name="ingest_active">#22C55E</color>
+    <color name="ingest_connecting">#F59E0B</color>
+    <color name="ingest_standby">#8D8D8D</color>
 </resources>

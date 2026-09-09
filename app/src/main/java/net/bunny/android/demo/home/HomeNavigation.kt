@@ -25,6 +25,7 @@ fun NavGraphBuilder.homeScreen(
     navigateToStreaming: () -> Unit,
      navigateToResumeSettings: () -> Unit,
     navigateToResumeManagement: () -> Unit,
+    navigateToLiveStreams: () -> Unit,
     modifier: Modifier = Modifier,
     navigateToPlayer: (String, Long) -> Unit,
 ) {
@@ -41,6 +42,7 @@ fun NavGraphBuilder.homeScreen(
             navigateToPlayer = navigateToPlayer,
             navigateToResumeSettings = navigateToResumeSettings,
             navigateToResumeManagement = navigateToResumeManagement,
+            navigateToLiveStreams = navigateToLiveStreams,
             modifier = modifier
         )
     }

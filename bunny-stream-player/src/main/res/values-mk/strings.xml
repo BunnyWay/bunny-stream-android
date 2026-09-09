@@ -8,4 +8,5 @@
     <string name="label_video_settings_captions_disabled">Оневозможено</string>
     <string name="label_video_settings_audio_track">Аудио песна</string>
     <string name="label_drm_not_supported_exception">DRM е овозможен за ова видео, репродукцијата не е поддржана на овој уред.</string>
+    <string name="error_video_not_available">Видеото не е достапно</string>
 </resources>

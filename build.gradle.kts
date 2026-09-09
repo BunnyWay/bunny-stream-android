@@ -2,13 +2,12 @@
 plugins {
     // Android plugins
     // https://developer.android.com/studio/releases/gradle-plugin
-    id("com.android.application") version "8.7.3" apply false
-    id("com.android.library") version "8.7.3" apply false
+    id("com.android.application") version "9.3.1" apply false
+    id("com.android.library") version "9.3.1" apply false
     // Kotlin plugins
     // https://kotlinlang.org/docs/gradle.html
-    id("org.jetbrains.kotlin.android") version "2.1.20" apply false
-    id("org.jetbrains.kotlin.plugin.serialization") version "2.1.20" apply false
-    id("org.jetbrains.kotlin.plugin.compose") version "2.1.20" apply false
+    id("org.jetbrains.kotlin.plugin.serialization") version "2.2.20" apply false
+    id("org.jetbrains.kotlin.plugin.compose") version "2.2.20" apply false
 
     // Code quality tools
     // https://github.com/detekt/detekt
@@ -16,21 +15,21 @@ plugins {
 
     // OpenAPI Generator (Never versions mess up markdown table generation)
     // https://openapi-generator.tech
-    id("org.openapi.generator") version "7.6.0" apply false
+    id("org.openapi.generator") version "7.24.0" apply false
 
     // Documentation
     // https://kotlin.github.io/dokka
-    id("org.jetbrains.dokka") version "2.0.0"
+    id("org.jetbrains.dokka") version "2.2.0"
 
     // Maven publishing
     // https://github.com/vanniktech/gradle-maven-publish-plugin
-    id("com.vanniktech.maven.publish") version "0.34.0" apply false
+    id("com.vanniktech.maven.publish") version "0.36.0" apply false
 }
 
-tasks.dokkaGfmMultiModule {
-    moduleName.set("Bunny Stream Android API")
-    outputDirectory.set(file("docs"))
-}
+
+// Browsable API reference (HTML) aggregated across :api, :player and :recording.
+// Output goes to build/ (not committed); .github/workflows/docs.yml publishes it
+// to GitHub Pages. Run locally with: ./gradlew dokkaGeneratePublicationHtml
 
 subprojects {
     // Only configure publishing in Android-library modules
@@ -120,5 +119,20 @@ tasks.register("printAllGroups") {
         rootProject.allprojects.forEach { p ->
             println("→ ${p.path}: group='${p.group}'")
         }
+    }
+}
+
+// Browsable API reference aggregated across :api, :player and :recording. Output goes to build/
+// (not committed); .github/workflows/docs.yml publishes it to GitHub Pages.
+dependencies {
+    dokka(project(":api"))
+    dokka(project(":player"))
+    dokka(project(":recording"))
+}
+
+dokka {
+    moduleName.set("Bunny Stream Android SDK")
+    dokkaPublications.html {
+        outputDirectory.set(layout.buildDirectory.dir("dokka/htmlMultiModule"))
     }
 }

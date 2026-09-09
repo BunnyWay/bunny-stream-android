@@ -108,8 +108,24 @@ class FullScreenPlayerActivity : AppCompatActivity() {
 
     override fun onPause() {
         super.onPause()
+        // Entering picture-in-picture fires onPause too — playback must keep running inside the
+        // PiP window, so skip the auto-pause.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && isInPictureInPictureMode) {
+            Log.d(TAG, "onPause while in PiP — keeping playback running")
+            return
+        }
         val autoPaused = playerView.bunnyPlayer?.isPlaying() == true
         playerView.bunnyPlayer?.pause(autoPaused)
+    }
+
+    override fun onStop() {
+        super.onStop()
+        // Closing the PiP window skips the (PiP-guarded) onPause pause and lands here — stop
+        // playback so audio doesn't keep playing in the background. No-op in the normal
+        // background flow (onPause already paused). autoPaused=false: don't auto-resume.
+        if (playerView.bunnyPlayer?.isPlaying() == true) {
+            playerView.bunnyPlayer?.pause(autoPaused = false)
+        }
     }
 
     override fun onDestroy() {

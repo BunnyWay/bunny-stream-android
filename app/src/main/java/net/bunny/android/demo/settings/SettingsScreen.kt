@@ -1,15 +1,21 @@
 package net.bunny.android.demo.settings
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -21,6 +27,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -48,18 +55,36 @@ fun SettingsRoute(
             else viewModel.libraryId.toString()
         )
     }
+    var tokenAuthKey by remember { mutableStateOf(viewModel.tokenAuthKey) }
+
+    val state = viewModel.state
+
+    // Only leave once the credentials have actually been proven to work.
+    LaunchedEffect(state) {
+        if (state == SettingsState.Verified) appState.navController.popBackStack()
+    }
 
     SettingsScreen(
         modifier = modifier,
         onBackClicked = { appState.navController.popBackStack() },
         accessKey = accessKey,
-        onAccessKeyUpdated = { accessKey = it },
-        libraryId = libraryId,
-        onLibraryIdUpdated = { libraryId = it },
-        onSaveClicked = {
-            viewModel.updateKeys(accessKey, libraryId.toLongOrDefault(-1))
-            appState.navController.popBackStack()
+        onAccessKeyUpdated = {
+            accessKey = it
+            viewModel.dismissError()
         },
+        libraryId = libraryId,
+        onLibraryIdUpdated = {
+            libraryId = it
+            viewModel.dismissError()
+        },
+        tokenAuthKey = tokenAuthKey,
+        onTokenAuthKeyUpdated = {
+            tokenAuthKey = it
+            viewModel.dismissError()
+        },
+        onSaveClicked = { viewModel.saveAndVerify(accessKey, libraryId, tokenAuthKey) },
+        checking = state == SettingsState.Checking,
+        errorMessage = (state as? SettingsState.Failed)?.message,
     )
 }
 
@@ -72,7 +97,11 @@ private fun SettingsScreen(
     onAccessKeyUpdated: (String) -> Unit,
     libraryId: String,
     onLibraryIdUpdated: (String) -> Unit,
+    tokenAuthKey: String = "",
+    onTokenAuthKeyUpdated: (String) -> Unit = {},
     onSaveClicked: () -> Unit,
+    checking: Boolean = false,
+    errorMessage: String? = null,
 ) {
 
     Scaffold(
@@ -106,9 +135,10 @@ private fun SettingsScreen(
             modifier = modifier
                 .fillMaxSize()
                 .padding(innerPadding)
+                .verticalScroll(rememberScrollState())
         ) {
             OutlinedTextField(
-                modifier = modifier
+                modifier = Modifier
                     .fillMaxWidth()
                     .padding(16.dp),
                 value = libraryId,
@@ -119,7 +149,7 @@ private fun SettingsScreen(
             )
 
             OutlinedTextField(
-                modifier = modifier
+                modifier = Modifier
                     .fillMaxWidth()
                     .padding(16.dp),
                 value = accessKey,
@@ -128,17 +158,59 @@ private fun SettingsScreen(
                 label = { Text(stringResource(id = R.string.hint_access_key)) }
             )
 
+            OutlinedTextField(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                value = tokenAuthKey,
+                onValueChange = onTokenAuthKeyUpdated,
+                singleLine = true,
+                label = { Text("Token authentication key (optional)") },
+                supportingText = {
+                    Text(
+                        "Only needed when the library has token authentication enabled. " +
+                            "Without it playback shows a black picture. Bunny dashboard > " +
+                            "Stream > your library > Security."
+                    )
+                },
+            )
+
+            if (errorMessage != null) {
+                Text(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                    text = errorMessage,
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
             Button(
-                modifier = modifier
+                modifier = Modifier
                     .fillMaxWidth()
                     .padding(16.dp),
                 onClick = onSaveClicked,
+                enabled = !checking,
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor   = MaterialTheme.colorScheme.onPrimary
                 )
             ) {
-                Text(text = stringResource(id = R.string.button_save_settings), color = MaterialTheme.colorScheme.onPrimary)
+                if (checking) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(18.dp),
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.onPrimary,
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                }
+                Text(
+                    text = if (checking) "Checking…" else stringResource(id = R.string.button_save_settings),
+                    color = MaterialTheme.colorScheme.onPrimary,
+                )
             }
         }
     }

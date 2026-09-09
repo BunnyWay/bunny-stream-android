@@ -8,4 +8,5 @@
     <string name="label_video_settings_captions_disabled">Deaktiviert</string>
     <string name="label_video_settings_audio_track">Audiospur</string>
     <string name="label_drm_not_supported_exception">DRM ist für dieses Video aktiviert, die Wiedergabe wird auf diesem Gerät nicht unterstützt.</string>
+    <string name="error_video_not_available">Video ist nicht verfügbar</string>
 </resources>

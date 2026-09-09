@@ -15,6 +15,12 @@ import net.bunny.android.demo.home.TVHomeScreenRoute
 import net.bunny.android.demo.home.homeScreen
 import net.bunny.android.demo.library.libraryScreen
 import net.bunny.android.demo.library.navigateToLibrary
+import net.bunny.android.demo.livestream.liveStreamEditorScreen
+import net.bunny.android.demo.livestream.liveStreamPlayerScreen
+import net.bunny.android.demo.livestream.liveStreamsScreen
+import net.bunny.android.demo.livestream.liveThumbnailPickerScreen
+import net.bunny.android.demo.livestream.liveTrailerPickerScreen
+import net.bunny.android.demo.livestream.navigateToLiveStreams
 import net.bunny.android.demo.player.navigateToPlayer
 import net.bunny.android.demo.player.playerScreen
 import net.bunny.android.demo.recording.RecordingActivity
@@ -49,6 +55,7 @@ fun AppNavHost(
             },
             navigateToResumeSettings = navController::navigateToResumeSettings,
             navigateToResumeManagement = navController::navigateToResumeManagement,
+            navigateToLiveStreams = navController::navigateToLiveStreams,
             modifier = modifier
         )
         libraryScreen(
@@ -56,6 +63,11 @@ fun AppNavHost(
             navigateToSettings = navController::navigateToSettings,
             navigateToPlayer = { navController.navigateToPlayer(it, null) },
         )
+        liveStreamsScreen(appState = appState)
+        liveStreamEditorScreen(appState = appState)
+        liveTrailerPickerScreen(appState = appState)
+        liveThumbnailPickerScreen(appState = appState)
+        liveStreamPlayerScreen(appState = appState)
         settingsScreen(appState = appState)
         playerScreen(appState = appState)
         resumePositionSettingsScreen(appState = appState)

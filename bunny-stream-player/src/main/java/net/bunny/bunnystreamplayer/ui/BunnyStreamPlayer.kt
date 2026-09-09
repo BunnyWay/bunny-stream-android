@@ -1,7 +1,10 @@
 package net.bunny.bunnystreamplayer.ui
 
+import android.app.Activity
 import android.content.Context
+import android.content.ContextWrapper
 import android.content.pm.PackageManager
+import android.os.Build
 import android.util.AttributeSet
 import android.util.Log
 import android.view.LayoutInflater
@@ -19,22 +22,59 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import net.bunny.api.BunnyStreamApi
+import net.bunny.api.StreamApi
+import net.bunny.api.error.errorOrNull
+import net.bunny.api.error.fold
 import net.bunny.api.playback.PlaybackPosition
 import net.bunny.api.playback.ResumeConfig
 import net.bunny.api.playback.ResumePositionListener
 import net.bunny.api.settings.domain.model.PlayerSettings
+import net.bunny.api.livestream.domain.model.LiveStreamPlayData
+import net.bunny.bunnystreamplayer.livestream.livePlayerSettings
+import net.bunny.bunnystreamplayer.PlaybackFailureInfo
 import net.bunny.bunnystreamplayer.DefaultBunnyPlayer
+import net.bunny.bunnystreamplayer.cmcd.CmcdStreamType
 import net.bunny.bunnystreamplayer.common.DeviceType
 import net.bunny.bunnystreamplayer.config.PlaybackSpeedConfig
+import net.bunny.bunnystreamplayer.PlayerType
+import net.bunny.bunnystreamplayer.model.Chapter
+import net.bunny.bunnystreamplayer.model.Moment
+import net.bunny.bunnystreamplayer.model.RetentionGraphEntry
 import net.bunny.bunnystreamplayer.model.PlayerIconSet
 import net.bunny.bunnystreamplayer.model.getSanitizedRetentionData
 import net.bunny.bunnystreamplayer.ui.fullscreen.FullScreenPlayerActivity
 import net.bunny.bunnystreamplayer.ui.widget.BunnyPlayerView
 import net.bunny.player.databinding.ViewBunnyVideoPlayerBinding
-import org.openapitools.client.models.VideoModel
-import org.openapitools.client.models.VideoPlayDataModelVideo
+import net.bunny.api.error.getOrNull
+import net.bunny.api.video.domain.model.Video
 
 
+/**
+ * The video player view of the Bunny Stream SDK. Add it to a layout (or wrap it in `AndroidView`
+ * from Compose) and call [playVideo] with a video id from your library:
+ *
+ * ```kotlin
+ * player.playVideo(videoId = "your-video-guid")
+ * ```
+ *
+ * The view needs an SDK instance: either [net.bunny.api.BunnyStreamApi.initialize] has been
+ * called, or [bunny] is set to an instance from `BunnyStreamApi.create`. With neither, [playVideo]
+ * logs an error and shows nothing. Appearance (accent color, visible controls, captions styling)
+ * comes from the library's player settings in the Bunny dashboard. Icons can be replaced through
+ * [iconSet].
+ *
+ * What the view handles on its own:
+ * - playback controls, seek-bar preview thumbnails, chapters, moments and captions
+ * - fullscreen (opens a dedicated fullscreen screen) and Picture-in-Picture (the host activity
+ *   must declare `android:supportsPictureInPicture="true"`)
+ * - Chromecast, when Google Play services are available
+ * - pausing when the host goes to the background and resuming on return
+ * - resume positions, once enabled with [enableResumePosition]
+ *
+ * The view attaches to its host lifecycle automatically. Playback stops when the view is detached
+ * from the window. One playback engine is shared per process; use one player view at a time and
+ * detach it before starting playback in another.
+ */
 class BunnyStreamPlayer @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null,
@@ -44,7 +84,24 @@ class BunnyStreamPlayer @JvmOverloads constructor(
     companion object {
         private const val TAG = "BunnyVideoPlayer"
         private const val AUTO_SAVE_INTERVAL = 10_000L // 10 seconds
+
     }
+
+    /**
+     * The SDK instance this view plays from. Leave it null to use the one
+     * [net.bunny.api.BunnyStreamApi.initialize] registered.
+     *
+     * Set it when your app addresses more than one library and this view belongs to a specific
+     * one. Assign before calling [playVideo]; the value is read per call, so a view can be moved
+     * between instances.
+     */
+    var bunny: StreamApi? = null
+
+    /** The instance to use right now. Resolved per call, never cached. */
+    private val sdk: StreamApi get() = bunny ?: BunnyStreamApi.getInstance()
+
+    /** True when this view has an instance to work with, whether its own or the default one. */
+    private val hasSdk: Boolean get() = bunny != null || BunnyStreamApi.isInitialized()
 
     private var job: Job? = null
     private var scope: CoroutineScope? = null
@@ -89,6 +146,169 @@ class BunnyStreamPlayer @JvmOverloads constructor(
         set(value) {
             playerView.progressTextColor = value
         }
+
+    /**
+     * Invoked with the current video's pixel dimensions (first frame and on change) so the host can
+     * size its container to the real aspect ratio — supporting both 16:9 and 9:16 (vertical) content.
+     *
+     * Forwards to [BunnyPlayerView.onVideoSizeChanged].
+     */
+    var onVideoSizeChanged: ((width: Int, height: Int) -> Unit)?
+        get() = playerView.onVideoSizeChanged
+        set(value) {
+            playerView.onVideoSizeChanged = value
+        }
+
+    /**
+     * Invoked when the engine reports a playback error. The live player uses it to re-poll the
+     * stream and rebuild playback from the live edge. Forwards to [BunnyPlayerView.onPlaybackError].
+     */
+    var onPlaybackError: ((message: String) -> Unit)?
+        get() = playerView.onPlaybackError
+        set(value) {
+            playerView.onPlaybackError = value
+        }
+
+    /**
+     * Structured counterpart of [onPlaybackError] for the SDK's own surfaces: fires first and
+     * carries the HTTP status behind the failure, so the live player can tell a blocked stream
+     * (403) from a transient error. Forwards to [BunnyPlayerView.onPlaybackFailureInfo].
+     */
+    internal var onPlaybackFailureInfo: ((PlaybackFailureInfo) -> Unit)?
+        get() = playerView.onPlaybackFailureInfo
+        set(value) {
+            playerView.onPlaybackFailureInfo = value
+        }
+
+    /**
+     * Condensed control bar (hides secondary controls like settings/captions/duration). Driven for
+     * live playback by the dashboard's `enableCompactControls` from the live `/play` customization.
+     * Forwards to [BunnyPlayerView.compactControls].
+     */
+    var compactControls: Boolean
+        get() = playerView.compactControls
+        set(value) {
+            playerView.compactControls = value
+        }
+
+    /**
+     * Whether the built-in player chrome is used. Set it to `false` before starting playback to get
+     * a bare video surface and drive playback from your own UI (`play()`, `pause()`, `seekTo()` and
+     * the rest of this class stay available). Taps on the player then do nothing and no control is
+     * ever shown. Defaults to `true`.
+     *
+     * What you keep: playback errors are still surfaced on screen and through [onPlaybackError],
+     * plus DRM, resume positions, captions and CDN telemetry.
+     *
+     * What you take over: everything the control bar drew, including the live badge, the cast
+     * button and the fullscreen and picture-in-picture entry points.
+     *
+     * Forwards to [BunnyPlayerView.controlsEnabled].
+     */
+    var controlsEnabled: Boolean
+        get() = playerView.controlsEnabled
+        set(value) {
+            playerView.controlsEnabled = value
+        }
+
+    /**
+     * Invoked whenever the playback rate changes - both when something selects a speed and when the
+     * engine restores the remembered one on the next video ([PlaybackSpeedConfig.rememberLastSpeed],
+     * on by default).
+     *
+     * Keep your own speed selector in sync with this. The remembered rate carries over between
+     * videos without any user action, so a selector that only tracks its own taps will claim 1×
+     * over a video actually playing at 0.25×.
+     *
+     * Forwards from [BunnyPlayerView.onPlaybackSpeedChanged].
+     */
+    var onPlaybackSpeedChanged: ((speed: Float) -> Unit)?
+        get() = playerView.onPlaybackSpeedChanged
+        set(value) {
+            playerView.onPlaybackSpeedChanged = value
+        }
+
+    /**
+     * Invoked when playback starts or stops, whatever the cause - a control, your own code, the end
+     * of the video, or a handover to Chromecast. Drive a custom play/pause button from this rather
+     * than from your own taps.
+     */
+    var onPlayingChanged: ((isPlaying: Boolean) -> Unit)?
+        get() = playerView.onPlayingChanged
+        set(value) {
+            playerView.onPlayingChanged = value
+        }
+
+    /** Invoked when the audio is muted or unmuted, from any source. See [isMuted]. */
+    var onMutedChanged: ((isMuted: Boolean) -> Unit)?
+        get() = playerView.onMutedChanged
+        set(value) {
+            playerView.onMutedChanged = value
+        }
+
+    /** Invoked while the player buffers, so a custom UI can show its own spinner. */
+    var onLoadingChanged: ((isLoading: Boolean) -> Unit)?
+        get() = playerView.onLoadingChanged
+        set(value) {
+            playerView.onLoadingChanged = value
+        }
+
+    /** Invoked with the video's chapters once they are known (empty when it has none). */
+    var onChaptersUpdated: ((chapters: List<Chapter>) -> Unit)?
+        get() = playerView.onChaptersUpdated
+        set(value) {
+            playerView.onChaptersUpdated = value
+        }
+
+    /** Invoked with the video's moments once they are known (empty when it has none). */
+    var onMomentsUpdated: ((moments: List<Moment>) -> Unit)?
+        get() = playerView.onMomentsUpdated
+        set(value) {
+            playerView.onMomentsUpdated = value
+        }
+
+    /** Invoked with the retention graph once it is known, for a custom seek bar. */
+    var onRetentionGraphUpdated: ((points: List<RetentionGraphEntry>) -> Unit)?
+        get() = playerView.onRetentionGraphUpdated
+        set(value) {
+            playerView.onRetentionGraphUpdated = value
+        }
+
+    /**
+     * Invoked when playback moves between this device and a connected Chromecast, so a custom UI
+     * can stop presenting itself as the thing playing the video.
+     */
+    var onPlayerTypeChanged: ((playerType: PlayerType) -> Unit)?
+        get() = playerView.onPlayerTypeChanged
+        set(value) {
+            playerView.onPlayerTypeChanged = value
+        }
+
+    /**
+     * The playback rate. Setting it takes effect immediately and, with
+     * [PlaybackSpeedConfig.rememberLastSpeed] on, is remembered for the next video.
+     *
+     * Reading it is the truth about the engine, which is not necessarily what your UI last
+     * selected: the remembered rate is restored on every new video. Follow [onPlaybackSpeedChanged]
+     * to stay in sync.
+     */
+    var playbackSpeed: Float
+        get() = bunnyPlayer.getSpeed()
+        set(value) {
+            bunnyPlayer.setSpeed(value)
+        }
+
+    /** The speeds offered for this video, from the library's player settings. */
+    fun getPlaybackSpeeds(): List<Float> = bunnyPlayer.getPlaybackSpeeds()
+
+    /** Whether the audio is muted. Changes are reported through [onMutedChanged]. */
+    fun isMuted(): Boolean = bunnyPlayer.isMuted()
+
+    /** Mutes the audio. */
+    fun mute() = bunnyPlayer.mute()
+
+    /** Unmutes the audio. */
+    fun unmute() = bunnyPlayer.unmute()
 
     private val bunnyPlayer = DefaultBunnyPlayer.getInstance(context)
     private var progressListener: BunnyPlayer.ProgressListener? = null
@@ -155,6 +375,17 @@ class BunnyStreamPlayer @JvmOverloads constructor(
         }
     }
 
+    /** True when the hosting Activity is currently in picture-in-picture mode. */
+    private fun isInPictureInPictureMode(): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return false
+        var ctx: Context? = context
+        while (ctx is ContextWrapper) {
+            if (ctx is Activity) return ctx.isInPictureInPictureMode
+            ctx = ctx.baseContext
+        }
+        return false
+    }
+
     private val lifecycleObserver = object : DefaultLifecycleObserver {
         override fun onResume(owner: LifecycleOwner) {
             if (bunnyPlayer.autoPaused) {
@@ -164,6 +395,12 @@ class BunnyStreamPlayer @JvmOverloads constructor(
         }
 
         override fun onPause(owner: LifecycleOwner) {
+            // Entering picture-in-picture fires ON_PAUSE on the host Activity too — playback must
+            // keep running inside the PiP window, so skip the auto-pause (auto-save keeps going).
+            if (isInPictureInPictureMode()) {
+                Log.d(TAG, "ON_PAUSE while in PiP — keeping playback running")
+                return
+            }
             val autoPaused = bunnyPlayer.isPlaying()
             bunnyPlayer.pause(autoPaused)
 
@@ -175,6 +412,13 @@ class BunnyStreamPlayer @JvmOverloads constructor(
         }
 
         override fun onStop(owner: LifecycleOwner) {
+            // Closing the PiP window skips the (PiP-guarded) ON_PAUSE pause and lands here —
+            // stop playback so audio doesn't keep playing in the background. autoPaused=false:
+            // the user dismissed the window deliberately, don't auto-resume on return. In the
+            // normal background flow ON_PAUSE already paused, so this is a no-op.
+            if (bunnyPlayer.isPlaying()) {
+                bunnyPlayer.pause(autoPaused = false)
+            }
             // Save when app goes to background - use coroutine
             scope?.launch {
                 saveCurrentPosition()
@@ -250,6 +494,14 @@ class BunnyStreamPlayer @JvmOverloads constructor(
         stopAutoSave()
         stopProgressListener() // Add this line
         bunnyPlayer.stop()
+
+        // Hand the engine's output back before this view goes away. The engine is shared by every
+        // player view in the process, so a detached view that keeps holding it leaves the output
+        // bound to a surface that no longer exists — and the next view gets a player that decodes
+        // into nothing: playback runs, the timeline moves, the picture stays black and no error is
+        // raised. Only the second and later playback in a session hit it, which is why every test
+        // that played one video passed.
+        binding.playerView.player = null
     }
 
     fun setPlaybackSpeedConfig(config: PlaybackSpeedConfig) {
@@ -313,14 +565,115 @@ class BunnyStreamPlayer @JvmOverloads constructor(
         }
     }
 
+    /**
+     * Play a pre-resolved HLS URL through the standard Bunny player UI (custom controller,
+     * progress text auto-contrast, fullscreen, etc.). Used by the live-stream Compose surface in
+     * `net.bunny.bunnystreamplayer.livestream` so live playback looks visually identical to VOD
+     * — same controls, same chrome.
+     *
+     * Unlike [playVideo], this method does not fetch video metadata or player settings from the
+     * server: the caller already has both (resolved from the live stream's play-data endpoint),
+     * and going through the videos play-data endpoint would 404 for a live-only stream id. We
+     * synthesise the minimal [VideoModel] the engine needs; [PlayerSettings] is built from the
+     * live `/play` customization via [livePlayerSettings] — the live player is server-driven
+     * (dashboard player settings), mirroring the iOS SDK. No client-side configuration.
+     *
+     * @param libraryId the Bunny library id.
+     * @param streamId  the live-stream GUID (used as the engine's `currentVideoId` so position
+     *                  resume keys don't collide with VOD entries).
+     * @param videoTitle title for analytics/logging; not shown in the controls (the demo screen
+     *                  already renders a top app bar with the title).
+     * @param hlsUrl    pre-resolved playable URL (videoPlaylistUrl > fallbackUrl > playbackUrlHls).
+     * @param enableSubtitles forwarded to the synthetic PlayerSettings. Defaults to `false` for
+     *                  live (Bunny doesn't currently surface live captions through this path).
+     * @param playData  the live `/play` response carrying the dashboard customization (accent
+     *                  colour, font, UI language, control tokens, compact mode, heatmap). `null`
+     *                  (not fetched yet) falls back to SDK defaults.
+     * @param isVodRecording the URL is the ended stream's recording (live→VOD hand-off): the
+     *                  timeline stays (a recording is fully seekable) and CMCD reports `st=v`.
+     */
+    fun playLiveUrl(
+        libraryId: Long,
+        streamId: String,
+        videoTitle: String,
+        hlsUrl: String,
+        enableSubtitles: Boolean = false,
+        playData: LiveStreamPlayData? = null,
+        dvrEnabled: Boolean = false,
+        isVodRecording: Boolean = false,
+    ) {
+        Log.d(
+            TAG,
+            "playLiveUrl streamId=$streamId hlsUrl=${hlsUrl.take(80)} " +
+                "serverCustomization=${playData != null}",
+        )
+        if (!hasSdk) {
+            Log.e(TAG, "Unable to play live, initialize BunnyStreamApi first")
+            return
+        }
+
+        currentVideoId = streamId
+        currentLibraryId = libraryId
+
+        loadVideoJob?.cancel()
+
+        // Synthetic Video — the engine only reads id/title/library id/captions for the happy
+        // path; the rest stays at its empty defaults and the engine treats them as missing.
+        val video = Video(id = streamId, videoLibraryId = libraryId, title = videoTitle)
+
+        // Compact mode is a view-level layout concern (not part of PlayerSettings), so forward the
+        // dashboard's flag straight to the player view before building the settings.
+        compactControls = playData?.enableCompactControls ?: false
+
+        // Theming + control flags come from the dashboard's live /play customization (server-
+        // driven, like iOS); DVR gating strips the timeline tokens for non-DVR live streams,
+        // while an ended stream's recording keeps its full, seekable timeline.
+        val settings = livePlayerSettings(
+            playData = playData,
+            hlsUrl = hlsUrl,
+            dvrEnabled = dvrEnabled,
+            enableSubtitles = enableSubtitles,
+            isVodRecording = isVodRecording,
+        )
+
+        // CMCD (CTA-5004 v2) stream type: the ended stream's recording is plain VOD (st=v); a
+        // DVR-enabled live stream reports st=e (event), a plain live stream st=l. The
+        // transmission mode itself is fixed internally by the SDK.
+        (bunnyPlayer as? DefaultBunnyPlayer)?.setCmcdStreamType(
+            when {
+                isVodRecording -> CmcdStreamType.VOD
+                dvrEnabled -> CmcdStreamType.EVENT
+                else -> CmcdStreamType.LIVE
+            },
+        )
+
+        pendingJob = {
+            scope!!.launch { initializeVideo(video, settings) }
+        }
+        if (scope == null) {
+            Log.d(TAG, "playLiveUrl deferred — view not yet attached")
+            return
+        }
+        loadVideoJob = pendingJob?.invoke()
+        pendingJob = null
+    }
+
     override fun playVideo(videoId: String, libraryId: Long?, videoTitle: String, token: String?, expires: Long?) {
         Log.d(TAG, "playVideo videoId=$videoId")
 
+        // Bank the outgoing video's position while it is still the current one. This used to run
+        // after the two assignments below, which meant every switch wrote the previous video's
+        // position and duration under the new video's id — a 5-second clip inheriting "resume at
+        // 0:55 of 1:30" from whatever played before it.
+        saveCurrentPosition()
+        // Nothing may be saved between here and the engine actually loading the new video: the id
+        // is already the new one while the engine still reports the old position.
+        stopAutoSave()
+
         currentVideoId = videoId
         currentLibraryId = libraryId
-        val providedLibraryId = libraryId ?: BunnyStreamApi.libraryId
 
-        if (!BunnyStreamApi.isInitialized()) {
+        if (!hasSdk) {
             Log.e(
                 TAG,
                 "Unable to play video, initialize the player first using BunnyStreamSdk.initialize"
@@ -328,38 +681,46 @@ class BunnyStreamPlayer @JvmOverloads constructor(
             return
         }
 
-        // Save previous video position before switching
-        saveCurrentPosition()
+        // Read after the guard: the library id now lives on the instance, so there is nothing to
+        // read until one exists.
+        val providedLibraryId = libraryId ?: sdk.libraryId
+
+        // CMCD (CTA-5004 v2) stream type for VOD playback (st=v).
+        (bunnyPlayer as? DefaultBunnyPlayer)?.setCmcdStreamType(CmcdStreamType.VOD)
+
+        // The outgoing position was banked at the top of this method, while it was still current.
 
         loadVideoJob?.cancel()
 
         pendingJob = {
             scope!!.launch {
 
-                val video: VideoModel
-
-                try {
-                    video = withContext(Dispatchers.IO) {
-                        BunnyStreamApi.getInstance().videosApi.videoGetVideoPlayData(
-                            providedLibraryId,
-                            videoId,
-                            token,
-                            expires
-                        ).video?.toVideoModel()!!
-                    }
-                    Log.d(TAG, "video=$video")
-                } catch (e: Exception) {
-                    Log.w(TAG, "Error fetching video: $e")
+                val playData = sdk.videoRepository
+                    .fetchVideoPlayData(providedLibraryId, videoId, token, expires)
+                val video = playData.getOrNull()?.video
+                if (video == null) {
+                    // Tell the viewer and the host app. This used to log and return, leaving a
+                    // black view with no explanation — indistinguishable from a player that is
+                    // still loading, and the commonest thing behind "the player shows nothing".
+                    val reason = playData.errorOrNull()?.message
+                        ?: "Video $videoId is not available in library $providedLibraryId"
+                    Log.w(TAG, "Error fetching video $videoId — $reason")
+                    playerView.showError(reason)
+                    onPlaybackError?.invoke(reason)
                     return@launch
                 }
+                Log.d(TAG, "video=$video")
 
-                val settings = BunnyStreamApi.getInstance()
+                val settings = sdk
                     .fetchPlayerSettings(providedLibraryId, videoId, token, expires)
 
                 settings.fold(
-                    ifLeft = {
+                    onErr = {
                         initializeVideo(
-                            video, PlayerSettings(
+                            video,
+                            token = token,
+                            expires = expires,
+                            playerSettings = PlayerSettings(
                                 thumbnailUrl = "",
                                 controls = "",
                                 keyColor = 0,
@@ -387,9 +748,9 @@ class BunnyStreamPlayer @JvmOverloads constructor(
                                 captionsPath = ""
                             )
                         )
-                        playerView.showError(it)
+                        playerView.showError(it.message)
                     },
-                    ifRight = { initializeVideo(video, it) }
+                    onOk = { initializeVideo(video, it, token, expires) }
                 )
             }
         }
@@ -414,7 +775,6 @@ class BunnyStreamPlayer @JvmOverloads constructor(
         bunnyPlayer.play()
         // Auto-save will start automatically via lifecycle observer
     }
-
     override fun seekTo(position: Long) {
         bunnyPlayer.seekTo(position)
     }
@@ -501,26 +861,56 @@ class BunnyStreamPlayer @JvmOverloads constructor(
         progressListenerJob = null
     }
 
-    private suspend fun initializeVideo(video: VideoModel, playerSettings: PlayerSettings) {
+    private suspend fun initializeVideo(
+        video: Video,
+        playerSettings: PlayerSettings,
+        token: String? = null,
+        expires: Long? = null,
+    ) {
+        // A fresh load invalidates any error from the previous source — without this, a
+        // late-arriving error from the torn-down player (e.g. the stale live URL during the
+        // live→VOD hand-off) stays painted over working playback.
+        playerView.hideError()
         playerView.showPreviewThumbnail(playerSettings.thumbnailUrl)
 
         var retentionData: Map<Int, Int> = mutableMapOf()
 
         if (playerSettings.showHeatmap) {
             try {
-                val retentionDataResponse = withContext(Dispatchers.IO) {
-                    BunnyStreamApi.getInstance().videosApi.videoGetVideoHeatmap(
-                        video.videoLibraryId!!,
-                        video.guid!!
-                    )
-                }
-                retentionData = retentionDataResponse.getSanitizedRetentionData()
+                retentionData = sdk.videoRepository
+                    .fetchVideoHeatmap(video.videoLibraryId, video.id)
+                    .getOrNull()
+                    .orEmpty()
+                    .getSanitizedRetentionData()
             } catch (e: Exception) {
                 Log.w(TAG, "Error fetching video heatmap")
             }
         }
 
-        bunnyPlayer.playVideo(binding.playerView, video, retentionData, playerSettings)
+        // Claim the engine before starting it, not after. Assigning this hands the engine this
+        // view's state listener, and playVideo emits onPlayerTypeChanged during the call — the
+        // event that actually puts the player into a view. With the old order the engine still
+        // held the listener of the previous, already destroyed view, so the second and every later
+        // playback in a session delivered its player to a view nobody could see: the timeline ran,
+        // the picture stayed black, and nothing failed loudly enough to notice.
+        playerView.bunnyPlayer = bunnyPlayer
+
+        bunnyPlayer.playVideo(
+            binding.playerView,
+            video,
+            retentionData,
+            playerSettings,
+            // The engine builds the Widevine license URL from this host, so a view pointed at a
+            // specific instance licenses against that instance's deployment. Falls back to the
+            // production host if the instance vanished mid-load (release() racing this coroutine)
+            // rather than killing playback that is otherwise ready to start.
+            licenseBaseApi = runCatching { sdk.config.baseApi }
+                .getOrElse { net.bunny.api.BuildConfig.BASE_API },
+            // The pair also rides on the license URL for cast receivers, which fetch the
+            // license themselves without the Referer header the local player sends.
+            token = token,
+            expires = expires,
+        )
         playerView.bunnyPlayer = bunnyPlayer
 
         // Start auto-save after video starts playing
@@ -538,17 +928,16 @@ class BunnyStreamPlayer @JvmOverloads constructor(
                 if (bunnyPlayer.isPlaying()) { // Safe on main thread
                     // Move save to background
                     launch(Dispatchers.IO) {
-                        val position = withContext(Dispatchers.Main) {
-                            bunnyPlayer.getCurrentPosition()
-                        }
-                        val duration = withContext(Dispatchers.Main) {
-                            bunnyPlayer.getDuration()
-                        }
-
-                        currentVideoId?.let { videoId ->
-                            if (position > 0 && duration > 0) {
-                                bunnyPlayer.positionManager?.savePosition(videoId, position, duration)
-                            }
+                        // One snapshot rather than three separate reads: the id used to be read
+                        // after the position, so a tick landing on a video switch saved the old
+                        // video's progress under the new video's id.
+                        val snapshot = takeProgressSnapshot() ?: return@launch
+                        if (snapshot.position > 0 && snapshot.duration > 0) {
+                            bunnyPlayer.positionManager?.savePosition(
+                                snapshot.videoId,
+                                snapshot.position,
+                                snapshot.duration,
+                            )
                         }
                     }
                 }
@@ -562,61 +951,59 @@ class BunnyStreamPlayer @JvmOverloads constructor(
         Log.d(TAG, "Auto-save stopped")
     }
 
-    private fun saveCurrentPosition() {
-        currentVideoId?.let { videoId ->
-            scope?.launch {
-                try {
-                    // Get position and duration on main thread
-                    val position = withContext(Dispatchers.Main) {
-                        bunnyPlayer.getCurrentPosition()
-                    }
-                    val duration = withContext(Dispatchers.Main) {
-                        bunnyPlayer.getDuration()
-                    }
+    /**
+     * The video a position belongs to, with the position itself. Read as one unit so the three
+     * values are guaranteed to describe the same video - see [takeProgressSnapshot].
+     */
+    private data class ProgressSnapshot(
+        val videoId: String,
+        val position: Long,
+        val duration: Long,
+    )
 
-                    // Save on background thread
-                    if (position > 0 && duration > 0) {
-                        withContext(Dispatchers.IO) {
-                            bunnyPlayer.positionManager?.savePosition(videoId, position, duration)
-                        }
-                        Log.d(TAG, "Position saved for $videoId: ${formatTime(position)}")
-                    }
-                } catch (e: Exception) {
-                    Log.e(TAG, "Error saving current position", e)
-                }
+    /**
+     * Reads the current video id, position and duration together. Main thread only.
+     *
+     * They must not be read across suspension points. `currentVideoId` is reassigned on the main
+     * thread when a new video starts, so a read either side of a hop can pair one video's id with
+     * another video's position - which is how positions ended up saved against the wrong video.
+     */
+    private fun progressSnapshot(): ProgressSnapshot? {
+        val videoId = currentVideoId ?: return null
+        return ProgressSnapshot(videoId, bunnyPlayer.getCurrentPosition(), bunnyPlayer.getDuration())
+    }
+
+    /** [progressSnapshot] for callers already off the main thread (the auto-save tick). */
+    private suspend fun takeProgressSnapshot(): ProgressSnapshot? =
+        withContext(Dispatchers.Main) { progressSnapshot() }
+
+    /**
+     * Persists where the viewer got to in the video that is current *right now*.
+     *
+     * The snapshot is taken synchronously on purpose. The view's scope runs on the main thread, so
+     * anything read inside a `launch` happens a turn later - and the commonest caller,
+     * [playVideo], reassigns `currentVideoId` in that very turn. Reading inside the coroutine
+     * therefore saved the outgoing video's progress against the incoming video's id, every time.
+     */
+    private fun saveCurrentPosition() {
+        val snapshot = progressSnapshot() ?: return
+        if (snapshot.position <= 0 || snapshot.duration <= 0) return
+        scope?.launch(Dispatchers.IO) {
+            try {
+                bunnyPlayer.positionManager?.savePosition(
+                    snapshot.videoId,
+                    snapshot.position,
+                    snapshot.duration,
+                )
+                Log.d(
+                    TAG,
+                    "Position saved for ${snapshot.videoId}: ${formatTime(snapshot.position)}",
+                )
+            } catch (e: Exception) {
+                Log.e(TAG, "Error saving current position", e)
             }
         }
     }
 
 
-    fun VideoPlayDataModelVideo.toVideoModel(): VideoModel = VideoModel(
-        videoLibraryId = this.videoLibraryId,
-        guid = this.guid,
-        title = this.title,
-        dateUploaded = this.dateUploaded,
-        views = this.views,
-        isPublic = this.isPublic,
-        length = this.length,
-        status = this.status,
-        framerate = this.framerate,
-        rotation = this.rotation,
-        width = this.width,
-        height = this.height,
-        availableResolutions = this.availableResolutions,
-        outputCodecs = this.outputCodecs,
-        thumbnailCount = this.thumbnailCount,
-        encodeProgress = this.encodeProgress,
-        storageSize = this.storageSize,
-        captions = this.captions,
-        hasMP4Fallback = this.hasMP4Fallback,
-        collectionId = this.collectionId,
-        thumbnailFileName = this.thumbnailFileName,
-        averageWatchTime = this.averageWatchTime,
-        totalWatchTime = this.totalWatchTime,
-        category = this.category,
-        chapters = this.chapters,
-        moments = this.moments,
-        metaTags = this.metaTags,
-        transcodingMessages = this.transcodingMessages
-    )
 }

@@ -21,5 +21,10 @@ enum class VideoStatus(private val value: Int) {
     TRANSCODING(3),
     FINISHED(4),
     ERROR(5),
-    UPLOAD_FAILED(6)
+    UPLOAD_FAILED(6);
+
+    companion object {
+        /** States the server moves through before a video becomes playable. */
+        val TRANSITIONAL = setOf(CREATED, UPLOADED, PROCESSING, TRANSCODING)
+    }
 }

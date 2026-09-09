@@ -8,4 +8,5 @@
     <string name="label_video_settings_captions_disabled">Inhabilitado</string>
     <string name="label_video_settings_audio_track">Pista de audio</string>
     <string name="label_drm_not_supported_exception">DRM está habilitado para este video, la reproducción no es compatible con este dispositivo.</string>
+    <string name="error_video_not_available">El video no está disponible</string>
 </resources>

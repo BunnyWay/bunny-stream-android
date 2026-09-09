@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Neutral stand-in for a poster or preview thumbnail the CDN refused to serve (the Glide
+     .error() fallback in BunnyPlayerView and BunnyLiveStreamPlayer). Prefixed because :player
+     sets no resourcePrefix — an unprefixed name would be overridden by any same-named drawable
+     in the host app. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="160dp"
+    android:height="90dp"
+    android:viewportWidth="160"
+    android:viewportHeight="90">
+    <path
+        android:fillColor="#FF2B2B2B"
+        android:pathData="M6,0h148a6,6 0 0 1 6,6v78a6,6 0 0 1 -6,6H6a6,6 0 0 1 -6,-6V6a6,6 0 0 1 6,-6z" />
+    <path
+        android:fillColor="#FF4C4C4C"
+        android:pathData="M69,29v32l28,-16z" />
+</vector>
