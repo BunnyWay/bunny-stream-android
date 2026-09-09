@@ -34,16 +34,16 @@ The Bunny Stream TV SDK extends the core Bunny Stream Android SDK with TV-optimi
 ## Requirements
 
 ### Minimum Requirements
-- Android API Level 21 (Android 5.0)
+- Android API Level 26 (Android 8.0)
 - Android TV or device with Android TV features
 - Bunny Stream Android SDK (core modules)
 
 ### Dependencies
 ```kotlin
 // TV-specific dependencies (automatically included)
-implementation("androidx.leanback:leanback:1.0.0")
-implementation("androidx.leanback:leanback-preference:1.0.0")
-implementation("androidx.tvprovider:tvprovider:1.0.0")
+implementation("androidx.leanback:leanback:1.2.0")
+implementation("androidx.leanback:leanback-preference:1.2.0")
+implementation("androidx.tvprovider:tvprovider:1.1.0")
 ```
 
 ### Supported Devices
@@ -206,32 +206,6 @@ BunnyTVPlayerActivity.start(
     libraryId = 12345L,
     videoTitle = "Your Video Title" // Optional but recommended
 )
-```
-
-### Custom TV Controls
-
-You can customize the TV controls by extending `TVPlayerControlsView`:
-
-```kotlin
-class CustomTVControls(context: Context) : TVPlayerControlsView(context) {
-    
-    init {
-        // Add custom buttons or modify existing ones
-        addCustomButton()
-    }
-    
-    private fun addCustomButton() {
-        val customButton = ImageButton(context).apply {
-            setImageResource(R.drawable.custom_icon)
-            isFocusable = true
-            background = ContextCompat.getDrawable(context, R.drawable.tv_button_background)
-            setOnClickListener {
-                // Custom action
-            }
-        }
-        // Add to controls layout
-    }
-}
 ```
 
 ### TV Key Event Handling
@@ -525,14 +499,16 @@ button.onFocusChangeListener = OnFocusChangeListener { view, hasFocus ->
 ### BunnyTVPlayerActivity
 
 ```kotlin
-class BunnyTVPlayerActivity : AppCompatActivity() {
+open class BunnyTVPlayerActivity : AppCompatActivity() {
     
     companion object {
         fun start(
             context: Context, 
             videoId: String, 
             libraryId: Long, 
-            videoTitle: String? = null
+            videoTitle: String? = null,
+            token: String? = null,
+            expires: Long? = null
         )
     }
     

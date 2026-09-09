@@ -561,6 +561,12 @@ Behaviour that was wrong before and is worth knowing about, because it may look 
   failure outside the transfer itself, used to end the stream silently and leave anyone observing
   it waiting forever. Every path now emits `Completed`, `Cancelled` or `Failed` before it closes.
 - **The picked file's stream is always closed**, including when the upload fails or is cancelled.
+- **A blocked video reports viewer-facing copy, not the engine's message.**
+  `PlayerStateListener.onPlayerError` still carries `"<errorCodeName>: <message>"` for ordinary
+  failures, but any `HTTP 403` — geo-blocking, hotlink protection or a rejected token, which the CDN
+  does not tell apart — and a DNS-level geo block now arrive as the localized "Video is not
+  available". The developer-facing text still goes to logcat, so anything that matched on the old
+  string to spot a block should read the log line instead.
 
 ---
 

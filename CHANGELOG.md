@@ -40,7 +40,7 @@ see [MIGRATING.md](MIGRATING.md) for before/after examples.
   (accent color, font, language, controls, compact mode).
 - `BunnyStreamPlayer.controlsEnabled` — set it to `false` for a bare video surface and drive
   playback from your own UI. Everything below the chrome keeps working (DRM, resume positions,
-  captions, watermark, CDN telemetry), and playback errors are still surfaced on screen and through
+  captions, CDN telemetry), and playback errors are still surfaced on screen and through
   `onPlaybackError`. Your UI takes over what the control bar drew, including the live badge, the
   cast button and the fullscreen and Picture-in-Picture entry points.
 - Player state callbacks on `BunnyStreamPlayer`, so an app drawing its own controls can follow what
@@ -178,6 +178,18 @@ see [MIGRATING.md](MIGRATING.md) for before/after examples.
 - Composing `BunnyLiveStreamPlayer` before the SDK is initialised no longer crashes. Its view model
   reached for the SDK in its constructor, which threw from inside composition where the app could
   not catch it; the player shows an error panel instead.
+- A blocked video says so instead of surfacing a raw player error. Any `HTTP 403` — geo-blocking,
+  hotlink protection or a rejected token, which the CDN does not tell apart — now shows the
+  localized "Video is not available", and so does a DNS-level geo block, where the CDN host
+  resolves to a loopback sinkhole and the connection is refused before any status code exists. Both
+  are terminal: the live player stops its poll loop rather than retrying a stream it will never be
+  allowed to play.
+- The live player's recording recovers from a playback error. Once a stream had ended, its `VodPlay`
+  state was marked terminated and every recovery was dropped, so a network drop — or the roughly
+  30-second window in which the recording is still being finalised and answers `404` — left the
+  viewer on a frozen frame with a dead Play button. Network failures now retry unbounded and HTTP
+  failures on the ended recording up to 12 attempts, and `play()` re-prepares an errored engine
+  instead of leaving it idle.
 - Two libraries no longer share TUS resume state. The store was one file per process keyed by a
   fingerprint of the uploaded file, so the same file uploaded from two libraries could resume into
   the wrong one.
@@ -206,6 +218,17 @@ see [MIGRATING.md](MIGRATING.md) for before/after examples.
 
 <!-- TODO before the 4.0.0 release: check the "Changed" bullets against the final API and
      move the entries to a dated 4.0.0 section. -->
+
+## [3.3.1] - 2026-08-21
+
+### Fixed
+
+- Camera upload records again. The VOD ingest URL was built without the separator between the
+  application and the stream name, so RootEncoder published to application `ingest?` with a stream
+  name that had lost its required leading `?`. The ingest server rejected that, which created the
+  video entry but ingested nothing and left every camera recording empty. The URL is now built as
+  `<rtmpEndpoint>/??vid=<guid>&accessKey=<key>&lib=<libraryId>`, and a regression test runs it
+  through RootEncoder's own parser.
 
 ## [3.3.0] - 2026-06-01
 

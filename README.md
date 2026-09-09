@@ -1,6 +1,6 @@
-<!-- TODO before the repo goes public: this README documents the 4.0.0 feature set (live
-     streaming). Publish it together with the 4.0.0 release so the described features match
-     what is on Maven Central. -->
+<!-- TODO before tagging 4.0.0: this README documents the 4.0.0 feature set (live streaming).
+     Publish it together with the 4.0.0 release so the described features match what is on
+     Maven Central. -->
 
 # Bunny Stream Android
 
@@ -54,13 +54,14 @@ play videos, play live streams, and broadcast live from the camera.
 
 ## Installation
 
-The SDK ships on Maven Central as three artifacts. Use what you need:
+The SDK ships on Maven Central as four artifacts. Use what you need:
 
 ```kotlin
 dependencies {
     implementation("net.bunny:api:latest.release")        // management + uploads
     implementation("net.bunny:player:latest.release")     // playback (pulls in :api)
     implementation("net.bunny:recording:latest.release")  // camera + go-live (pulls in :api)
+    implementation("net.bunny:tv:latest.release")         // Android TV player activity (pulls in :api)
 }
 ```
 
@@ -72,6 +73,7 @@ configured by default in Android projects; no extra repository setup is needed.
 | [bunny-stream-api](bunny-stream-api/README.md) | `net.bunny:api` | REST API access (videos, collections, live streams), uploads, playback settings |
 | [bunny-stream-player](bunny-stream-player/README.md) | `net.bunny:player` | Video player and live stream player |
 | [bunny-stream-camera-upload](bunny-stream-camera-upload/README.md) | `net.bunny:recording` | Camera recording to the library and live broadcasting |
+| [bunny-stream-tv](bunny-stream-tv/README.md) | `net.bunny:tv` | Android TV player activity with D-pad and remote-control handling |
 
 ## Quickstart
 

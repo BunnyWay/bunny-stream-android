@@ -198,7 +198,7 @@ class BunnyStreamPlayer @JvmOverloads constructor(
      * ever shown. Defaults to `true`.
      *
      * What you keep: playback errors are still surfaced on screen and through [onPlaybackError],
-     * plus DRM, resume positions, captions, watermark and CDN telemetry.
+     * plus DRM, resume positions, captions and CDN telemetry.
      *
      * What you take over: everything the control bar drew, including the live badge, the cast
      * button and the fullscreen and picture-in-picture entry points.

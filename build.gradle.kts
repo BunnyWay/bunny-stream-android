@@ -29,7 +29,7 @@ plugins {
 
 // Browsable API reference (HTML) aggregated across :api, :player and :recording.
 // Output goes to build/ (not committed); .github/workflows/docs.yml publishes it
-// to GitHub Pages. Run locally with: ./gradlew dokkaHtmlMultiModule
+// to GitHub Pages. Run locally with: ./gradlew dokkaGeneratePublicationHtml
 
 subprojects {
     // Only configure publishing in Android-library modules
