@@ -263,7 +263,7 @@ private fun LiveStreamSummaryScreen(
             Spacer(modifier = Modifier.height(16.dp))
 
             SectionCard(title = stringResource(R.string.live_section_links)) {
-                CopyableRow(stringResource(R.string.live_label_rtmp_publish_url), publishUrl)
+                CopyableRow(stringResource(R.string.live_label_publish_url), publishUrl)
                 CopyableRow(stringResource(R.string.live_label_hls_playlist_url), stream.playbackUrlHls)
                 CopyableRow(stringResource(R.string.live_label_video_id), stream.id)
                 CopyableRow(stringResource(R.string.live_label_trailer_video_id), stream.preStreamTrailerVideoId)
@@ -295,14 +295,14 @@ private fun LiveStreamSummaryScreen(
 }
 
 /**
- * Mirror of the dashboard's "RTMP stream details" card: stream key, primary/backup ingest URL
+ * Mirror of the dashboard's ingest details card: stream key, primary/backup ingest URL
  * (copyable) and the current stream status.
  */
 @Composable
 private fun RtmpStreamDetailsCard(stream: LiveStream) {
     val fallback = net.bunny.api.BuildConfig.LIVE_RTMP_ENDPOINT
 
-    SectionCard(title = stringResource(R.string.live_section_rtmp_details)) {
+    SectionCard(title = stringResource(R.string.live_section_ingest_details)) {
         CopyableRow(stringResource(R.string.live_label_stream_key), stream.streamKey)
         CopyableRow(
             stringResource(R.string.live_label_ingest_url),

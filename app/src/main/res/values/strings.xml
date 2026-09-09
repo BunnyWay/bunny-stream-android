@@ -189,14 +189,14 @@
     <string name="dialog_title_select_time">Select time</string>
     <string name="dialog_title_select_time_zone">Select time zone</string>
     <string name="live_section_links">Live stream links</string>
-    <string name="live_label_rtmp_publish_url">RTMP publish URL (ingest + key)</string>
+    <string name="live_label_publish_url">Publish URL (ingest + key)</string>
     <string name="live_label_hls_playlist_url">Live HLS Playlist URL</string>
     <string name="live_label_video_id">Video ID</string>
     <string name="live_label_trailer_video_id">Pre-stream trailer video ID</string>
     <string name="live_label_thumbnail_file">Thumbnail file</string>
     <string name="live_button_go_live_now">Go live now</string>
     <string name="live_button_watch_stream">Watch live stream</string>
-    <string name="live_section_rtmp_details">RTMP stream details</string>
+    <string name="live_section_ingest_details">Ingest stream details</string>
     <string name="live_label_stream_key">Stream key</string>
     <string name="live_label_ingest_url">Ingest URL</string>
     <string name="live_badge_primary">Primary</string>
