@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -160,13 +161,65 @@ public open class BunnyLiveStreamPlayerViewModel internal constructor(
 
     private var pollJob: Job? = null
     private var pollInFlight: Boolean = false
-    private var playDataInFlight: Boolean = false
+
+    /**
+     * Completes when the play-data fetch currently running finishes; null when none is running.
+     * A [Boolean] would have been enough for the skip-if-busy guard, but [performRecovery] has to
+     * *wait* for that fetch rather than read a URL it is about to replace.
+     */
+    private var playDataInFlight: CompletableDeferred<Unit>? = null
     private var trailerInFlight: Boolean = false
     private var trailerVideoIdRequested: String? = null
+    /**
+     * A verdict was reached that no retry can change — the SDK isn't initialised, polling hit a
+     * terminal status, the stream is blocked, or the recording never became playable. Everything
+     * stops: polling, play-data refreshes and playback recovery. [terminalError] carries the copy.
+     */
     private var terminated: Boolean = false
+
+    /**
+     * There is simply nothing left to poll for: the stream ENDED and its recording is playing, so
+     * the status can't change again. Distinct from [terminated] on purpose — the poll loop is off,
+     * but playback recovery stays armed, because the recording can still stall (a network drop, or
+     * a 404 while the CDN finalises it) and the viewer must not be stranded on a frozen frame.
+     *
+     * This is also the one phase in which [MAX_HTTP_RECOVERY_ATTEMPTS] applies: only here does a
+     * server status mean the recording is missing rather than not published *yet*.
+     */
+    private var pollingStopped: Boolean = false
     private var started: Boolean = false
     private var lastRecoveryAtMs: Long? = null
     private var deferredRecoveryJob: Job? = null
+
+    /**
+     * How many *recovery attempts* the ENDED recording has spent on a failure carrying an HTTP
+     * status, without playback ever starting. Counted in [performRecovery], not in
+     * [onPlaybackFailure]: several engine errors inside one throttle window produce one recovery,
+     * and it is recoveries the bound is expressed in — otherwise a noisy player would burn the
+     * whole budget in seconds. Bounded by [MAX_HTTP_RECOVERY_ATTEMPTS]: a recording the CDN keeps
+     * answering 404 for is being finalised (routine, ~30 s) or will never exist (not routine), and
+     * only time tells them apart.
+     *
+     * Reset by [onPlaybackStarted] and when [pollingStopped] is raised, so the ENDED recording
+     * always gets the full budget rather than whatever the live phase left of it. Failures with no
+     * status — the network class — never count against it: an outage lasts as long as it lasts and
+     * always ends.
+     */
+    private var httpRecoveryAttempts: Int = 0
+
+    /**
+     * The latest structured failure waiting for a recovery to run, or null when the last one has
+     * been consumed. Carries the HTTP status and the viewer copy from [onPlaybackFailure] over to
+     * [performRecovery], which is where the attempt is counted and the verdict is reached.
+     */
+    private var pendingFailure: PlaybackFailureInfo? = null
+
+    /**
+     * Viewer-facing copy for a recording that never became playable, handed in by the composable
+     * because this class deliberately owns no `Context`. Null until then; [onPlaybackFailure]
+     * falls back to the engine's own message.
+     */
+    internal var unavailableMessage: String? = null
 
     /**
      * Initialise the view model. Idempotent; subsequent calls with the same [streamId] are
@@ -210,8 +263,8 @@ public open class BunnyLiveStreamPlayerViewModel internal constructor(
      * no-op.
      */
     public fun onForeground() {
-        if (terminated) {
-            Log.d(TAG, "onForeground — polling terminated; ignoring")
+        if (terminated || pollingStopped) {
+            Log.d(TAG, "onForeground — polling already stopped; ignoring")
             return
         }
         if (!started) {
@@ -222,7 +275,7 @@ public open class BunnyLiveStreamPlayerViewModel internal constructor(
         pollJob?.cancel()
         pollJob = viewModelScope.launch {
             pollOnce(reason = "foreground-immediate")
-            while (isActive && !terminated) {
+            while (isActive && !terminated && !pollingStopped) {
                 delay(pollIntervalMs)
                 pollOnce(reason = "interval")
             }
@@ -246,7 +299,7 @@ public open class BunnyLiveStreamPlayerViewModel internal constructor(
      * trailer fetch if the new snapshot warrants it.
      */
     private suspend fun pollOnce(reason: String) {
-        if (terminated) return
+        if (terminated || pollingStopped) return
         if (pollInFlight) {
             Log.d(TAG, "pollOnce[$reason] — skipped (previous still in flight)")
             return
@@ -267,8 +320,9 @@ public open class BunnyLiveStreamPlayerViewModel internal constructor(
     }
 
     private fun handlePollFailure(error: BunnyError) {
-        // A poll already in flight when playback went terminal must not overwrite that verdict.
-        if (terminated) return
+        // A poll already in flight when playback went terminal — or when the ended recording took
+        // the loop down — must not overwrite that verdict nor revive the loop.
+        if (terminated || pollingStopped) return
         if (error.isTerminal) {
             Log.w(TAG, "poll failed with terminal status ${error.httpStatus} — stopping polling")
             terminated = true
@@ -283,8 +337,9 @@ public open class BunnyLiveStreamPlayerViewModel internal constructor(
     }
 
     private suspend fun handleStreamUpdate(stream: LiveStream) {
-        // A poll already in flight when playback went terminal must not flip the state back.
-        if (terminated) return
+        // A poll already in flight when playback went terminal — or when the ended recording took
+        // the loop down — must not flip the state back.
+        if (terminated || pollingStopped) return
         val previousStatus = currentStream?.status
         currentStream = stream
         Log.d(TAG, "stream snapshot — status=${stream.status} startedAt=${stream.startedAt}")
@@ -327,12 +382,15 @@ public open class BunnyLiveStreamPlayerViewModel internal constructor(
      * as fresher than whatever [pollLiveStream] last returned.
      */
     private suspend fun fetchPlayData(reason: String) {
+        // Deliberately not gated on [pollingStopped]: a stalled recording still refreshes its
+        // play-data on recovery, which is also how a VOD_PROCESSING → ENDED URL flip is caught.
         if (terminated) return
-        if (playDataInFlight) {
+        if (playDataInFlight != null) {
             Log.d(TAG, "fetchPlayData[$reason] — skipped (previous still in flight)")
             return
         }
-        playDataInFlight = true
+        val inFlight = CompletableDeferred<Unit>()
+        playDataInFlight = inFlight
         try {
             Log.d(TAG, "fetchPlayData[$reason] — calling fetchLiveStreamPlayData")
             val result = withContext(ioDispatcher) {
@@ -362,7 +420,9 @@ public open class BunnyLiveStreamPlayerViewModel internal constructor(
                 },
             )
         } finally {
-            playDataInFlight = false
+            playDataInFlight = null
+            // Runs on cancellation too, so nobody awaiting this fetch is left hanging on it.
+            inFlight.complete(Unit)
         }
     }
 
@@ -437,12 +497,20 @@ public open class BunnyLiveStreamPlayerViewModel internal constructor(
         // (matching the iOS player) instead of pinging the API every 5 s for the rest of the
         // session. VOD_PROCESSING keeps polling: its play-data can still change until it settles
         // into ENDED.
+        //
+        // This raises [pollingStopped], never [terminated]: the recording is a normal VOD that can
+        // still drop out mid-play, and it has to be recoverable exactly like live playback is.
         if (resolved is LiveStreamPlayerState.VodPlay &&
             currentStream?.status == LiveStreamStatus.ENDED &&
-            !terminated
+            !terminated && !pollingStopped
         ) {
             Log.d(TAG, "recording is playing and stream is ENDED — stopping polling permanently")
-            terminated = true
+            pollingStopped = true
+            // The attempt bound starts counting here, with a clean slate: the failures the live
+            // edge absorbed on the way to this point say nothing about whether the recording is
+            // being finalised, and spending the recording's budget on them would cut the ~60 s
+            // short of the ~30 s the CDN needs.
+            httpRecoveryAttempts = 0
             pollJob?.cancel()
             pollJob = null
         }
@@ -470,10 +538,15 @@ public open class BunnyLiveStreamPlayerViewModel internal constructor(
             if (deferredRecoveryJob?.isActive != true) {
                 val remaining = pollIntervalMs - (now - last)
                 Log.d(TAG, "onPlaybackFailure inside throttle window — retrying in ${remaining}ms")
-                deferredRecoveryJob = viewModelScope.launch {
+                val job = viewModelScope.launch {
                     delay(remaining)
                     performRecovery(reason = "deferred-retry after: $message")
                 }
+                deferredRecoveryJob = job
+                // Drop the reference the moment the retry is done. [onPlaybackStarted] reads the
+                // field, not the job's state, so a finished job left in it would read as "still
+                // armed" forever.
+                job.invokeOnCompletion { if (deferredRecoveryJob === job) deferredRecoveryJob = null }
             } else {
                 Log.d(TAG, "onPlaybackFailure — deferred retry already scheduled")
             }
@@ -489,31 +562,116 @@ public open class BunnyLiveStreamPlayerViewModel internal constructor(
      * [terminalError] carries the viewer copy ("Video is not available") instead of the raw
      * error. Every other failure keeps the recovery loop above — a 404 on the manifest is routine
      * while the stream is RUNNING but the playlist isn't published yet.
+     *
+     * The failure is handed to [performRecovery] through [pendingFailure] rather than judged here:
+     * only the recovery that actually runs knows which phase it runs in and counts as an attempt.
+     * [MAX_HTTP_RECOVERY_ATTEMPTS] bounds one phase alone — the ENDED recording ([pollingStopped]),
+     * where the CDN answering with a status for the whole bound means the recording is not being
+     * finalised, it is missing. While anything is still live or processing, a status says nothing
+     * final and retries stay unbounded, as do network failures in every phase: an outage is not the
+     * server's verdict on the recording, and the player has to still be there when it ends.
      */
     internal fun onPlaybackFailure(info: PlaybackFailureInfo) {
         if (terminated || !started) return
-        if (!info.isBlocked) {
-            onPlaybackFailure(info.rawMessage)
+        if (info.isBlocked) {
+            Log.w(
+                TAG,
+                "playback blocked (http=${info.httpStatus}, sinkhole=${info.sinkholeAddress}) - stopping: ${info.rawMessage}",
+            )
+            terminated = true
+            deferredRecoveryJob?.cancel()
+            pollJob?.cancel()
+            pollJob = null
+            mutableTerminalError.value = info.userMessage
             return
         }
-        Log.w(
+        Log.d(
             TAG,
-            "playback blocked (http=${info.httpStatus}, sinkhole=${info.sinkholeAddress}) - stopping: ${info.rawMessage}",
+            "playback failure in ${mutableState.value::class.simpleName} " +
+                "(http=${info.httpStatus}): ${info.rawMessage}",
         )
-        terminated = true
+        pendingFailure = info
+        onPlaybackFailure(info.rawMessage)
+    }
+
+    /**
+     * Called by the playback surface the moment playback actually runs. Whatever the recovery loop
+     * was counting is now moot: the attempt bound starts over, and any deferred recovery is
+     * disarmed — firing it would tear down the playback that just succeeded.
+     *
+     * The throttle window ([lastRecoveryAtMs]) deliberately survives. A half-finalised recording
+     * whose first segment plays and whose next one 404s would otherwise recover with no throttle at
+     * all, and each rebuild replays that same first segment: a hot loop of tear-down/re-init that
+     * never gets anywhere. One recovery per interval is exactly what that case needs.
+     */
+    internal fun onPlaybackStarted() {
+        if (httpRecoveryAttempts == 0 && pendingFailure == null && deferredRecoveryJob == null) {
+            return
+        }
+        Log.d(TAG, "playback started — clearing recovery state (attempts=$httpRecoveryAttempts)")
+        httpRecoveryAttempts = 0
+        // The failure this was armed for is over; a recovery triggered later must not spend an
+        // attempt on it.
+        pendingFailure = null
         deferredRecoveryJob?.cancel()
-        pollJob?.cancel()
-        pollJob = null
-        mutableTerminalError.value = info.userMessage
+        deferredRecoveryJob = null
     }
 
     private suspend fun performRecovery(reason: String) {
         if (terminated) return
         lastRecoveryAtMs = nowEpochMs()
+        // Consume the failure that asked for this recovery. Counting here rather than at the
+        // failure is what makes the bound mean "attempts": a player raising three errors inside one
+        // throttle window still gets one recovery, so it must still spend one unit of the budget.
+        val failure = pendingFailure
+        pendingFailure = null
+        if (pollingStopped && failure?.httpStatus != null) {
+            httpRecoveryAttempts++
+            if (httpRecoveryAttempts >= MAX_HTTP_RECOVERY_ATTEMPTS) {
+                Log.w(
+                    TAG,
+                    "the recording still answers http=${failure.httpStatus} after attempt " +
+                        "$httpRecoveryAttempts/$MAX_HTTP_RECOVERY_ATTEMPTS; giving up: " +
+                        failure.rawMessage,
+                )
+                terminated = true
+                deferredRecoveryJob?.cancel()
+                pollJob?.cancel()
+                pollJob = null
+                mutableTerminalError.value = unavailableMessage ?: failure.userMessage
+                return
+            }
+            Log.d(
+                TAG,
+                "recording recovery attempt " +
+                    "$httpRecoveryAttempts/$MAX_HTTP_RECOVERY_ATTEMPTS (http=${failure.httpStatus})",
+            )
+        }
         Log.w(TAG, "playback failure — re-polling and refreshing play-data: $reason")
-        pollOnce(reason = "playback-failure")
-        fetchPlayData(reason = "playback-failure")
-        if (!terminated && mutableState.value is LiveStreamPlayerState.LivePlay) {
+        // The URL as it stood before any refresh. A refresh that changes it already re-inits the
+        // surface through [playData], so bumping the token on top of that would rebuild twice.
+        val urlBefore = resolvePlayableUrl(currentStream, currentPlayData)
+        val tokenBefore = mutableRebuildToken.value
+        val inFlight = playDataInFlight
+        if (inFlight != null) {
+            // A refresh already running lands with the same fresh play-data this recovery would
+            // have fetched — including a re-signed URL — so it counts as the refresh. Wait it out
+            // instead of queueing a second one behind it.
+            Log.d(TAG, "recovery — waiting out the play-data refresh already in flight")
+            inFlight.await()
+            // The recovery that owns that refresh may already have rebuilt on it; a second bump
+            // would tear the fresh player down again for the same failure.
+            if (mutableRebuildToken.value != tokenBefore) return
+        } else {
+            pollOnce(reason = "playback-failure")
+            fetchPlayData(reason = "playback-failure")
+        }
+        if (terminated) return
+        // VodPlay rebuilds too: the ENDED stream's recording stalls on the same network drops the
+        // live edge does, and its poll loop is off, so this is the only thing that can restart it.
+        val playable = mutableState.value is LiveStreamPlayerState.LivePlay ||
+            mutableState.value is LiveStreamPlayerState.VodPlay
+        if (playable && resolvePlayableUrl(currentStream, currentPlayData) == urlBefore) {
             mutableRebuildToken.update { it + 1 }
         }
     }
@@ -537,6 +695,19 @@ public open class BunnyLiveStreamPlayerViewModel internal constructor(
 
         /** Production poll interval, matched to the web player. Don't lower without sign-off. */
         public const val DEFAULT_POLL_INTERVAL_MS: Long = 5_000L
+
+        /**
+         * How many recovery attempts the ENDED stream's recording gets while the CDN keeps
+         * answering with an HTTP status, before we call it unavailable. Recovery is throttled to
+         * one attempt per poll interval and every attempt counts once however many engine errors
+         * triggered it, so the bound is about a minute of wall clock — comfortably past the ~30 s
+         * the CDN takes to finalise a recording after the stream stops, and short enough that a
+         * recording which will never appear doesn't spin forever.
+         *
+         * Nothing else is bounded: a live or still-processing stream can answer 404 for as long as
+         * its playlist isn't published, and a network failure carries no status at all.
+         */
+        internal const val MAX_HTTP_RECOVERY_ATTEMPTS: Int = 12
 
         /**
          * Builds a view model bound to [bunny], or to the default instance when it is null.

@@ -125,8 +125,13 @@ public fun BunnyLiveStreamPlayer(
     // forces the surface to rebuild the player from the live edge even on an unchanged URL.
     val rebuildToken by viewModel.playerRebuildToken.collectAsStateWithLifecycle()
 
+    // The view model owns no Context, so hand it the viewer copy for a recording that never
+    // becomes playable — it raises the same panel a blocked stream gets.
+    val unavailableMessage = stringResource(R.string.error_video_not_available)
+
     LaunchedEffect(libraryId, streamId) {
         Log.d(TAG_UI, "BunnyLiveStreamPlayer entered — libraryId=$libraryId streamId=$streamId")
+        viewModel.unavailableMessage = unavailableMessage
         viewModel.start(libraryId, streamId, token, expires)
     }
 
@@ -212,6 +217,7 @@ public fun BunnyLiveStreamPlayer(
                         dvrEnabled = s.dvrEnabled,
                         rebuildToken = rebuildToken,
                         onPlaybackFailureInfo = { info -> viewModel.onPlaybackFailure(info) },
+                        onPlaybackStarted = { viewModel.onPlaybackStarted() },
                         onVideoSizeChanged = onVideoSizeChanged,
                     )
                     LiveBadge(
@@ -225,17 +231,26 @@ public fun BunnyLiveStreamPlayer(
 
             is LiveStreamPlayerState.VodPlay -> {
                 Log.d(TAG_UI, "render: VodPlay")
-                BunnyPlayerSurface(
-                    libraryId = libraryId,
-                    streamId = "vod-${streamId}",
-                    title = "",
-                    hlsUrl = s.hlsUrl,
-                    playData = playData,
-                    // The ended stream's recording is a fully seekable VOD — keep the timeline
-                    // (dvrEnabled only describes the live time-shift capability).
-                    isVodRecording = true,
-                    onVideoSizeChanged = onVideoSizeChanged,
-                )
+                // Same contract as LivePlay: a recording that turns out to be blocked or missing
+                // leaves composition so the engine's own banner goes with it and the panel below
+                // is the only UI, and the failures on the way there feed the VM's recovery loop —
+                // the recording stalls on the very network drops the live edge does.
+                if (terminalError == null) {
+                    BunnyPlayerSurface(
+                        libraryId = libraryId,
+                        streamId = "vod-${streamId}",
+                        title = "",
+                        hlsUrl = s.hlsUrl,
+                        playData = playData,
+                        // The ended stream's recording is a fully seekable VOD — keep the timeline
+                        // (dvrEnabled only describes the live time-shift capability).
+                        isVodRecording = true,
+                        rebuildToken = rebuildToken,
+                        onPlaybackFailureInfo = { info -> viewModel.onPlaybackFailure(info) },
+                        onPlaybackStarted = { viewModel.onPlaybackStarted() },
+                        onVideoSizeChanged = onVideoSizeChanged,
+                    )
+                }
             }
         }
 
@@ -562,7 +577,8 @@ private fun TrailerLoop(hlsUrl: String, uiLanguage: String?) {
  * matching what the engine expects.
  *
  * [onPlaybackFailureInfo] is the engine's structured failure report (it fires before
- * [onPlaybackError]).
+ * [onPlaybackError]); [onPlaybackStarted] is its counterpart for the happy path — it fires whenever
+ * playback actually runs, which is what tells the view model a recovery worked.
  */
 @OptIn(UnstableApi::class)
 @Composable
@@ -577,6 +593,7 @@ private fun BunnyPlayerSurface(
     rebuildToken: Int = 0,
     onPlaybackError: ((message: String) -> Unit)? = null,
     onPlaybackFailureInfo: ((PlaybackFailureInfo) -> Unit)? = null,
+    onPlaybackStarted: (() -> Unit)? = null,
     onVideoSizeChanged: ((width: Int, height: Int) -> Unit)? = null,
 ) {
     // [AndroidView.update] runs on every recomposition, but `playLiveUrl` tears down the engine
@@ -599,6 +616,10 @@ private fun BunnyPlayerSurface(
                 this.onVideoSizeChanged = onVideoSizeChanged
                 this.onPlaybackError = onPlaybackError?.let { cb -> { message -> cb(message) } }
                 this.onPlaybackFailureInfo = onPlaybackFailureInfo?.let { cb -> { info -> cb(info) } }
+                // Only the `true` edge counts as "playback started". Attaching a state listener
+                // replays the engine's current isPlaying(), which is false on an idle or errored
+                // player — so a rebuild after a failure can't fake a success the VM would act on.
+                this.onPlayingChanged = { playing -> if (playing) onPlaybackStarted?.invoke() }
                 // BunnyStreamPlayer queues the play call until it's attached to the window; safe
                 // to invoke from factory.
                 playLiveUrl(
@@ -619,6 +640,7 @@ private fun BunnyPlayerSurface(
             view.onVideoSizeChanged = onVideoSizeChanged
             view.onPlaybackError = onPlaybackError?.let { cb -> { message -> cb(message) } }
             view.onPlaybackFailureInfo = onPlaybackFailureInfo?.let { cb -> { info -> cb(info) } }
+            view.onPlayingChanged = { playing -> if (playing) onPlaybackStarted?.invoke() }
             if (lastUrlState.value == hlsUrl &&
                 lastPlayDataState.value == playData &&
                 lastRebuildTokenState.value == rebuildToken

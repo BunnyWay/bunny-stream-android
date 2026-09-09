@@ -1052,8 +1052,24 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
     override fun play() {
         val current = currentPlayer?.currentPosition ?: 0
         val duration = currentPlayer?.duration ?: 0
-        if(current >= duration) {
+        // Only replay from the top when we actually know where the top is. An idle player reports
+        // C.TIME_UNSET (a large negative), which any position compares "past" — that used to seek a
+        // freshly errored player to 0 for no reason.
+        //
+        // Live playback reports C.TIME_UNSET too, so this deliberately changes it as well: pressing
+        // play after a pause used to jump back to the start of the live window instead of resuming
+        // where the viewer left off. Replaying a live edge from "the top" was never meaningful.
+        if (duration != C.TIME_UNSET && current >= duration) {
             currentPlayer?.seekTo(0)
+        }
+        // An error leaves media3 in STATE_IDLE, where playWhenReady is remembered but never acted
+        // on — play() alone is a silent no-op and the viewer's tap does nothing. Re-preparing is
+        // what actually retries the source, so the network coming back (or the recording finally
+        // being published) turns into playback again.
+        currentPlayer?.let { player ->
+            if (player.playbackState == Player.STATE_IDLE && player.playerError != null) {
+                player.prepare()
+            }
         }
         currentPlayer?.play()
 
