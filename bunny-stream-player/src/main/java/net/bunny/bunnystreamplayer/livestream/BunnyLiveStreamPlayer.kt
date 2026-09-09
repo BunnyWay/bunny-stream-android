@@ -86,8 +86,8 @@ import java.util.concurrent.TimeUnit
  * dashboard's player settings). There is no client-side configuration object; SDK defaults apply
  * until play-data arrives or for any field the endpoint doesn't provide.
  *
- * Source of truth for the behaviour spec is `project_live_stream_player_behavior` in memory; the
- * state resolver in [resolveLiveStreamPlayerState] codifies it. This composable is intentionally
+ * The behaviour mirrors Bunny's web player; the state resolver in [resolveLiveStreamPlayerState]
+ * codifies it. This composable is intentionally
  * thin: it observes [BunnyLiveStreamPlayerViewModel.state] and renders one of a handful of
  * branches with no decision logic of its own.
  *

@@ -9,9 +9,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Unit tests for [resolveLiveStreamPlayerState] — locks in the web-player decision table from
- * the behaviour spec (`project_live_stream_player_behavior`). Tests are written to fail loudly
- * if the resolver and the spec drift apart.
+ * Unit tests for [resolveLiveStreamPlayerState] — locks in the decision table of Bunny's web
+ * player. Tests are written to fail loudly if the resolver and that behaviour drift apart.
  */
 class LiveStreamPlayerStateTest {
 

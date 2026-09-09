@@ -27,8 +27,8 @@ import org.junit.Test
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
- * Tests for the polling lifecycle and terminal-vs-transient handling described in the web player
- * spec (`project_live_stream_player_behavior`, section 3).
+ * Tests for the polling lifecycle and terminal-vs-transient handling that mirror Bunny's web
+ * player.
  *
  * **Why no `runTest`:** in kotlinx-coroutines-test 1.6.4 the polling loop (`while { delay(5s);
  * poll }`) tripped two failure modes with `runTest` — `advanceUntilIdle()` would never reach
