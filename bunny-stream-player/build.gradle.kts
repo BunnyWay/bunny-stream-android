@@ -157,9 +157,14 @@ kotlin {
 dokka {
     moduleName.set("BunnyStreamPlayer")
     dokkaSourceSets.configureEach {
-        // Android variant source sets (debug/release/staging) carry no sources of their own but,
-        // left unsuppressed, they break Dokka's source-link merging.
-        if (name != "main") suppress.set(true)
+        // Dokka's Android adapter derives one source set per variant — debug, release, staging plus
+        // the test ones — and never one called "main", so a `name != "main"` guard here suppresses
+        // every source set and the module leaves the build empty ("Nothing to document",
+        // sourceSets=[]). The variants all document the same src/main/java, so keep release and
+        // suppress the rest; that also keeps source-link merging unambiguous.
+        if (name != "release") suppress.set(true)
+        // "release" is a build type, not something a reader of the reference cares about.
+        displayName.set("android")
         includes.from("Module.md")
         sourceLink {
             localDirectory.set(file("src/main/java"))
