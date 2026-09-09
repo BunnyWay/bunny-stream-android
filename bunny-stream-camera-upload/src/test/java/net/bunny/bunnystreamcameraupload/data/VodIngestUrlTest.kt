@@ -6,11 +6,11 @@ import org.junit.Test
 
 /**
  * The VOD ingest server accepts a publish only as app="ingest" with stream name
- * "?vid=...&accessKey=...&lib=..." (leading '?' required) — verified against the live
- * ingest host: app="ingest?" or a stream name without the leading '?' both get rejected
- * with "Invalid stream data". These tests run the built URL through RootEncoder's own
- * [UrlParser] (the code that actually splits it on connect) so a URL-format regression
- * fails here instead of silently producing empty recordings.
+ * "?vid=...&accessKey=...&lib=..." (leading '?' required) - verified against the live ingest
+ * host: app="ingest?" or a stream name without the leading '?' are both rejected with
+ * "Invalid stream data". These tests run the built URL through RootEncoder's own [UrlParser]
+ * (the code that actually splits it on connect) so a URL-format regression fails here instead
+ * of silently producing empty recordings.
  */
 class VodIngestUrlTest {
 
@@ -19,7 +19,7 @@ class VodIngestUrlTest {
     @Test
     fun `built url parses to app 'ingest' and stream name with leading question mark`() {
         val url = DefaultRecordingRepository.buildVodIngestUrl(
-            rtmpEndpoint = "rtmp://49.13.154.169/ingest",
+            rtmpEndpoint = "rtmp://ingest.example.net/ingest",
             videoGuid = "a522aa26-1fdc-45a5-ba48-427547314210",
             accessKey = "test-access-key",
             libraryId = 694192L,
@@ -32,13 +32,13 @@ class VodIngestUrlTest {
             "?vid=a522aa26-1fdc-45a5-ba48-427547314210&accessKey=test-access-key&lib=694192",
             parsed.getStreamName(),
         )
-        assertEquals("rtmp://49.13.154.169/ingest", parsed.getTcUrl())
+        assertEquals("rtmp://ingest.example.net/ingest", parsed.getTcUrl())
     }
 
     @Test
     fun `trailing slash on the endpoint does not double up`() {
         val url = DefaultRecordingRepository.buildVodIngestUrl(
-            rtmpEndpoint = "rtmp://49.13.154.169/ingest/",
+            rtmpEndpoint = "rtmp://ingest.example.net/ingest/",
             videoGuid = "guid",
             accessKey = "key",
             libraryId = 1L,
