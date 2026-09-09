@@ -184,6 +184,11 @@ see [MIGRATING.md](MIGRATING.md) for before/after examples.
   resolves to a loopback sinkhole and the connection is refused before any status code exists. Both
   are terminal: the live player stops its poll loop rather than retrying a stream it will never be
   allowed to play.
+- A device that lost its connection is told so. A playback failure media3 files under one of its
+  connectivity codes, with no HTTP status and no sinkhole behind it, now shows the localized
+  "No internet connection" instead of a raw `ERROR_CODE_IO_NETWORK_CONNECTION_FAILED` — the engine
+  code still goes to logcat. The outage says nothing about the video, so it stays transient: the
+  live player keeps retrying and `Retry` keeps working.
 - The live player's recording recovers from a playback error. Once a stream had ended, its `VodPlay`
   state was marked terminated and every recovery was dropped, so a network drop — or the roughly
   30-second window in which the recording is still being finalised and answers `404` — left the

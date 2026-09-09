@@ -9,4 +9,5 @@
     <string name="label_video_settings_audio_track">Trek audio</string>
     <string name="label_drm_not_supported_exception">DRM diaktifkan untuk video ini, pemutaran tidak didukung pada perangkat ini.</string>
     <string name="error_video_not_available">Video tidak tersedia</string>
+    <string name="error_no_internet_connection">Tidak ada koneksi internet</string>
 </resources>

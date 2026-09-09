@@ -9,4 +9,5 @@
     <string name="label_video_settings_audio_track">Audiospoor</string>
     <string name="label_drm_not_supported_exception">DRM is ingeschakeld voor deze video, afspelen wordt niet ondersteund op dit apparaat.</string>
     <string name="error_video_not_available">Video is niet beschikbaar</string>
+    <string name="error_no_internet_connection">Geen internetverbinding</string>
 </resources>

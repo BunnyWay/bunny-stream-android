@@ -17,10 +17,12 @@ import java.util.IdentityHashMap
  * stream is blocked for this viewer and no retry will help. Bunny's "Blocked countries" geo-block
  * works one layer lower: the CDN host is rejected at the DNS level and resolves to a loopback
  * sinkhole, so the request never reaches a server and the only trace is a refused connection to
- * 127.0.0.1 - [sinkholeAddress] captures that so it counts as blocked as well. [rawMessage] is
+ * 127.0.0.1 - [sinkholeAddress] captures that so it counts as blocked as well. A device that
+ * simply lost its connection ([isNetwork]) is the opposite case: the video is fine, the outage is
+ * not a verdict on it, so the copy says so and the player keeps retrying. [rawMessage] is
  * the developer-facing text that always goes to logcat; [userMessage] is what the viewer sees -
- * the generic "Video is not available" copy for a blocked stream, the raw message for everything
- * else.
+ * the generic "Video is not available" copy for a blocked stream, "No internet connection" for a
+ * lost connection, the raw message for everything else.
  */
 internal data class PlaybackFailureInfo(
     val errorCode: Int,
@@ -39,12 +41,32 @@ internal data class PlaybackFailureInfo(
     val isBlocked: Boolean
         get() = httpStatus == HttpURLConnection.HTTP_FORBIDDEN || sinkholeAddress != null
 
+    /**
+     * True when the device could not reach the CDN at all: media3 filed the failure under one of
+     * its two connectivity codes, no server ever answered with a status and the host did not
+     * resolve to a sinkhole. Nothing here says anything about the video, so the viewer gets the
+     * "No internet connection" copy while the player keeps retrying - unlike [isBlocked], this is
+     * never terminal.
+     */
+    val isNetwork: Boolean
+        get() = !isBlocked && httpStatus == null && sinkholeAddress == null &&
+            (
+                errorCode == PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED ||
+                    errorCode == PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT
+                )
+
     companion object {
         /**
-         * Builds the report for [error]. [blockedMessage] resolves the viewer-facing copy and is
-         * only called for a blocked stream, so ordinary failures never touch resources.
+         * Builds the report for [error]. [blockedMessage] and [noInternetMessage] resolve the
+         * viewer-facing copy and are only called for the case they belong to, so ordinary failures
+         * never touch resources. A block wins over a lost connection: a DNS-level geo-block also
+         * surfaces as a refused connection, and there the video really is unavailable.
          */
-        fun from(error: PlaybackException, blockedMessage: () -> String): PlaybackFailureInfo {
+        fun from(
+            error: PlaybackException,
+            blockedMessage: () -> String,
+            noInternetMessage: () -> String,
+        ): PlaybackFailureInfo {
             val rawMessage = "${error.errorCodeName}: ${error.message}"
             val info = PlaybackFailureInfo(
                 errorCode = error.errorCode,
@@ -54,7 +76,11 @@ internal data class PlaybackFailureInfo(
                 userMessage = rawMessage,
                 sinkholeAddress = error.sinkholeAddress(),
             )
-            return if (info.isBlocked) info.copy(userMessage = blockedMessage()) else info
+            return when {
+                info.isBlocked -> info.copy(userMessage = blockedMessage())
+                info.isNetwork -> info.copy(userMessage = noInternetMessage())
+                else -> info
+            }
         }
     }
 }

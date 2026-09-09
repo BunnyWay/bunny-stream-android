@@ -272,12 +272,15 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
                 }
             }
 
-            val info = PlaybackFailureInfo.from(error) {
-                context.getString(R.string.error_video_not_available)
-            }
+            val info = PlaybackFailureInfo.from(
+                error = error,
+                blockedMessage = { context.getString(R.string.error_video_not_available) },
+                noInternetMessage = { context.getString(R.string.error_no_internet_connection) },
+            )
             // The real reason always lands in logcat for the integrator. Viewers of a blocked
             // stream (HTTP 403: geo-blocking, hotlink protection, expired token — not told apart)
-            // only ever get the generic copy.
+            // only ever get the generic copy, and a device that lost its connection is told that
+            // rather than an engine code.
             Log.w(
                 TAG,
                 "playback failure http=${info.httpStatus} sinkhole=${info.sinkholeAddress} ${info.rawMessage}",

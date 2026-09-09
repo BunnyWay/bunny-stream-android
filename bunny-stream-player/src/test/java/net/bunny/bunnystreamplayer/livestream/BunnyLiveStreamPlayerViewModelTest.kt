@@ -950,6 +950,35 @@ class BunnyLiveStreamPlayerViewModelTest {
     }
 
     @Test
+    fun `the friendly no-internet copy does not make a network failure terminal`() {
+        // The viewer copy is only copy — the verdict comes from the status and the sinkhole, both
+        // absent here. Reading the message instead would strand a live stream behind the terminal
+        // panel for as long as the outage lasts.
+        val repo = FakeRepo(
+            pollResult = { BunnyResult.Ok(runningStream()) },
+            playData = { BunnyResult.Ok(playDataWithUrl("https://live.test/p.m3u8")) },
+        )
+        val vm = newVm(repo)
+        try {
+            vm.start(libraryId = 1L, streamId = "s")
+            scheduler.runCurrent()
+            vm.onForeground()
+            scheduler.runCurrent()
+            assertTrue(vm.state.value is LiveStreamPlayerState.LivePlay)
+
+            val dropped = networkFailureInfo()
+            assertEquals("No internet connection", dropped.userMessage)
+            vm.onPlaybackFailure(dropped)
+            scheduler.runCurrent()
+
+            assertEquals("the outage still rebuilds the player", 1, vm.playerRebuildToken.value)
+            assertNull("a lost connection is never terminal", vm.terminalError.value)
+        } finally {
+            vm.onBackground()
+        }
+    }
+
+    @Test
     fun `blocked playback failure cancels the pending deferred recovery`() {
         // A transient failure inside the throttle window leaves one deferred recovery armed. The
         // 403 that lands next must disarm it — otherwise, one interval later, it would re-poll and
@@ -1029,18 +1058,17 @@ class BunnyLiveStreamPlayerViewModelTest {
 
     /**
      * The engine's report for a plain network drop: no HTTP status, no sinkhole — nothing the
-     * server said, so nothing that bounds the retries.
+     * server said, so nothing that bounds the retries. The viewer copy is the friendly
+     * "No internet connection" the player swaps in; only [PlaybackFailureInfo.rawMessage] keeps
+     * the engine's own text.
      */
-    private fun networkFailureInfo(): PlaybackFailureInfo {
-        val raw = "ERROR_CODE_IO_NETWORK_CONNECTION_FAILED: Source error"
-        return PlaybackFailureInfo(
-            errorCode = PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED,
-            errorCodeName = "ERROR_CODE_IO_NETWORK_CONNECTION_FAILED",
-            httpStatus = null,
-            rawMessage = raw,
-            userMessage = raw,
-        )
-    }
+    private fun networkFailureInfo(): PlaybackFailureInfo = PlaybackFailureInfo(
+        errorCode = PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED,
+        errorCodeName = "ERROR_CODE_IO_NETWORK_CONNECTION_FAILED",
+        httpStatus = null,
+        rawMessage = "ERROR_CODE_IO_NETWORK_CONNECTION_FAILED: Source error",
+        userMessage = "No internet connection",
+    )
 
     /** The engine's report for a DNS-level geo-block: no status, a refused connect to loopback. */
     private fun sinkholeInfo(): PlaybackFailureInfo = PlaybackFailureInfo(

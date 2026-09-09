@@ -798,6 +798,11 @@ private fun PlayerStatusPlaceholder(
 /**
  * Maps a raw engine error (e.g. "ERROR_CODE_IO_BAD_HTTP_STATUS: Source error") plus what we
  * know about the video to a message that tells the user what to actually do about it.
+ *
+ * The SDK resolves some failures to viewer-facing copy of its own ("Video is not available",
+ * "No internet connection"). That copy is already the answer, and the guesswork below would
+ * contradict it — a lost connection is not a video that is still processing — so it is shown
+ * alone, without the technical details line.
  */
 @Composable
 private fun describePlaybackError(
@@ -805,6 +810,8 @@ private fun describePlaybackError(
     uiState: VideoUiState,
     requestedLibraryId: Long?,
 ): String {
+    if (!rawError.isEngineMessage()) return rawError
+
     val video = (uiState as? VideoUiState.VideoUiLoaded)?.video
 
     val configuredLibraryId = App.di.libraryId
@@ -825,6 +832,12 @@ private fun describePlaybackError(
 
     return explanation + "\n\n" + stringResource(R.string.playback_error_details, rawError)
 }
+
+/**
+ * Whether this is the engine's own text rather than copy meant for a viewer. The SDK formats a
+ * raw failure as "<errorCodeName>: <message>", and every media3 error code starts with this.
+ */
+private fun String.isEngineMessage(): Boolean = startsWith("ERROR_CODE_")
 
 private fun formatTime(positionMs: Long): String {
     val hours = TimeUnit.MILLISECONDS.toHours(positionMs)

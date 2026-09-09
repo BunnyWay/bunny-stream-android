@@ -9,4 +9,5 @@
     <string name="label_video_settings_audio_track">Аудио трака</string>
     <string name="label_drm_not_supported_exception">DRM је омогућен за овај видео, репродукција није подржана на овом уређају.</string>
     <string name="error_video_not_available">Видео није доступан</string>
+    <string name="error_no_internet_connection">Нема интернет везе</string>
 </resources>

@@ -9,4 +9,5 @@
     <string name="label_video_settings_audio_track">Аудиодорожка</string>
     <string name="label_drm_not_supported_exception">DRM включен для этого видео, воспроизведение не поддерживается на этом устройстве.</string>
     <string name="error_video_not_available">Видео недоступно</string>
+    <string name="error_no_internet_connection">Нет подключения к интернету</string>
 </resources>

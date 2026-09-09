@@ -9,4 +9,5 @@
     <string name="label_video_settings_audio_track">Faixa de áudio</string>
     <string name="label_drm_not_supported_exception">DRM está habilitado para este vídeo, a reprodução não é suportada neste dispositivo.</string>
     <string name="error_video_not_available">O vídeo não está disponível</string>
+    <string name="error_no_internet_connection">Sem ligação à Internet</string>
 </resources>

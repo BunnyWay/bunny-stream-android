@@ -9,4 +9,5 @@
     <string name="label_video_settings_audio_track">Pistă audio</string>
     <string name="label_drm_not_supported_exception">DRM este activat pentru acest videoclip, redarea nu este acceptată pe acest dispozitiv.</string>
     <string name="error_video_not_available">Videoclipul nu este disponibil</string>
+    <string name="error_no_internet_connection">Fără conexiune la internet</string>
 </resources>

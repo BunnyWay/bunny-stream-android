@@ -9,4 +9,5 @@
     <string name="label_video_settings_audio_track">المسار الصوتي</string>
     <string name="label_drm_not_supported_exception">تم تمكين DRM لهذا الفيديو، التشغيل غير مدعوم على هذا الجهاز.</string>
     <string name="error_video_not_available">الفيديو غير متاح</string>
+    <string name="error_no_internet_connection">لا يوجد اتصال بالإنترنت</string>
 </resources>

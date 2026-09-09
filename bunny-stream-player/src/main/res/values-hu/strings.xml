@@ -9,4 +9,5 @@
     <string name="label_video_settings_audio_track">Hangsáv</string>
     <string name="label_drm_not_supported_exception">A DRM engedélyezve van ehhez a videóhoz, a lejátszás nem támogatott ezen az eszközön.</string>
     <string name="error_video_not_available">A videó nem érhető el</string>
+    <string name="error_no_internet_connection">Nincs internetkapcsolat</string>
 </resources>
