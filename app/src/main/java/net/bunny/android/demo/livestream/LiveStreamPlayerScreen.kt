@@ -298,7 +298,7 @@ private fun LiveStreamPropertiesCard(stream: LiveStream) {
             add("Pre-stream trailer" to it)
         }
         if (stream.rtmpOutputs.isNotEmpty()) {
-            add("RTMP outputs" to stream.rtmpOutputs.size.toString())
+            add("Live outputs" to stream.rtmpOutputs.size.toString())
         }
     }
 

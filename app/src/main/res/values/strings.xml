@@ -234,13 +234,13 @@
     <string name="live_button_choose_from_library">Choose from library</string>
     <string name="live_label_image_url">…or image URL</string>
     <string name="live_placeholder_thumbnail_url">https://example.com/thumb.jpg</string>
-    <string name="live_section_rtmp_outputs">RTMP outputs</string>
-    <string name="live_note_rtmp_outputs">Forward the incoming stream to up to 4 external RTMP destinations.</string>
+    <string name="live_section_live_outputs">Live outputs</string>
+    <string name="live_note_live_outputs">Forward the incoming stream to up to 4 external destinations (RTMP for now).</string>
     <string name="live_label_stream_url">Stream URL</string>
     <string name="live_placeholder_rtmp_url">rtmp://live.example.com/app</string>
     <string name="live_label_rtmp_stream_key">Stream Key</string>
-    <string name="live_button_add_rtmp_output">Add RTMP output</string>
-    <string name="live_note_max_rtmp_outputs">Maximum of %1$d RTMP outputs.</string>
+    <string name="live_button_add_live_output">Add live output</string>
+    <string name="live_note_max_live_outputs">Maximum of %1$d live outputs.</string>
     <string name="live_section_dual_publish">Dual publish</string>
     <string name="live_label_dual_publish">Publish to primary + backup at once</string>
     <string name="live_subtitle_dual_publish">Streams to both ingests simultaneously for instant failover. Doubles the upload bandwidth, so use it only on a strong connection.</string>

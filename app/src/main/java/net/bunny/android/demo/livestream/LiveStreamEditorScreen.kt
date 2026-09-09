@@ -792,9 +792,9 @@ private fun LiveStreamEditorScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            SectionCard(title = stringResource(R.string.live_section_rtmp_outputs)) {
+            SectionCard(title = stringResource(R.string.live_section_live_outputs)) {
                 Text(
-                    text = stringResource(R.string.live_note_rtmp_outputs),
+                    text = stringResource(R.string.live_note_live_outputs),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -828,16 +828,16 @@ private fun LiveStreamEditorScreen(
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
-                if (rtmpOutputs.size < MAX_RTMP_OUTPUTS) {
+                if (rtmpOutputs.size < MAX_LIVE_OUTPUTS) {
                     OutlinedButton(
                         onClick = { rtmpOutputs.add(RtmpOutputDraft("", "")) },
                         modifier = Modifier.fillMaxWidth(),
                     ) {
-                        Text(stringResource(R.string.live_button_add_rtmp_output))
+                        Text(stringResource(R.string.live_button_add_live_output))
                     }
                 } else {
                     Text(
-                        text = stringResource(R.string.live_note_max_rtmp_outputs, MAX_RTMP_OUTPUTS),
+                        text = stringResource(R.string.live_note_max_live_outputs, MAX_LIVE_OUTPUTS),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -1306,7 +1306,7 @@ private fun TimeZonePickerDialog(
 
 private val DISPLAY_DATE_TIME: DateTimeFormatter = DateTimeFormatter.ofPattern("MMM d, yyyy  HH:mm")
 
-private const val MAX_RTMP_OUTPUTS = 4
+private const val MAX_LIVE_OUTPUTS = 4
 
 /** Editable draft of one RTMP output row (Stream URL + Stream Key). */
 private data class RtmpOutputDraft(val url: String, val key: String)
