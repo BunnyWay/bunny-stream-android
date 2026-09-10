@@ -7,7 +7,7 @@ All notable changes to Bunny Stream Android are documented in this file. The for
 - `MINOR` versions add functionality in a backward-compatible way.
 - `PATCH` versions include backward-compatible bug fixes and maintenance updates.
 
-## [Unreleased] - 4.0.0
+## [4.0.0] - 2026-09-10
 
 The live streaming release, bundled with an architecture refactor. Existing integrations: see
 [MIGRATING.md](MIGRATING.md).
@@ -225,9 +225,6 @@ see [MIGRATING.md](MIGRATING.md) for before/after examples.
 - Uploads do not survive process death. Persist the `videoId` and the content URI (with a
   persistable URI permission) and call `continueUpload` on the next launch, or run the upload from
   a foreground service or `WorkManager` job.
-
-<!-- TODO before the 4.0.0 release: check the "Changed" bullets against the final API and
-     move the entries to a dated 4.0.0 section. -->
 
 ## [3.3.1] - 2026-08-21
 
