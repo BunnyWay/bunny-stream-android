@@ -7,8 +7,6 @@ All notable changes to Bunny Stream Android are documented in this file. The for
 - `MINOR` versions add functionality in a backward-compatible way.
 - `PATCH` versions include backward-compatible bug fixes and maintenance updates.
 
-## [Unreleased]
-
 ## [4.0.0] - 2026-09-10
 
 The live streaming release, bundled with an architecture refactor. Existing integrations: see
