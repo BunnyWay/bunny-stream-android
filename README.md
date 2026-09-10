@@ -1,7 +1,3 @@
-<!-- TODO before tagging 4.0.0: this README documents the 4.0.0 feature set (live streaming).
-     Publish it together with the 4.0.0 release so the described features match what is on
-     Maven Central. -->
-
 # Bunny Stream Android
 
 <p align="center">
