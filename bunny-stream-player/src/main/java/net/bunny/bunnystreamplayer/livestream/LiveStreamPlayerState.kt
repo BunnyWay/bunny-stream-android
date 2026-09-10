@@ -14,7 +14,7 @@ import java.time.format.DateTimeParseException
  * coroutines, no mutable state. Lives here so we can unit-test the entire web-player decision
  * tree without spinning up a player.
  *
- * The branches mirror the web player spec (`project_live_stream_player_behavior`):
+ * The branches mirror Bunny's web player:
  *
  *  * [Loading]   — first poll hasn't returned yet.
  *  * [Offline]   — one of "Live stream not active", "Live stream ended", "Live stream error",

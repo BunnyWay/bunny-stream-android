@@ -33,7 +33,7 @@ import net.bunny.bunnystreamplayer.PlaybackFailureInfo
 /**
  * Backing view model for [BunnyLiveStreamPlayer]. Owns the polling loop, the play-data fetches,
  * and the trailer fetch — exposes a single [StateFlow] of [LiveStreamPlayerState] for the UI to
- * consume. Mirrors the web player spec (`project_live_stream_player_behavior`).
+ * consume. Mirrors the behaviour of Bunny's web player.
  *
  * Responsibilities, in order of execution:
  *
