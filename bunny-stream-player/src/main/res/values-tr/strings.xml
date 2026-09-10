@@ -9,4 +9,5 @@
     <string name="label_video_settings_audio_track">Ses parçası</string>
     <string name="label_drm_not_supported_exception">Bu video için DRM etkinleştirildi, bu cihazda oynatma desteklenmiyor.</string>
     <string name="error_video_not_available">Video kullanılamıyor</string>
+    <string name="error_no_internet_connection">İnternet bağlantısı yok</string>
 </resources>

@@ -14,12 +14,14 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.IOException
 import java.net.ConnectException
+import java.net.SocketTimeoutException
 import java.net.UnknownHostException
 
 /**
  * Pins the rule behind "Video is not available": any HTTP 403 counts as blocked wherever media3
  * buried it in the cause chain, nothing else does, and a broken chain can't hang the engine's
- * error callback.
+ * error callback. Pins the rule behind "No internet connection" too - the connectivity codes with
+ * no status and no sinkhole behind them, which a DNS-level geo-block must not fall into.
  *
  * [HttpDataSource.InvalidResponseCodeException] is built for real — it is final and its only
  * constructor wants a [DataSpec]; [StubUri] is what makes that possible on the plain JVM.
@@ -104,37 +106,35 @@ class PlaybackFailureInfoTest {
             PlaybackException.ERROR_CODE_DRM_LICENSE_ACQUISITION_FAILED,
         )
 
-        var resolved = false
-        val info = PlaybackFailureInfo.from(error) { resolved = true; "Video is not available" }
+        val info = report(error)
         assertEquals(403, info.httpStatus)
         assertTrue(info.isBlocked)
-        assertEquals("Video is not available", info.userMessage)
-        assertTrue(resolved)
+        assertEquals(BLOCKED, info.userMessage)
+        assertTrue(blockedResolved)
     }
 
     @Test
     fun `from swaps in the viewer copy for a blocked stream only`() {
-        val blocked = PlaybackFailureInfo.from(
+        val blocked = report(
             PlaybackException(
                 "Source error", httpError(403), PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS,
             ),
-        ) { "Video is not available" }
+        )
         assertTrue(blocked.isBlocked)
         assertEquals(403, blocked.httpStatus)
         assertEquals("ERROR_CODE_IO_BAD_HTTP_STATUS: Source error", blocked.rawMessage)
-        assertEquals("Video is not available", blocked.userMessage)
+        assertEquals(BLOCKED, blocked.userMessage)
 
-        var resolved = false
-        val notFound = PlaybackFailureInfo.from(
+        val notFound = report(
             PlaybackException(
                 "Source error", httpError(404), PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS,
             ),
-        ) { resolved = true; "Video is not available" }
+        )
         assertFalse(notFound.isBlocked)
         assertEquals(404, notFound.httpStatus)
         // Anything but a 403 keeps today's message byte for byte and never touches resources.
         assertEquals(notFound.rawMessage, notFound.userMessage)
-        assertFalse(resolved)
+        assertFalse(blockedResolved)
     }
 
     @Test
@@ -153,31 +153,109 @@ class PlaybackFailureInfoTest {
             PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED,
         )
 
-        var resolved = false
-        val info = PlaybackFailureInfo.from(error) { resolved = true; "Video is not available" }
+        val info = report(error)
         assertNull(info.httpStatus)
         assertEquals("127.0.0.1", info.sinkholeAddress)
         assertTrue(info.isBlocked)
-        assertEquals("Video is not available", info.userMessage)
-        assertTrue(resolved)
+        assertEquals(BLOCKED, info.userMessage)
+        assertTrue(blockedResolved)
+    }
+
+    @Test
+    fun `a dns sinkhole still reports the blocked copy`() {
+        // A DNS-level geo-block arrives under the same code as a lost connection, so the two rules
+        // overlap. The block has to win: the video really is unavailable here, and retrying it
+        // would never help.
+        val info = report(
+            PlaybackException(
+                "Source error",
+                connectError("vz-test.b-cdn.net/127.0.0.1:443"),
+                PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED,
+            ),
+        )
+        assertTrue(info.isBlocked)
+        assertFalse(info.isNetwork)
+        assertEquals(BLOCKED, info.userMessage)
+        assertFalse(noInternetResolved)
     }
 
     @Test
     fun `a connection failure to a real address is not a blocked stream`() {
         // A genuine outage: the host resolved to a public edge but the socket never came up. It
-        // must stay transient, so live keeps retrying and the raw message is kept.
+        // must stay transient, so live keeps retrying — and the viewer is told about the
+        // connection rather than the video.
         val error = PlaybackException(
             "Source error",
             connectError("vz-test.b-cdn.net/185.59.220.199:443"),
             PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED,
         )
 
-        var resolved = false
-        val info = PlaybackFailureInfo.from(error) { resolved = true; "Video is not available" }
+        val info = report(error)
         assertNull(info.sinkholeAddress)
         assertFalse(info.isBlocked)
+        assertTrue(info.isNetwork)
+        assertEquals(NO_INTERNET, info.userMessage)
+        assertFalse(blockedResolved)
+    }
+
+    @Test
+    fun `a network connection failure reports the no-internet copy`() {
+        val info = report(
+            PlaybackException(
+                "Source error",
+                connectError("vz-test.b-cdn.net/185.59.220.199:443"),
+                PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED,
+            ),
+        )
+        assertTrue(info.isNetwork)
+        assertEquals(NO_INTERNET, info.userMessage)
+        // The engine's own text is what the integrator reads in logcat, so it stays untouched.
+        assertEquals("ERROR_CODE_IO_NETWORK_CONNECTION_FAILED: Source error", info.rawMessage)
+        assertTrue(noInternetResolved)
+        assertFalse(blockedResolved)
+    }
+
+    @Test
+    fun `a connection timeout reports the no-internet copy`() {
+        val info = report(
+            PlaybackException(
+                "Source error",
+                SocketTimeoutException("failed to connect to vz-test.b-cdn.net"),
+                PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT,
+            ),
+        )
+        assertTrue(info.isNetwork)
+        assertEquals(NO_INTERNET, info.userMessage)
+        assertTrue(noInternetResolved)
+    }
+
+    @Test
+    fun `a 403 is never the network class`() {
+        val info = report(
+            PlaybackException(
+                "Source error", httpError(403), PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS,
+            ),
+        )
+        assertFalse(info.isNetwork)
+        assertEquals(BLOCKED, info.userMessage)
+        assertFalse(noInternetResolved)
+    }
+
+    @Test
+    fun `a decoder failure keeps the raw message`() {
+        // Neither class: nothing to promise the viewer beyond what the engine said.
+        val info = report(
+            PlaybackException(
+                "Decoder init failed",
+                IllegalStateException("codec"),
+                PlaybackException.ERROR_CODE_DECODER_INIT_FAILED,
+            ),
+        )
+        assertFalse(info.isBlocked)
+        assertFalse(info.isNetwork)
         assertEquals(info.rawMessage, info.userMessage)
-        assertFalse(resolved)
+        assertFalse(blockedResolved)
+        assertFalse(noInternetResolved)
     }
 
     @Test
@@ -200,6 +278,23 @@ class PlaybackFailureInfoTest {
     }
 
     // region — Fixtures
+
+    private var blockedResolved = false
+    private var noInternetResolved = false
+
+    /**
+     * Builds the report the way DefaultBunnyPlayer does, recording which copy was asked for. The
+     * flags are reset per call, so they always describe the last [PlaybackFailureInfo.from].
+     */
+    private fun report(error: PlaybackException): PlaybackFailureInfo {
+        blockedResolved = false
+        noInternetResolved = false
+        return PlaybackFailureInfo.from(
+            error = error,
+            blockedMessage = { blockedResolved = true; BLOCKED },
+            noInternetMessage = { noInternetResolved = true; NO_INTERNET },
+        )
+    }
 
     /** The message Android's OkHttp puts on a refused socket connect. */
     private fun connectError(socketAddress: String) =
@@ -228,6 +323,12 @@ class PlaybackFailureInfoTest {
         rawMessage = "ERROR_CODE_IO_BAD_HTTP_STATUS: Source error",
         userMessage = "ERROR_CODE_IO_BAD_HTTP_STATUS: Source error",
     )
+
+    private companion object {
+        /** The two viewer-facing strings, standing in for the localized resources. */
+        const val BLOCKED = "Video is not available"
+        const val NO_INTERNET = "No internet connection"
+    }
 
     // endregion
 }

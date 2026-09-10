@@ -324,6 +324,14 @@ class BunnyStreamPlayer @JvmOverloads constructor(
     private var currentVideoId: String? = null
     private var currentLibraryId: Long? = null
     private var resumeConfig: ResumeConfig = ResumeConfig()
+
+    /**
+     * True while the current load carries an explicit start position (see [playLiveUrl]). The
+     * stored-position lookup the engine kicks off during `playVideo` resolves asynchronously, so
+     * it lands *after* our seek — this latch lets the resume listener below ignore an offer that
+     * would otherwise drag the viewer away from where the rebuild just put them.
+     */
+    private var startPositionOverridesResume: Boolean = false
     /**
      * Check if the app is running on Android TV
      */
@@ -362,6 +370,12 @@ class BunnyStreamPlayer @JvmOverloads constructor(
     }
     private val resumePositionListener = object : ResumePositionListener {
         override fun onResumePositionAvailable(videoId: String, position: PlaybackPosition) {
+            if (startPositionOverridesResume) {
+                // The caller already said where this load starts, and it is newer than anything
+                // on disk — a recovery rebuild resuming exactly where the viewer was.
+                Log.d(TAG, "Resume position ignored: the load carries an explicit start position")
+                return
+            }
             Log.d(TAG, "Resume position available: $position")
             resumePositionCallback?.invoke(position) { shouldResume ->
                 if (shouldResume) {
@@ -591,6 +605,11 @@ class BunnyStreamPlayer @JvmOverloads constructor(
      *                  (not fetched yet) falls back to SDK defaults.
      * @param isVodRecording the URL is the ended stream's recording (live→VOD hand-off): the
      *                  timeline stays (a recording is fully seekable) and CMCD reports `st=v`.
+     * @param startPositionMs where playback should start, in milliseconds, or `null` for the
+     *                  beginning. The live surface passes the position the viewer was at when it
+     *                  rebuilds the player after a playback failure: a recovery must not send them
+     *                  back to the start of a recording they were half way through. It takes
+     *                  precedence over any stored resume position for this load.
      */
     fun playLiveUrl(
         libraryId: Long,
@@ -601,11 +620,12 @@ class BunnyStreamPlayer @JvmOverloads constructor(
         playData: LiveStreamPlayData? = null,
         dvrEnabled: Boolean = false,
         isVodRecording: Boolean = false,
+        startPositionMs: Long? = null,
     ) {
         Log.d(
             TAG,
             "playLiveUrl streamId=$streamId hlsUrl=${hlsUrl.take(80)} " +
-                "serverCustomization=${playData != null}",
+                "serverCustomization=${playData != null} startPositionMs=$startPositionMs",
         )
         if (!hasSdk) {
             Log.e(TAG, "Unable to play live, initialize BunnyStreamApi first")
@@ -647,8 +667,10 @@ class BunnyStreamPlayer @JvmOverloads constructor(
             },
         )
 
+        startPositionOverridesResume = startPositionMs != null && startPositionMs > 0L
+
         pendingJob = {
-            scope!!.launch { initializeVideo(video, settings) }
+            scope!!.launch { initializeVideo(video, settings, startPositionMs = startPositionMs) }
         }
         if (scope == null) {
             Log.d(TAG, "playLiveUrl deferred — view not yet attached")
@@ -672,6 +694,8 @@ class BunnyStreamPlayer @JvmOverloads constructor(
 
         currentVideoId = videoId
         currentLibraryId = libraryId
+        // A plain VOD load has no start position of its own, so the stored one is welcome again.
+        startPositionOverridesResume = false
 
         if (!hasSdk) {
             Log.e(
@@ -866,6 +890,7 @@ class BunnyStreamPlayer @JvmOverloads constructor(
         playerSettings: PlayerSettings,
         token: String? = null,
         expires: Long? = null,
+        startPositionMs: Long? = null,
     ) {
         // A fresh load invalidates any error from the previous source — without this, a
         // late-arriving error from the torn-down player (e.g. the stale live URL during the
@@ -912,6 +937,14 @@ class BunnyStreamPlayer @JvmOverloads constructor(
             expires = expires,
         )
         playerView.bunnyPlayer = bunnyPlayer
+
+        // Seek after the engine has the media item and is prepared — media3 honours a seek issued
+        // at this point and starts there instead of at 00:00. This is what keeps a rebuilt player
+        // (the live recovery loop) on the frame the viewer was watching.
+        if (startPositionMs != null && startPositionMs > 0L) {
+            Log.d(TAG, "initializeVideo: starting at ${startPositionMs}ms")
+            bunnyPlayer.seekTo(startPositionMs)
+        }
 
         // Start auto-save after video starts playing
         if (resumeConfig.enableAutoSave) {
