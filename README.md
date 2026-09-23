@@ -21,6 +21,10 @@ Bunny Stream is the Android SDK for [Bunny's](https://bunny.net) video platform.
 whole content flow: manage the videos and live streams in your library, upload from the device,
 play videos, play live streams, and broadcast live from the camera.
 
+> [!TIP]
+> **Using React Native or Expo?** [Bunny Stream React Native](https://github.com/BunnyWay/bunny-stream-react-native) brings
+> Bunny Stream to iOS and Android apps with one TypeScript API.
+
 ### Key features
 
 - **Video playback**: a ready player with controls, captions, chapters, seek previews,
