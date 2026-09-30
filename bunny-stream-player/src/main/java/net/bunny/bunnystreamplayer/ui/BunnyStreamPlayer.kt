@@ -122,10 +122,8 @@ class BunnyStreamPlayer @JvmOverloads constructor(
         }
 
     /**
-     * When `true`, the player periodically samples the video frame behind the position/duration
-     * readout and flips the text between black and white based on luminance, so the readout stays
-     * legible regardless of scene brightness. Defaults to `false` to preserve existing behavior;
-     * opt in from your app.
+     * When `true`, keeps the position/duration readout white with a dark shadow over the
+     * built-in controller gradient. Defaults to `false`; opt in from your app.
      *
      * Forwards to [BunnyPlayerView.autoProgressTextColor].
      */
@@ -136,8 +134,8 @@ class BunnyStreamPlayer @JvmOverloads constructor(
         }
 
     /**
-     * Manual override for the position/duration text color. Has no lasting effect while
-     * [autoProgressTextColor] is enabled — the sampler overrides it on each tick.
+     * Manual override for the position/duration text color. While [autoProgressTextColor] is
+     * enabled, the readout stays white.
      *
      * Forwards to [BunnyPlayerView.progressTextColor].
      */
@@ -456,7 +454,12 @@ class BunnyStreamPlayer @JvmOverloads constructor(
             override fun onFullscreenToggleClicked() {
                 saveCurrentPosition() // Save before fullscreen transition
                 playerView.bunnyPlayer = null
-                FullScreenPlayerActivity.show(context, iconSet) {
+                FullScreenPlayerActivity.show(
+                    context,
+                    iconSet,
+                    playerView.autoProgressTextColor,
+                    playerView.progressTextColor,
+                ) {
                     Log.d(TAG, "onFullscreenExited")
                     playerView.bunnyPlayer = bunnyPlayer
                     startAutoSave() // Resume auto-save after returning from fullscreen
