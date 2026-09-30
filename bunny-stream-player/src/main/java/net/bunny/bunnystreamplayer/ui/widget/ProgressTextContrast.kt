@@ -2,7 +2,9 @@ package net.bunny.bunnystreamplayer.ui.widget
 
 /** Chooses a single readable tone for the pixels immediately behind the time readout. */
 internal object ProgressTextContrast {
-    private const val LUMINANCE_THRESHOLD = 0.55
+    // The controller draws a dark gradient over the video. A moderately bright video frame
+    // therefore looks dark behind the glyphs; only near-white video can safely use black text.
+    private const val LUMINANCE_THRESHOLD = 0.94
     private const val DARK_AREA_THRESHOLD_PERCENT = 5
     private const val MAX_SAMPLES_PER_AXIS = 64
 

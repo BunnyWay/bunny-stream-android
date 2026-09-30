@@ -36,9 +36,17 @@ class ProgressTextContrastTest {
     }
 
     @Test
-    fun `uniform light gray readout chooses black`() {
+    fun `uniform light gray readout chooses white under the controller scrim`() {
         val gray = 0xff999999.toInt()
         val color = ProgressTextContrast.colorForPixels(100, 20) { _, _ -> gray }
+
+        assertEquals(ProgressTextContrast.WHITE, color)
+    }
+
+    @Test
+    fun `uniform near white readout chooses black`() {
+        val nearWhite = 0xfff5f5f5.toInt()
+        val color = ProgressTextContrast.colorForPixels(100, 20) { _, _ -> nearWhite }
 
         assertEquals(ProgressTextContrast.BLACK, color)
     }

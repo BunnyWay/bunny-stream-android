@@ -10,16 +10,17 @@ import net.bunny.bunnystreamplayer.ui.fullscreen.FullScreenPlayerActivity
 import net.bunny.bunnystreamplayer.ui.widget.BunnyPlayerView
 import net.bunny.player.R
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
+import org.junit.Assert.assertFalse
 import org.junit.Test
 import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class FullscreenProgressColorInstrumentedTest {
     @Test
-    fun fullscreenKeepsAutomaticColorSetting() {
-        withFullscreenPlayer(autoColor = true, textColor = Color.WHITE) { playerView ->
-            assertTrue(playerView.autoProgressTextColor)
+    fun fullscreenKeepsWhiteReadoutWhenInlineColorIsAutomatic() {
+        withFullscreenPlayer(autoColor = true, textColor = Color.BLACK) { playerView ->
+            assertFalse(playerView.autoProgressTextColor)
+            assertEquals(Color.WHITE, playerView.progressTextColor)
         }
     }
 

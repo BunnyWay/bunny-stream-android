@@ -86,8 +86,14 @@ class FullScreenPlayerActivity : AppCompatActivity() {
         playerView.bunnyPlayer = DefaultBunnyPlayer.getInstance(this)
         playerView.isFullscreen = true
         playerView.iconSet = iconSet
-        playerView.progressTextColor = intent.getIntExtra(PROGRESS_TEXT_COLOR, Color.WHITE)
-        playerView.autoProgressTextColor = intent.getBooleanExtra(AUTO_PROGRESS_TEXT_COLOR, false)
+        // The time readout can sit over a black letterbox area outside the video surface.
+        // Sampling the frame cannot describe that background, so keep the existing white
+        // fullscreen readout when automatic contrast was selected inline.
+        playerView.progressTextColor = if (intent.getBooleanExtra(AUTO_PROGRESS_TEXT_COLOR, false)) {
+            Color.WHITE
+        } else {
+            intent.getIntExtra(PROGRESS_TEXT_COLOR, Color.WHITE)
+        }
         playerView.fullscreenListener = object : BunnyPlayerView.FullscreenListener {
             override fun onFullscreenToggleClicked() {
                 finish()

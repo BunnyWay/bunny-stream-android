@@ -51,7 +51,7 @@ class ProgressContrastInstrumentedTest {
             // time to inspect that frame, so a color from the previous phase cannot pass.
             awaitColorDuring(activity, Color.BLACK, 1_500L, 5_000L) // white frame
             awaitColorDuring(activity, Color.WHITE, 6_500L, 10_000L) // black frame
-            awaitColorDuring(activity, Color.BLACK, 11_500L, 15_000L) // 60% gray
+            awaitColorDuring(activity, Color.WHITE, 11_500L, 15_000L) // 60% gray
             awaitColorDuring(activity, Color.WHITE, 16_500L, 20_000L) // 50% gray
         } finally {
             instrumentation.runOnMainSync { activity.finish() }
