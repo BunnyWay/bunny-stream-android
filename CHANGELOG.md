@@ -7,6 +7,13 @@ All notable changes to Bunny Stream Android are documented in this file. The for
 - `MINOR` versions add functionality in a backward-compatible way.
 - `PATCH` versions include backward-compatible bug fixes and maintenance updates.
 
+## [Unreleased]
+
+### Fixed
+
+- `autoProgressTextColor` keeps the player time labels readable when a video frame mixes bright
+  and dark areas. Contrast is sampled behind the labels, with white text used when sampling fails.
+
 ## [4.0.0] - 2026-09-10
 
 The live streaming release, bundled with an architecture refactor. Existing integrations: see
