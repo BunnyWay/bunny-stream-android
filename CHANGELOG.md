@@ -13,6 +13,7 @@ All notable changes to Bunny Stream Android are documented in this file. The for
 
 - `autoProgressTextColor` keeps the player time labels readable when a video frame mixes bright
   and dark areas. Contrast is sampled behind the labels, with white text used when sampling fails.
+  The automatic and manually selected text colors are preserved when entering fullscreen.
 
 ## [4.0.0] - 2026-09-10
 

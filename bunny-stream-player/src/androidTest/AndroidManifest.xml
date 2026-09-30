@@ -5,5 +5,8 @@
             android:name="net.bunny.bunnystreamplayer.ProgressContrastActivity"
             android:exported="false"
             android:theme="@style/Theme.AppCompat.DayNight.NoActionBar" />
+        <activity
+            android:name="net.bunny.bunnystreamplayer.ui.fullscreen.FullScreenPlayerActivity"
+            android:theme="@style/Theme.AppCompat.DayNight.NoActionBar" />
     </application>
 </manifest>

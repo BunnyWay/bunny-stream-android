@@ -456,7 +456,12 @@ class BunnyStreamPlayer @JvmOverloads constructor(
             override fun onFullscreenToggleClicked() {
                 saveCurrentPosition() // Save before fullscreen transition
                 playerView.bunnyPlayer = null
-                FullScreenPlayerActivity.show(context, iconSet) {
+                FullScreenPlayerActivity.show(
+                    context,
+                    iconSet,
+                    playerView.autoProgressTextColor,
+                    playerView.progressTextColor,
+                ) {
                     Log.d(TAG, "onFullscreenExited")
                     playerView.bunnyPlayer = bunnyPlayer
                     startAutoSave() // Resume auto-save after returning from fullscreen

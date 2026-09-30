@@ -2,6 +2,7 @@ package net.bunny.bunnystreamplayer.ui.fullscreen
 
 import android.content.Context
 import android.content.Intent
+import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
@@ -27,8 +28,20 @@ class FullScreenPlayerActivity : AppCompatActivity() {
         private const val TAG = "FullScreenPlayerActivity"
         private const val RESULT_RECEIVER = "RESULT_RECEIVER"
         private const val ICON_SET = "ICON_SET"
+        private const val AUTO_PROGRESS_TEXT_COLOR = "AUTO_PROGRESS_TEXT_COLOR"
+        private const val PROGRESS_TEXT_COLOR = "PROGRESS_TEXT_COLOR"
 
         fun show(context: Context, iconSet: PlayerIconSet, onFullscreenExited: () -> Unit) {
+            show(context, iconSet, false, Color.WHITE, onFullscreenExited)
+        }
+
+        fun show(
+            context: Context,
+            iconSet: PlayerIconSet,
+            autoProgressTextColor: Boolean,
+            progressTextColor: Int,
+            onFullscreenExited: () -> Unit,
+        ) {
             val resultReceiver = object : ResultReceiver(Handler(Looper.getMainLooper())) {
                 override fun onReceiveResult(resultCode: Int, resultData: Bundle?) {
                     onFullscreenExited.invoke()
@@ -38,6 +51,8 @@ class FullScreenPlayerActivity : AppCompatActivity() {
             val intent = Intent(context, FullScreenPlayerActivity::class.java)
             intent.putExtra(RESULT_RECEIVER, resultReceiver)
             intent.putExtra(ICON_SET, iconSet)
+            intent.putExtra(AUTO_PROGRESS_TEXT_COLOR, autoProgressTextColor)
+            intent.putExtra(PROGRESS_TEXT_COLOR, progressTextColor)
             context.startActivity(intent)
         }
     }
@@ -71,6 +86,8 @@ class FullScreenPlayerActivity : AppCompatActivity() {
         playerView.bunnyPlayer = DefaultBunnyPlayer.getInstance(this)
         playerView.isFullscreen = true
         playerView.iconSet = iconSet
+        playerView.progressTextColor = intent.getIntExtra(PROGRESS_TEXT_COLOR, Color.WHITE)
+        playerView.autoProgressTextColor = intent.getBooleanExtra(AUTO_PROGRESS_TEXT_COLOR, false)
         playerView.fullscreenListener = object : BunnyPlayerView.FullscreenListener {
             override fun onFullscreenToggleClicked() {
                 finish()
@@ -131,5 +148,6 @@ class FullScreenPlayerActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         playerView.bunnyPlayer = null
+        playerView.releaseAutoProgressTextColorResources()
     }
 }
