@@ -86,14 +86,8 @@ class BunnyPlayerView @JvmOverloads constructor(
         /** How often [autoProgressTextColor] re-samples the video while the controller is visible. */
         private const val PROGRESS_COLOR_SAMPLE_INTERVAL_MS = 1_500L
 
-        /** Average sRGB luminance threshold above which we switch to black text. */
-        private const val LUMINANCE_THRESHOLD = 0.55
-
-        /** Fraction of the video surface height sampled from the bottom (where the readout sits). */
-        private const val SAMPLE_HEIGHT_FRACTION = 0.15f
-
-        /** Cap sample bitmap dimensions so we don't burn CPU on 4K surfaces. */
-        private const val MAX_SAMPLE_DIMENSION = 64
+        /** Maximum side length of a sampled video frame. */
+        private const val MAX_SAMPLE_DIMENSION = 320
 
         /** How often the live-edge badge re-evaluates the player position. */
         private const val LIVE_EDGE_UPDATE_INTERVAL_MS = 1_000L
@@ -331,8 +325,8 @@ class BunnyPlayerView @JvmOverloads constructor(
 
     /**
      * When `true`, the SDK periodically samples the video frame behind the progress/duration
-     * text and switches [progressTextColor] between black and white based on average luminance,
-     * so the readout stays legible regardless of scene brightness. Sampling only runs while the
+     * text and switches [progressTextColor] to black only when the area directly behind the
+     * readout is consistently bright. Sampling only runs while the
      * controller is visible and is suspended when the view detaches from the window.
      */
     var autoProgressTextColor: Boolean = false
@@ -866,6 +860,13 @@ class BunnyPlayerView @JvmOverloads constructor(
         progressTextView.setTextColor(progressTextColor)
         durationTextView.setTextColor(progressTextColor)
         progressDurationDivider.setTextColor(progressTextColor)
+        // The shadow separates white glyphs from bright patches within a mixed frame.
+        val density = resources.displayMetrics.density
+        val shadowRadius = if (progressTextColor == Color.WHITE) 2f * density else 0f
+        val shadowOffset = if (progressTextColor == Color.WHITE) density else 0f
+        for (label in listOf(progressTextView, durationTextView, progressDurationDivider)) {
+            label.setShadowLayer(shadowRadius, 0f, shadowOffset, Color.BLACK)
+        }
 
         val fullScreenIcon = if (isFullscreen) {
             iconSet.fullscreenOffIcon
@@ -1185,9 +1186,8 @@ class BunnyPlayerView @JvmOverloads constructor(
     }
 
     /**
-     * Samples a small bottom strip of the video surface on a background thread, computes the
-     * average WCAG relative luminance, and posts back to the main thread to flip
-     * [progressTextColor] between black and white. Only ticks while the controller is visible.
+     * Samples only the video behind the visible time labels, then posts the selected color to
+     * the main thread. Only ticks while the controller is visible.
      */
     private inner class ProgressTextColorSampler {
 
@@ -1238,73 +1238,80 @@ class BunnyPlayerView @JvmOverloads constructor(
             val h = surface.height
             if (w <= 0 || h <= 0) return
 
-            val sampleH = (h * SAMPLE_HEIGHT_FRACTION).toInt().coerceAtLeast(8)
-            // PixelCopy doesn't scale, so the destination must match the source rect size.
-            // We compensate by reading with a stride in [applyLuminance].
-            val srcRect = Rect(0, h - sampleH, w, h)
-            val bitmap = Bitmap.createBitmap(w, sampleH, Bitmap.Config.ARGB_8888)
+            val readout = readoutRect(surface) ?: return
+            val scale = minOf(1f, MAX_SAMPLE_DIMENSION.toFloat() / maxOf(w, h))
+            val bitmapW = maxOf(1, (w * scale).toInt())
+            val bitmapH = maxOf(1, (h * scale).toInt())
+            val bitmap = Bitmap.createBitmap(bitmapW, bitmapH, Bitmap.Config.ARGB_8888)
+            val sampleRect = Rect(
+                readout.left * bitmapW / w,
+                readout.top * bitmapH / h,
+                minOf(bitmapW, (readout.right * bitmapW + w - 1) / w),
+                minOf(bitmapH, (readout.bottom * bitmapH + h - 1) / h),
+            )
 
             when (surface) {
                 is SurfaceView -> {
                     try {
-                        PixelCopy.request(surface, srcRect, bitmap, { result ->
-                            if (result == PixelCopy.SUCCESS) applyLuminance(bitmap)
+                        PixelCopy.request(surface, bitmap, { result ->
+                            if (result == PixelCopy.SUCCESS) {
+                                applyLuminance(bitmap, sampleRect)
+                            } else {
+                                postProgressTextColor(Color.WHITE)
+                            }
                             bitmap.recycle()
                         }, workerHandler)
                     } catch (e: IllegalArgumentException) {
                         // Surface not yet ready (no underlying buffer); try again next tick.
                         Log.v(TAG, "PixelCopy not ready: ${e.message}")
                         bitmap.recycle()
+                        postProgressTextColor(Color.WHITE)
                     }
                 }
                 is TextureView -> {
-                    val full = surface.getBitmap(w, h)
-                    if (full != null) {
-                        val cropped = Bitmap.createBitmap(full, 0, h - sampleH, w, sampleH)
-                        full.recycle()
-                        applyLuminance(cropped)
-                        cropped.recycle()
+                    if (surface.getBitmap(bitmap) != null) {
+                        applyLuminance(bitmap, sampleRect)
+                    } else {
+                        postProgressTextColor(Color.WHITE)
                     }
                     bitmap.recycle()
                 }
-                else -> bitmap.recycle()
+                else -> {
+                    bitmap.recycle()
+                    postProgressTextColor(Color.WHITE)
+                }
             }
         }
 
-        /**
-         * Computes the average sRGB relative luminance of the sampled bitmap by reading every
-         * `stride`th pixel — that keeps the work to ~MAX_SAMPLE_DIMENSION^2 reads regardless of
-         * surface resolution, instead of allocating a full IntArray of the source on every tick.
-         */
-        private fun applyLuminance(bitmap: Bitmap) {
-            val width = bitmap.width
-            val height = bitmap.height
-            val stride = maxOf(1, minOf(width, height) / MAX_SAMPLE_DIMENSION)
-
-            var lumSum = 0.0
-            var count = 0
-            var y = 0
-            while (y < height) {
-                var x = 0
-                while (x < width) {
-                    val px = bitmap.getPixel(x, y)
-                    val r = Color.red(px) / 255.0
-                    val g = Color.green(px) / 255.0
-                    val b = Color.blue(px) / 255.0
-                    // sRGB relative luminance (per WCAG 2.x).
-                    lumSum += 0.2126 * r + 0.7152 * g + 0.0722 * b
-                    count++
-                    x += stride
-                }
-                y += stride
+        private fun readoutRect(surface: View): Rect? {
+            val surfaceLocation = IntArray(2)
+            val labelLocation = IntArray(2)
+            surface.getLocationOnScreen(surfaceLocation)
+            val bounds = Rect()
+            for (label in listOf(progressTextView, progressDurationDivider, durationTextView)) {
+                if (!label.isVisible || label.width <= 0 || label.height <= 0) continue
+                label.getLocationOnScreen(labelLocation)
+                bounds.union(
+                    labelLocation[0] - surfaceLocation[0],
+                    labelLocation[1] - surfaceLocation[1],
+                    labelLocation[0] - surfaceLocation[0] + label.width,
+                    labelLocation[1] - surfaceLocation[1] + label.height,
+                )
             }
-            if (count == 0) return
-            val avgLum = lumSum / count
-            val pick = if (avgLum > LUMINANCE_THRESHOLD) Color.BLACK else Color.WHITE
+            return bounds.takeIf { !it.isEmpty && it.intersect(0, 0, surface.width, surface.height) }
+        }
 
+        private fun applyLuminance(bitmap: Bitmap, sampleRect: Rect) {
+            val pick = ProgressTextContrast.colorForPixels(sampleRect.width(), sampleRect.height()) { x, y ->
+                bitmap.getPixel(sampleRect.left + x, sampleRect.top + y)
+            }
+            postProgressTextColor(pick)
+        }
+
+        private fun postProgressTextColor(color: Int) {
             mainHandler.post {
-                if (running && progressTextColor != pick) {
-                    progressTextColor = pick
+                if (running && progressTextColor != color) {
+                    progressTextColor = color
                 }
             }
         }
