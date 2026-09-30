@@ -24,22 +24,22 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class ProgressContrastInstrumentedTest {
     @Test
-    fun mixedFrameReturnsReadoutToWhite() {
+    fun automaticReadoutRemainsWhiteOnBrightAndMixedFrames() {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val intent = Intent(instrumentation.context, ProgressContrastActivity::class.java)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         val activity = instrumentation.startActivitySync(intent) as ProgressContrastActivity
         try {
             instrumentation.waitForIdleSync()
-            awaitColor(activity, Color.BLACK, 10_000L)
-            awaitColor(activity, Color.WHITE, 10_000L)
+            awaitColorDuring(activity, Color.WHITE, 0L, 2_000L)
+            awaitColorDuring(activity, Color.WHITE, 2_500L, 6_000L)
         } finally {
             instrumentation.runOnMainSync { activity.finish() }
         }
     }
 
     @Test
-    fun automaticColorHandlesBlackAndIntermediateGrayFrames() {
+    fun automaticReadoutRemainsWhiteOnBlackAndIntermediateGrayFrames() {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val intent = Intent(instrumentation.context, ProgressContrastActivity::class.java)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -47,27 +47,14 @@ class ProgressContrastInstrumentedTest {
         val activity = instrumentation.startActivitySync(intent) as ProgressContrastActivity
         try {
             instrumentation.waitForIdleSync()
-            // The clip holds each color for five seconds. Check only after the sampler has had
-            // time to inspect that frame, so a color from the previous phase cannot pass.
-            awaitColorDuring(activity, Color.BLACK, 1_500L, 5_000L) // white frame
+            // The clip holds each color for five seconds; verify the actual playback phase.
+            awaitColorDuring(activity, Color.WHITE, 1_500L, 5_000L) // white frame
             awaitColorDuring(activity, Color.WHITE, 6_500L, 10_000L) // black frame
             awaitColorDuring(activity, Color.WHITE, 11_500L, 15_000L) // 60% gray
             awaitColorDuring(activity, Color.WHITE, 16_500L, 20_000L) // 50% gray
         } finally {
             instrumentation.runOnMainSync { activity.finish() }
         }
-    }
-
-    private fun awaitColor(activity: ProgressContrastActivity, expected: Int, timeoutMs: Long) {
-        val instrumentation = InstrumentationRegistry.getInstrumentation()
-        val deadline = SystemClock.uptimeMillis() + timeoutMs
-        var actual = 0
-        while (SystemClock.uptimeMillis() < deadline) {
-            instrumentation.runOnMainSync { actual = activity.playerView.progressTextColor }
-            if (actual == expected) return
-            SystemClock.sleep(100)
-        }
-        fail("Expected time-label color $expected, but it stayed $actual")
     }
 
     private fun awaitColorDuring(

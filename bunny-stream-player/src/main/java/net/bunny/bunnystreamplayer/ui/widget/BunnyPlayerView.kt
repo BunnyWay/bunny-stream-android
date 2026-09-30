@@ -5,7 +5,6 @@ import android.app.PictureInPictureParams
 import android.content.Context
 import android.content.ContextWrapper
 import android.content.pm.PackageManager
-import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.Rect
 import android.graphics.Typeface
@@ -19,9 +18,6 @@ import android.util.Log
 import android.util.Rational
 import android.view.Gravity
 import android.view.Menu
-import android.view.PixelCopy
-import android.view.SurfaceView
-import android.view.TextureView
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -82,12 +78,6 @@ class BunnyPlayerView @JvmOverloads constructor(
 
     companion object {
         private const val TAG = "BunnyPlayerView"
-
-        /** How often [autoProgressTextColor] re-samples the video while the controller is visible. */
-        private const val PROGRESS_COLOR_SAMPLE_INTERVAL_MS = 1_500L
-
-        /** Maximum side length of a sampled video frame. */
-        private const val MAX_SAMPLE_DIMENSION = 320
 
         /** How often the live-edge badge re-evaluates the player position. */
         private const val LIVE_EDGE_UPDATE_INTERVAL_MS = 1_000L
@@ -313,30 +303,27 @@ class BunnyPlayerView @JvmOverloads constructor(
      * the dark letterbox. The Bunny dashboard does not expose this setting — set it on the view
      * from your app code to override.
      *
-     * When [autoProgressTextColor] is enabled, this value is overridden roughly every
-     * [PROGRESS_COLOR_SAMPLE_INTERVAL_MS] ms based on the video pixels behind the readout.
+     * When [autoProgressTextColor] is enabled, this value stays white because the built-in
+     * control bar darkens the background behind the readout.
      */
     @ColorInt
     var progressTextColor: Int = Color.WHITE
         set(value) {
-            field = value
+            field = if (autoProgressTextColor) Color.WHITE else value
             applyStyle()
         }
 
     /**
-     * When `true`, the SDK periodically samples the video frame behind the progress/duration
-     * text and switches [progressTextColor] to black only when the area directly behind the
-     * readout is consistently bright. Sampling only runs while the
-     * controller is visible and is suspended when the view detaches from the window.
+     * When `true`, keeps the position/duration readout white with a dark shadow. The built-in
+     * controller darkens the video behind this text, so white remains readable even over bright
+     * frames and letterbox bars. Manual [progressTextColor] values apply when this is `false`.
      */
     var autoProgressTextColor: Boolean = false
         set(value) {
             if (field == value) return
             field = value
-            if (value) progressColorSampler.start() else progressColorSampler.stop()
+            if (value) progressTextColor = Color.WHITE
         }
-
-    private val progressColorSampler = ProgressTextColorSampler()
 
     private var playerSettings: PlayerSettings? = null
         set(value) {
@@ -1120,12 +1107,10 @@ class BunnyPlayerView @JvmOverloads constructor(
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
-        if (autoProgressTextColor) progressColorSampler.start()
         liveEdgeUpdater.start()
     }
 
     override fun onDetachedFromWindow() {
-        progressColorSampler.stop()
         liveEdgeUpdater.stop()
         super.onDetachedFromWindow()
     }
@@ -1176,144 +1161,7 @@ class BunnyPlayerView @JvmOverloads constructor(
         }
     }
 
-    /**
-     * Releases background resources held by the auto-contrast sampler. Call from your
-     * Activity/Fragment teardown if you toggled [autoProgressTextColor] — otherwise the sampler's
-     * worker thread persists until the view is garbage collected.
-     */
+    /** Kept for source and binary compatibility; automatic readout color has no worker resources. */
     fun releaseAutoProgressTextColorResources() {
-        progressColorSampler.release()
-    }
-
-    /**
-     * Samples only the video behind the visible time labels, then posts the selected color to
-     * the main thread. Only ticks while the controller is visible.
-     */
-    private inner class ProgressTextColorSampler {
-
-        private val workerThread = HandlerThread("bunny-progress-color-sampler").apply { start() }
-        private val workerHandler = Handler(workerThread.looper)
-        private val mainHandler = Handler(Looper.getMainLooper())
-
-        private var running = false
-        private var released = false
-
-        private val tick = Runnable {
-            if (!running) return@Runnable
-            sample()
-            scheduleNext()
-        }
-
-        fun start() {
-            if (released || running) return
-            running = true
-            mainHandler.post(tick)
-        }
-
-        fun stop() {
-            running = false
-            mainHandler.removeCallbacks(tick)
-        }
-
-        /**
-         * Permanently shuts down the worker thread. After this, calling [start] is a no-op until
-         * the enclosing view is recreated.
-         */
-        fun release() {
-            if (released) return
-            released = true
-            stop()
-            workerThread.quitSafely()
-        }
-
-        private fun scheduleNext() {
-            if (!running) return
-            mainHandler.postDelayed(tick, PROGRESS_COLOR_SAMPLE_INTERVAL_MS)
-        }
-
-        private fun sample() {
-            if (!isControllerFullyVisible) return
-            val surface = videoSurfaceView ?: return
-            val w = surface.width
-            val h = surface.height
-            if (w <= 0 || h <= 0) return
-
-            val readout = readoutRect(surface) ?: return
-            val scale = minOf(1f, MAX_SAMPLE_DIMENSION.toFloat() / maxOf(w, h))
-            val bitmapW = maxOf(1, (w * scale).toInt())
-            val bitmapH = maxOf(1, (h * scale).toInt())
-            val bitmap = Bitmap.createBitmap(bitmapW, bitmapH, Bitmap.Config.ARGB_8888)
-            val sampleRect = Rect(
-                readout.left * bitmapW / w,
-                readout.top * bitmapH / h,
-                minOf(bitmapW, (readout.right * bitmapW + w - 1) / w),
-                minOf(bitmapH, (readout.bottom * bitmapH + h - 1) / h),
-            )
-
-            when (surface) {
-                is SurfaceView -> {
-                    try {
-                        PixelCopy.request(surface, bitmap, { result ->
-                            if (result == PixelCopy.SUCCESS) {
-                                applyLuminance(bitmap, sampleRect)
-                            } else {
-                                postProgressTextColor(Color.WHITE)
-                            }
-                            bitmap.recycle()
-                        }, workerHandler)
-                    } catch (e: IllegalArgumentException) {
-                        // Surface not yet ready (no underlying buffer); try again next tick.
-                        Log.v(TAG, "PixelCopy not ready: ${e.message}")
-                        bitmap.recycle()
-                        postProgressTextColor(Color.WHITE)
-                    }
-                }
-                is TextureView -> {
-                    if (surface.getBitmap(bitmap) != null) {
-                        applyLuminance(bitmap, sampleRect)
-                    } else {
-                        postProgressTextColor(Color.WHITE)
-                    }
-                    bitmap.recycle()
-                }
-                else -> {
-                    bitmap.recycle()
-                    postProgressTextColor(Color.WHITE)
-                }
-            }
-        }
-
-        private fun readoutRect(surface: View): Rect? {
-            val surfaceLocation = IntArray(2)
-            val labelLocation = IntArray(2)
-            surface.getLocationOnScreen(surfaceLocation)
-            val bounds = Rect()
-            for (label in listOf(progressTextView, progressDurationDivider, durationTextView)) {
-                if (!label.isVisible || label.width <= 0 || label.height <= 0) continue
-                label.getLocationOnScreen(labelLocation)
-                bounds.union(
-                    labelLocation[0] - surfaceLocation[0],
-                    labelLocation[1] - surfaceLocation[1],
-                    labelLocation[0] - surfaceLocation[0] + label.width,
-                    labelLocation[1] - surfaceLocation[1] + label.height,
-                )
-            }
-            return bounds.takeIf { !it.isEmpty && it.intersect(0, 0, surface.width, surface.height) }
-        }
-
-        private fun applyLuminance(bitmap: Bitmap, sampleRect: Rect) {
-            val pick = ProgressTextContrast.colorForPixels(sampleRect.width(), sampleRect.height()) { x, y ->
-                bitmap.getPixel(sampleRect.left + x, sampleRect.top + y)
-            }
-            postProgressTextColor(pick)
-        }
-
-        private fun postProgressTextColor(color: Int) {
-            mainHandler.post {
-                if (running && progressTextColor != color) {
-                    progressTextColor = color
-                }
-            }
-        }
     }
 }
