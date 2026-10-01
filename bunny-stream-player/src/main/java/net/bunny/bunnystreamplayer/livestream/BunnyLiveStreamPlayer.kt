@@ -59,6 +59,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.common.util.Util
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
@@ -67,9 +68,11 @@ import com.bumptech.glide.Glide
 import com.bumptech.glide.load.model.GlideUrl
 import net.bunny.api.StreamApi
 import net.bunny.api.BunnyCdn
+import net.bunny.api.BunnyStreamApi
 import net.bunny.api.livestream.domain.model.LiveStreamPlayData
 import net.bunny.player.R
 import net.bunny.bunnystreamplayer.PlaybackFailureInfo
+import net.bunny.bunnystreamplayer.model.PlayerWatermark
 import net.bunny.bunnystreamplayer.ui.BunnyStreamPlayer
 import kotlinx.coroutines.delay
 import java.util.Locale
@@ -95,12 +98,14 @@ import java.util.concurrent.TimeUnit
  * @param streamId  GUID of the live stream to play.
  * @param token     optional embed-view token for token-authenticated libraries.
  * @param expires   embed-view token expiration timestamp (epoch seconds).
- * @param modifier  Compose modifier for the root container.
- * @param bunny     the SDK instance to play from. Leave it null to use the default instance
- *                  registered by [net.bunny.api.BunnyStreamApi.initialize]; pass one from
- *                  `BunnyStreamApi.create` when the app addresses more than one library.
- * @param viewModel injected for testability; defaults to a lifecycle-scoped instance bound
- *                  to [bunny].
+ * @param modifier          Compose modifier for the root container.
+ * @param controlsEnabled   whether the built-in transport controls are shown. Defaults to `true`.
+ * @param watermark         optional client-side watermark overlay drawn over the video.
+ * @param bunny             the SDK instance to play from. Leave it null to use the default instance
+ *                          registered by [net.bunny.api.BunnyStreamApi.initialize]; pass one from
+ *                          `BunnyStreamApi.create` when the app addresses more than one library.
+ * @param viewModel           injected for testability; defaults to a lifecycle-scoped instance bound
+ *                          to [bunny].
  */
 @OptIn(UnstableApi::class)
 @Composable
@@ -110,6 +115,8 @@ public fun BunnyLiveStreamPlayer(
     token: String? = null,
     expires: Long? = null,
     modifier: Modifier = Modifier,
+    controlsEnabled: Boolean = true,
+    watermark: PlayerWatermark? = null,
     onVideoSizeChanged: ((width: Int, height: Int) -> Unit)? = null,
     bunny: StreamApi? = null,
     viewModel: BunnyLiveStreamPlayerViewModel = viewModel(
@@ -121,6 +128,10 @@ public fun BunnyLiveStreamPlayer(
     // Dashboard-configured player customization from the live /play endpoint (colour, font,
     // language, controls, compact). Null until the first successful play-data fetch.
     val playData by viewModel.playData.collectAsStateWithLifecycle()
+    // Media loads that bypass the main player (the pre-stream trailer builds its own data
+    // source) still report the configured instance's User-Agent, integrator suffix included.
+    val mediaUserAgent = bunny?.config?.userAgent
+        ?: BunnyStreamApi.getInstanceOrNull()?.config?.userAgent
     // Bumped after a mid-live playback failure once the VM confirmed the stream is still live —
     // forces the surface to rebuild the player from the live edge even on an unchanged URL.
     val rebuildToken by viewModel.playerRebuildToken.collectAsStateWithLifecycle()
@@ -187,6 +198,7 @@ public fun BunnyLiveStreamPlayer(
                     trailerUrl = s.trailerUrl,
                     primaryColor = playData?.keyColor,
                     uiLanguage = playData?.uiLanguage,
+                    userAgent = mediaUserAgent,
                     onTick = { viewModel.tickCountdown() },
                 )
             }
@@ -199,6 +211,7 @@ public fun BunnyLiveStreamPlayer(
                 TrailerLoop(
                     hlsUrl = s.hlsUrl,
                     uiLanguage = playData?.uiLanguage,
+                    userAgent = mediaUserAgent,
                 )
             }
 
@@ -215,6 +228,9 @@ public fun BunnyLiveStreamPlayer(
                         hlsUrl = s.hlsUrl,
                         playData = playData,
                         dvrEnabled = s.dvrEnabled,
+                        controlsEnabled = controlsEnabled,
+                        watermark = watermark,
+                        bunny = bunny,
                         rebuildToken = rebuildToken,
                         onPlaybackFailureInfo = { info -> viewModel.onPlaybackFailure(info) },
                         onPlaybackStarted = { viewModel.onPlaybackStarted() },
@@ -245,6 +261,9 @@ public fun BunnyLiveStreamPlayer(
                         // The ended stream's recording is a fully seekable VOD — keep the timeline
                         // (dvrEnabled only describes the live time-shift capability).
                         isVodRecording = true,
+                        controlsEnabled = controlsEnabled,
+                        watermark = watermark,
+                        bunny = bunny,
                         rebuildToken = rebuildToken,
                         onPlaybackFailureInfo = { info -> viewModel.onPlaybackFailure(info) },
                         onPlaybackStarted = { viewModel.onPlaybackStarted() },
@@ -341,6 +360,7 @@ private fun CountdownOverlay(
     trailerUrl: String?,
     primaryColor: Int? = null,
     uiLanguage: String? = null,
+    userAgent: String? = null,
     onTick: () -> Unit,
 ) {
     // [mutableLongStateOf] returns a primitive-specialized state whose `by`-delegate operator
@@ -366,7 +386,7 @@ private fun CountdownOverlay(
         //   2. otherwise the stream's thumbnail, blurred (blur renders on API 31+; older devices
         //      show the un-blurred poster behind the scrim, which still reads well).
         when {
-            !trailerUrl.isNullOrBlank() -> TrailerBackground(hlsUrl = trailerUrl)
+            !trailerUrl.isNullOrBlank() -> TrailerBackground(hlsUrl = trailerUrl, userAgent = userAgent)
 
             !posterUrl.isNullOrBlank() -> AndroidView(
                 modifier = Modifier
@@ -475,13 +495,16 @@ private fun formatCountdown(ms: Long, withDaysPattern: String): String {
  */
 @OptIn(UnstableApi::class)
 @Composable
-private fun TrailerBackground(hlsUrl: String, muted: Boolean = true) {
+private fun TrailerBackground(hlsUrl: String, muted: Boolean = true, userAgent: String? = null) {
     val context = LocalContext.current
     val exoPlayer = remember(hlsUrl) {
         // Send the CDN Referer so the trailer keeps loading when the library has "Block direct url
-        // file access" on (referer-based hotlink protection) — mirrors the main player's data source.
+        // file access" on (referer-based hotlink protection) — mirrors the main player's data
+        // source — and the configured instance's User-Agent so trailer media requests carry the
+        // same integrator identification as every other player media request.
         val mediaSourceFactory = DefaultMediaSourceFactory(context).setDataSourceFactory(
             DefaultHttpDataSource.Factory()
+                .setUserAgent(userAgent ?: Util.getUserAgent(context, "BunnyStreamPlayer"))
                 .setDefaultRequestProperties(mapOf("Referer" to BunnyCdn.REFERER)),
         )
         ExoPlayer.Builder(context)
@@ -524,10 +547,10 @@ private fun TrailerBackground(hlsUrl: String, muted: Boolean = true) {
  * `LoopingTrailerView`. The countdown state renders its own trailer background instead.
  */
 @Composable
-private fun TrailerLoop(hlsUrl: String, uiLanguage: String?) {
+private fun TrailerLoop(hlsUrl: String, uiLanguage: String?, userAgent: String? = null) {
     val mutedState = remember { mutableStateOf(true) }
     Box(modifier = Modifier.fillMaxSize()) {
-        TrailerBackground(hlsUrl = hlsUrl, muted = mutedState.value)
+        TrailerBackground(hlsUrl = hlsUrl, muted = mutedState.value, userAgent = userAgent)
 
         Text(
             text = localizedString(R.string.live_status_not_active, uiLanguage),
@@ -590,6 +613,9 @@ private fun BunnyPlayerSurface(
     playData: LiveStreamPlayData? = null,
     dvrEnabled: Boolean = false,
     isVodRecording: Boolean = false,
+    controlsEnabled: Boolean = true,
+    watermark: PlayerWatermark? = null,
+    bunny: StreamApi? = null,
     rebuildToken: Int = 0,
     onPlaybackError: ((message: String) -> Unit)? = null,
     onPlaybackFailureInfo: ((PlaybackFailureInfo) -> Unit)? = null,
@@ -607,6 +633,8 @@ private fun BunnyPlayerSurface(
     // Whether the load already running is the ended stream's recording — the only case where the
     // engine's position means anything to the next load.
     val lastIsVodRecordingState = remember { mutableStateOf(false) }
+    val lastControlsEnabledState = remember { mutableStateOf(controlsEnabled) }
+    val lastWatermarkState = remember { mutableStateOf(watermark) }
     AndroidView(
         modifier = Modifier.fillMaxSize(),
         factory = { ctx ->
@@ -616,6 +644,12 @@ private fun BunnyPlayerSurface(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.MATCH_PARENT,
                 )
+                this.controlsEnabled = controlsEnabled
+                this.watermark = watermark
+                // Bind the view to the same instance the ViewModel polls through, so the play
+                // path (license host, media-request User-Agent) reports against the configured
+                // instance rather than always the process-default one.
+                this.bunny = bunny
                 this.onVideoSizeChanged = onVideoSizeChanged
                 this.onPlaybackError = onPlaybackError?.let { cb -> { message -> cb(message) } }
                 this.onPlaybackFailureInfo = onPlaybackFailureInfo?.let { cb -> { info -> cb(info) } }
@@ -638,13 +672,26 @@ private fun BunnyPlayerSurface(
                 lastPlayDataState.value = playData
                 lastRebuildTokenState.value = rebuildToken
                 lastIsVodRecordingState.value = isVodRecording
+                lastControlsEnabledState.value = controlsEnabled
+                lastWatermarkState.value = watermark
             }
         },
         update = { view ->
+            view.bunny = bunny
             view.onVideoSizeChanged = onVideoSizeChanged
             view.onPlaybackError = onPlaybackError?.let { cb -> { message -> cb(message) } }
             view.onPlaybackFailureInfo = onPlaybackFailureInfo?.let { cb -> { info -> cb(info) } }
             view.onPlayingChanged = { playing -> if (playing) onPlaybackStarted?.invoke() }
+
+            if (lastControlsEnabledState.value != controlsEnabled) {
+                view.controlsEnabled = controlsEnabled
+                lastControlsEnabledState.value = controlsEnabled
+            }
+            if (lastWatermarkState.value != watermark) {
+                view.watermark = watermark
+                lastWatermarkState.value = watermark
+            }
+
             if (lastUrlState.value == hlsUrl &&
                 lastPlayDataState.value == playData &&
                 lastRebuildTokenState.value == rebuildToken
@@ -685,6 +732,8 @@ private fun BunnyPlayerSurface(
             lastPlayDataState.value = playData
             lastRebuildTokenState.value = rebuildToken
             lastIsVodRecordingState.value = isVodRecording
+            lastControlsEnabledState.value = controlsEnabled
+            lastWatermarkState.value = watermark
         },
     )
 }

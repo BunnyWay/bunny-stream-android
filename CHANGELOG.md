@@ -1,3 +1,4 @@
+<!-- markdownlint-disable MD024 -->
 # Changelog
 
 All notable changes to Bunny Stream Android are documented in this file. The format follows
@@ -8,6 +9,19 @@ All notable changes to Bunny Stream Android are documented in this file. The for
 - `PATCH` versions include backward-compatible bug fixes and maintenance updates.
 
 ## [Unreleased]
+
+### Added
+
+- `BunnyLiveStreamPlayer` supports `controlsEnabled` to hide native transport controls while keeping
+  overlays such as countdown, trailer, offline thumbnail, live badge and error panel.
+- `BunnyStreamPlayer` and `BunnyLiveStreamPlayer` support an optional client-side `PlayerWatermark`
+  overlay with position, relative width, opacity and margin. The overlay is rendered by the
+  player view itself, so it persists across detach/attach and carries into fullscreen; the image
+  is fetched with the Bunny CDN Referer like every other image load.
+- `BunnyStreamConfig` accepts an optional `BunnyStreamIntegrator`. The configured name/version is
+  appended to the SDK's User-Agent on REST, upload (basic + TUS) and player media requests —
+  including the pre-stream trailer. `BunnyPlayer.playVideo` takes an optional `userAgent` so the
+  view reports the instance it plays from rather than always the process-default one.
 
 ### Fixed
 
@@ -93,6 +107,7 @@ see [MIGRATING.md](MIGRATING.md) for before/after examples.
   non-positive library ids at construction, and its `toString` does not print the key.
 
 ### Changed
+
 - **The session is an instance, not process-wide state.** `initialize`/`getInstance()` still work
   and now stand for a *default instance*. `BunnyStreamApi.libraryId` is removed — read
   `getInstance().libraryId`, or the `libraryId` of the instance you hold. The access key no longer

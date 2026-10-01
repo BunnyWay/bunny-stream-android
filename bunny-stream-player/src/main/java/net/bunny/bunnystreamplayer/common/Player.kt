@@ -116,6 +116,12 @@ interface BunnyPlayer {
      * pointed at another deployment licenses against that one; the default is Bunny's production
      * host, which matches what 3.x hard-coded.
      *
+     * [userAgent] identifies media requests to the CDN. The view passes its instance's
+     * User-Agent here — including any integrator suffix configured through
+     * `BunnyStreamConfig.integrator` — so playback traffic carries the same identification as
+     * that instance's API and upload requests. When null, the process-default instance's
+     * User-Agent is used, or a generic player identifier when no instance exists.
+     *
      * [token] and [expires] are the URL-authentication pair; they also ride on the Widevine
      * license URL sent to cast receivers, which fetch the license themselves without the Referer
      * header the local player relies on.
@@ -126,6 +132,7 @@ interface BunnyPlayer {
         retentionData: Map<Int, Int>,
         playerSettings: PlayerSettings,
         licenseBaseApi: String = net.bunny.api.BuildConfig.BASE_API,
+        userAgent: String? = null,
         token: String? = null,
         expires: Long? = null,
     )

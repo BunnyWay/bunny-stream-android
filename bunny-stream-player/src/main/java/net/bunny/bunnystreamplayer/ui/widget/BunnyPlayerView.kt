@@ -59,6 +59,7 @@ import net.bunny.bunnystreamplayer.model.AudioTrackInfo
 import net.bunny.bunnystreamplayer.model.Chapter
 import net.bunny.bunnystreamplayer.model.Moment
 import net.bunny.bunnystreamplayer.model.PlayerIconSet
+import net.bunny.bunnystreamplayer.model.PlayerWatermark
 import net.bunny.bunnystreamplayer.model.RetentionGraphEntry
 import net.bunny.bunnystreamplayer.model.SubtitleInfo
 import net.bunny.bunnystreamplayer.model.VideoQuality
@@ -138,6 +139,74 @@ class BunnyPlayerView @JvmOverloads constructor(
             field = value
             useController = value
         }
+
+    /**
+     * Optional client-side watermark overlay drawn on top of the video. Rendered inside this
+     * view, so the same config can be applied by the fullscreen player, which hosts its own
+     * [BunnyPlayerView]. A transient detach removes the overlay; [watermark] is kept and the
+     * overlay is re-applied on re-attach.
+     *
+     * The image is loaded with the Bunny CDN `Referer` header like every other image load in
+     * this module, so a watermark hosted behind the "Block direct URL file access" hotlink
+     * protection still resolves.
+     */
+    var watermark: PlayerWatermark? = null
+        set(value) {
+            if (field == value) return
+            field = value
+            applyWatermark()
+        }
+
+    private var watermarkView: ImageView? = null
+
+    private fun applyWatermark() {
+        val config = watermark ?: return removeWatermark()
+        val view = watermarkView ?: ImageView(context).apply {
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            isClickable = false
+            isFocusable = false
+            isFocusableInTouchMode = false
+            // Do not intercept touches so the player controls and gestures keep working.
+            setOnTouchListener { _, _ -> false }
+        }.also {
+            watermarkView = it
+            addView(it)
+        }
+        view.alpha = config.opacity
+        view.layoutParams = FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.WRAP_CONTENT,
+            FrameLayout.LayoutParams.WRAP_CONTENT,
+            config.position.toGravity(),
+        ).apply {
+            val marginPx = (config.marginDp * resources.displayMetrics.density).toInt()
+            setMargins(marginPx, marginPx, marginPx, marginPx)
+        }
+        view.post {
+            val widthPx = (measuredWidth * config.relativeWidth).toInt().coerceAtLeast(1)
+            if (view.layoutParams.width != widthPx) {
+                view.layoutParams.width = widthPx
+                view.requestLayout()
+            }
+        }
+        Glide.with(view)
+            .load(GlideUrl(config.imageUrl) { mapOf("Referer" to BunnyCdn.REFERER) })
+            .into(view)
+    }
+
+    private fun removeWatermark() {
+        watermarkView?.let {
+            if (it.parent != null) removeView(it)
+            Glide.with(it).clear(it)
+        }
+    }
+
+    private fun PlayerWatermark.Position.toGravity(): Int = when (this) {
+        PlayerWatermark.Position.TOP_LEADING -> Gravity.TOP or Gravity.START
+        PlayerWatermark.Position.TOP_TRAILING -> Gravity.TOP or Gravity.END
+        PlayerWatermark.Position.BOTTOM_LEADING -> Gravity.BOTTOM or Gravity.START
+        PlayerWatermark.Position.BOTTOM_TRAILING -> Gravity.BOTTOM or Gravity.END
+        PlayerWatermark.Position.CENTER -> Gravity.CENTER
+    }
 
     private val playStateListener = object : PlayerStateListener {
         override fun onPlayingChanged(isPlaying: Boolean) {
@@ -1108,10 +1177,14 @@ class BunnyPlayerView @JvmOverloads constructor(
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
         liveEdgeUpdater.start()
+        applyWatermark()
     }
 
     override fun onDetachedFromWindow() {
         liveEdgeUpdater.stop()
+        // Keep the configured watermark — a transient detach only tears down the overlay view,
+        // and onAttachedToWindow re-applies it.
+        removeWatermark()
         super.onDetachedFromWindow()
     }
 

@@ -107,6 +107,9 @@ class BunnyStreamApi private constructor(
                 "BunnyStreamApi.create(...) and pass it in.",
         )
 
+        /** Returns the default instance if one exists, or `null` without throwing. */
+        fun getInstanceOrNull(): StreamApi? = defaultInstance
+
         /**
          * True while a default instance is registered: from [initialize] until
          * [BunnyStreamApi.release] drops it or another [initialize] replaces it.
@@ -146,10 +149,11 @@ class BunnyStreamApi private constructor(
             )
         })
         // Identifies the SDK on every request, e.g. "bunny-stream-android/1.3.2".
+        // Includes the optional wrapper/integrator suffix configured on this instance.
         .addInterceptor(Interceptor { chain ->
             chain.proceed(
                 chain.request().newBuilder()
-                    .header("User-Agent", BuildConfig.USER_AGENT)
+                    .header("User-Agent", config.userAgent)
                     .build(),
             )
         })
@@ -218,15 +222,19 @@ class BunnyStreamApi private constructor(
         Context.MODE_PRIVATE,
     )
 
-    private val ktorClient = initHttpClient(config.accessKey)
+    private val ktorClient = initHttpClient(
+        accessKey = config.accessKey,
+        userAgent = config.userAgent,
+    )
 
     private val basicUploaderService = BasicUploaderService(
         ktorClient,
-        Dispatchers.IO
+        Dispatchers.IO,
     )
     private val tusVideoUploaderService = TusUploaderService(
         preferences = prefs,
         chunkSize = 1024,
+        userAgent = config.userAgent,
         accessKey = config.accessKey,
         dispatcher = Dispatchers.IO
     )
