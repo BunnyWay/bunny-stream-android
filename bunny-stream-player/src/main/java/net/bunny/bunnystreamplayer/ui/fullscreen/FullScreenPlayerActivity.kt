@@ -16,6 +16,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import net.bunny.bunnystreamplayer.DefaultBunnyPlayer
 import net.bunny.bunnystreamplayer.model.PlayerIconSet
+import net.bunny.bunnystreamplayer.model.PlayerWatermark
 import net.bunny.bunnystreamplayer.ui.widget.BunnyPlayerView
 import net.bunny.player.R
 
@@ -30,9 +31,10 @@ class FullScreenPlayerActivity : AppCompatActivity() {
         private const val ICON_SET = "ICON_SET"
         private const val AUTO_PROGRESS_TEXT_COLOR = "AUTO_PROGRESS_TEXT_COLOR"
         private const val PROGRESS_TEXT_COLOR = "PROGRESS_TEXT_COLOR"
+        private const val WATERMARK = "WATERMARK"
 
         fun show(context: Context, iconSet: PlayerIconSet, onFullscreenExited: () -> Unit) {
-            show(context, iconSet, false, Color.WHITE, onFullscreenExited)
+            show(context, iconSet, false, Color.WHITE, null, onFullscreenExited)
         }
 
         fun show(
@@ -40,6 +42,7 @@ class FullScreenPlayerActivity : AppCompatActivity() {
             iconSet: PlayerIconSet,
             autoProgressTextColor: Boolean,
             progressTextColor: Int,
+            watermark: PlayerWatermark? = null,
             onFullscreenExited: () -> Unit,
         ) {
             val resultReceiver = object : ResultReceiver(Handler(Looper.getMainLooper())) {
@@ -53,6 +56,7 @@ class FullScreenPlayerActivity : AppCompatActivity() {
             intent.putExtra(ICON_SET, iconSet)
             intent.putExtra(AUTO_PROGRESS_TEXT_COLOR, autoProgressTextColor)
             intent.putExtra(PROGRESS_TEXT_COLOR, progressTextColor)
+            intent.putExtra(WATERMARK, watermark)
             context.startActivity(intent)
         }
     }
@@ -62,6 +66,15 @@ class FullScreenPlayerActivity : AppCompatActivity() {
             intent.getParcelableExtra(ICON_SET, PlayerIconSet::class.java)!!
         } else {
             intent.getParcelableExtra(ICON_SET)!!
+        }
+    }
+
+    private val watermark: PlayerWatermark? by lazy {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            intent.getParcelableExtra(WATERMARK, PlayerWatermark::class.java)
+        } else {
+            @Suppress("DEPRECATION")
+            intent.getParcelableExtra(WATERMARK)
         }
     }
 
@@ -86,6 +99,7 @@ class FullScreenPlayerActivity : AppCompatActivity() {
         playerView.bunnyPlayer = DefaultBunnyPlayer.getInstance(this)
         playerView.isFullscreen = true
         playerView.iconSet = iconSet
+        playerView.watermark = watermark
         // The time readout can sit over a black letterbox area outside the video surface.
         // Sampling the frame cannot describe that background, so keep the existing white
         // fullscreen readout when automatic contrast was selected inline.

@@ -26,7 +26,10 @@ val defaultJson = Json {
     useAlternativeNames = true
 }
 
-fun initHttpClient(accessKey: String?): HttpClient {
+fun initHttpClient(
+    accessKey: String?,
+    userAgent: String = BuildConfig.USER_AGENT,
+): HttpClient {
 
     val client = HttpClient(OkHttp) {
 
@@ -67,9 +70,10 @@ fun initHttpClient(accessKey: String?): HttpClient {
         }
 
         // Identify the SDK on every request, e.g. "bunny-stream-android/1.3.2".
-        install(UserAgent) {
-            agent = BuildConfig.USER_AGENT
-        }
+    // The caller (BunnyStreamApi) already bound the integrator suffix into [userAgent].
+    install(UserAgent) {
+        agent = userAgent
+    }
 
         install(HttpTimeout) {
             requestTimeoutMillis = 30000

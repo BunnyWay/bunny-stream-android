@@ -34,6 +34,7 @@ internal class TusUploaderService(
     private val chunkSize: Int,
     private val accessKey: String,
     private val dispatcher: CoroutineDispatcher,
+    private val userAgent: String = BuildConfig.USER_AGENT,
 ) : UploadService {
 
     private companion object {
@@ -162,7 +163,7 @@ internal class TusUploaderService(
             "AuthorizationExpire" to expire.toString(),
             "LibraryId" to libraryId.toString(),
             "VideoId" to videoId,
-            "User-Agent" to BuildConfig.USER_AGENT,
+            "User-Agent" to userAgent,
         )
     }
 

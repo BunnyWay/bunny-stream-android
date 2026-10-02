@@ -42,6 +42,7 @@ import kotlinx.coroutines.launch
 import net.bunny.bunnystreamplayer.ui.widget.BunnyPlayerView
 import net.bunny.player.R
 import net.bunny.api.BunnyCdn
+import net.bunny.api.BunnyStreamApi
 import net.bunny.api.playback.DefaultPlaybackPositionManager
 import net.bunny.api.playback.PlaybackPosition
 import net.bunny.api.playback.PlaybackPositionManager
@@ -584,6 +585,7 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
         retentionData: Map<Int, Int>,
         playerSettings: PlayerSettings,
         licenseBaseApi: String,
+        userAgent: String?,
         token: String?,
         expires: Long?,
     ) {
@@ -635,7 +637,14 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
         val httpFactory = DefaultHttpDataSource.Factory()
             .setAllowCrossProtocolRedirects(true)
             .setDefaultRequestProperties(mapOf("Referer" to BunnyCdn.REFERER))
-            .setUserAgent(Util.getUserAgent(context, "BunnyStreamPlayer"))
+            .setUserAgent(
+                // The view passes the User-Agent of the instance it plays from, so media requests
+                // carry the same integrator identification as that instance's API/upload calls.
+                // Fall back to the process-default instance, then to a generic player agent.
+                userAgent
+                    ?: BunnyStreamApi.getInstanceOrNull()?.config?.userAgent
+                    ?: Util.getUserAgent(context, "BunnyStreamPlayer"),
+            )
             .setTransferListener(transferListener)
 
         // Create media source factory without setDrmSessionManagerProvider.

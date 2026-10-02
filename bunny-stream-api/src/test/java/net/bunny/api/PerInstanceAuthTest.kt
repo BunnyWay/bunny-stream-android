@@ -10,6 +10,7 @@ import okhttp3.mockwebserver.MockWebServer
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
@@ -111,6 +112,61 @@ class PerInstanceAuthTest {
         val request = firstLibrary.takeRequest()
         assertEquals(KEY_A, request.getHeader("AccessKey"))
         assertEquals(BuildConfig.USER_AGENT, request.getHeader("User-Agent"))
+    }
+
+    @Test
+    fun `integrator suffix is appended to the user agent`() {
+        firstLibrary.enqueue(jsonResponse())
+
+        val integrator = BunnyStreamIntegrator(name = "bunny-stream-react-native", version = "0.1.1")
+        val first = BunnyStreamApi.create(
+            fakeContext(),
+            BunnyStreamConfig(
+                accessKey = KEY_A,
+                libraryId = LIBRARY_A,
+                baseApi = firstLibrary.url("/").toString().trimEnd('/'),
+                integrator = integrator,
+            ),
+        )
+        runBlocking { first.videoRepository.listVideos(LIBRARY_A) }
+
+        val request = firstLibrary.takeRequest()
+        val userAgent = request.getHeader("User-Agent")!!
+        assertTrue(userAgent.startsWith(BuildConfig.USER_AGENT))
+        assertTrue(userAgent.endsWith("bunny-stream-react-native/0.1.1"))
+    }
+
+    @Test
+    fun `each instance keeps its own integrator suffix`() {
+        firstLibrary.enqueue(jsonResponse())
+        secondLibrary.enqueue(jsonResponse())
+
+        val first = BunnyStreamApi.create(
+            fakeContext(),
+            BunnyStreamConfig(
+                accessKey = KEY_A,
+                libraryId = LIBRARY_A,
+                baseApi = firstLibrary.url("/").toString().trimEnd('/'),
+                integrator = BunnyStreamIntegrator("integrator-a", "1.0.0"),
+            ),
+        )
+        val second = BunnyStreamApi.create(
+            fakeContext(),
+            BunnyStreamConfig(
+                accessKey = KEY_B,
+                libraryId = LIBRARY_B,
+                baseApi = secondLibrary.url("/").toString().trimEnd('/'),
+                integrator = BunnyStreamIntegrator("integrator-b", "2.0.0"),
+            ),
+        )
+
+        runBlocking {
+            first.videoRepository.listVideos(LIBRARY_A)
+            second.videoRepository.listVideos(LIBRARY_B)
+        }
+
+        assertTrue(firstLibrary.takeRequest().getHeader("User-Agent")!!.endsWith("integrator-a/1.0.0"))
+        assertTrue(secondLibrary.takeRequest().getHeader("User-Agent")!!.endsWith("integrator-b/2.0.0"))
     }
 
     private fun instanceFor(server: MockWebServer, accessKey: String, libraryId: Long): StreamApi =

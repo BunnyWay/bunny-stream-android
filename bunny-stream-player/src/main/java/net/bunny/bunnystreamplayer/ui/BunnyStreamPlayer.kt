@@ -9,6 +9,7 @@ import android.util.AttributeSet
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
+import android.view.ViewGroup
 import android.widget.FrameLayout
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
@@ -39,6 +40,7 @@ import net.bunny.bunnystreamplayer.config.PlaybackSpeedConfig
 import net.bunny.bunnystreamplayer.PlayerType
 import net.bunny.bunnystreamplayer.model.Chapter
 import net.bunny.bunnystreamplayer.model.Moment
+import net.bunny.bunnystreamplayer.model.PlayerWatermark
 import net.bunny.bunnystreamplayer.model.RetentionGraphEntry
 import net.bunny.bunnystreamplayer.model.PlayerIconSet
 import net.bunny.bunnystreamplayer.model.getSanitizedRetentionData
@@ -47,6 +49,7 @@ import net.bunny.bunnystreamplayer.ui.widget.BunnyPlayerView
 import net.bunny.player.databinding.ViewBunnyVideoPlayerBinding
 import net.bunny.api.error.getOrNull
 import net.bunny.api.video.domain.model.Video
+import kotlin.math.roundToInt
 
 
 /**
@@ -207,6 +210,20 @@ class BunnyStreamPlayer @JvmOverloads constructor(
         get() = playerView.controlsEnabled
         set(value) {
             playerView.controlsEnabled = value
+        }
+
+    /**
+     * Optional client-side watermark overlay drawn on top of the video — rendered inline and
+     * carried into the fullscreen player. Set it before calling [playVideo] or [playLiveUrl];
+     * changing it while a video is already playing updates the overlay without reloading the
+     * source.
+     *
+     * Forwards to [BunnyPlayerView.watermark].
+     */
+    var watermark: PlayerWatermark?
+        get() = playerView.watermark
+        set(value) {
+            playerView.watermark = value
         }
 
     /**
@@ -459,6 +476,7 @@ class BunnyStreamPlayer @JvmOverloads constructor(
                     iconSet,
                     playerView.autoProgressTextColor,
                     playerView.progressTextColor,
+                    watermark,
                 ) {
                     Log.d(TAG, "onFullscreenExited")
                     playerView.bunnyPlayer = bunnyPlayer
@@ -934,6 +952,11 @@ class BunnyStreamPlayer @JvmOverloads constructor(
             // rather than killing playback that is otherwise ready to start.
             licenseBaseApi = runCatching { sdk.config.baseApi }
                 .getOrElse { net.bunny.api.BuildConfig.BASE_API },
+            // Same selection rule as the license host: media requests report the User-Agent of
+            // the instance this view plays from — including its integrator suffix — so a view
+            // bound to BunnyStreamApi.create() does not attribute playback traffic to the
+            // process-default instance.
+            userAgent = runCatching { sdk.config.userAgent }.getOrNull(),
             // The pair also rides on the license URL for cast receivers, which fetch the
             // license themselves without the Referer header the local player sends.
             token = token,
