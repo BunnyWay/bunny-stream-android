@@ -42,6 +42,7 @@ import androidx.media3.ui.SubtitleView
 import androidx.media3.ui.TimeBar
 import androidx.mediarouter.app.MediaRouteButton
 import com.bumptech.glide.Glide
+import com.bumptech.glide.RequestManager
 import com.bumptech.glide.load.model.GlideUrl
 import com.bumptech.glide.request.target.CustomTarget
 import com.bumptech.glide.request.transition.Transition
@@ -158,9 +159,11 @@ class BunnyPlayerView @JvmOverloads constructor(
         }
 
     private var watermarkView: ImageView? = null
+    private var watermarkRequestManager: RequestManager? = null
 
     private fun applyWatermark() {
         val config = watermark ?: return removeWatermark()
+        if (!isAttachedToWindow) return
         val view = watermarkView ?: ImageView(context).apply {
             scaleType = ImageView.ScaleType.FIT_CENTER
             isClickable = false
@@ -188,16 +191,19 @@ class BunnyPlayerView @JvmOverloads constructor(
                 view.requestLayout()
             }
         }
-        Glide.with(view)
+        val requestManager = Glide.with(view)
+        watermarkRequestManager = requestManager
+        requestManager
             .load(GlideUrl(config.imageUrl) { mapOf("Referer" to BunnyCdn.REFERER) })
             .into(view)
     }
 
     private fun removeWatermark() {
-        watermarkView?.let {
-            if (it.parent != null) removeView(it)
-            Glide.with(it).clear(it)
-        }
+        val view = watermarkView ?: return
+        watermarkView = null
+        watermarkRequestManager?.clear(view)
+        watermarkRequestManager = null
+        if (view.parent === this) removeView(view)
     }
 
     private fun PlayerWatermark.Position.toGravity(): Int = when (this) {
