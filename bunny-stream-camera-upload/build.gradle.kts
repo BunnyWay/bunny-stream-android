@@ -56,7 +56,7 @@ dependencies {
     // https://developer.android.com/jetpack/androidx/releases/core
     implementation("androidx.core:core-ktx:1.18.0")
     // https://developer.android.com/jetpack/androidx/releases/appcompat
-    implementation("androidx.appcompat:appcompat:1.7.1")
+    implementation("androidx.appcompat:appcompat:1.8.0")
     // https://github.com/material-components/material-components-android
     implementation("com.google.android.material:material:1.14.0")
 

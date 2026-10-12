@@ -6,7 +6,7 @@ Set up the SDK and make your first call. Takes about five minutes.
 
 - Android 8.0 (API 26) or newer on the device
 - `compileSdk` 36 or higher, JDK 17
-- Kotlin 2.1 or newer (the SDK itself is built with 2.2.20)
+- Kotlin 2.2 or newer (the SDK itself is built with 2.2.20)
 - Core library desugaring enabled, if you use `net.bunny:player`
 - A Bunny Stream video library and its API key (Bunny dashboard: Stream > your library > API)
 
