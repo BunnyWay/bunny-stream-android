@@ -35,6 +35,27 @@ updates:
     labels:
       - "dependencies"
       - "gradle"
+    # Updates that change what an integrating app has to build with. They are release
+    # decisions, taken by hand together with the README and MIGRATING requirements, not
+    # weekly bumps. Patch releases still come through. Drop an entry here when the matching
+    # requirement moves.
+    ignore:
+      # core 1.19 needs compileSdk 37 and Android Gradle plugin 9.1 in the consuming app.
+      # Google Play asks for target API 36, so that would be more than the store requires.
+      - dependency-name: "androidx.core:*"
+        update-types: ["version-update:semver-minor"]
+      # navigation 2.10 drags lifecycle 2.11 and Compose 1.11 into net.bunny:tv, and
+      # navigation-compose 2.10 needs compileSdk 37.
+      - dependency-name: "androidx.navigation:*"
+        update-types: ["version-update:semver-minor"]
+      # A new Kotlin minor raises the oldest Kotlin an integrator can compile against.
+      - dependency-name: "org.jetbrains.kotlin.*"
+        update-types: ["version-update:semver-minor"]
+      - dependency-name: "org.jetbrains.kotlin:*"
+        update-types: ["version-update:semver-minor"]
+      # A media3 minor swaps the playback engine and needs a full playback pass.
+      - dependency-name: "androidx.media3:*"
+        update-types: ["version-update:semver-minor"]
     groups:
       android-build-tooling:
         patterns:
