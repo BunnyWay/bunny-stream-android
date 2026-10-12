@@ -119,7 +119,7 @@ dependencies {
     implementation("androidx.compose.material3:material3")
     // Extended icon pack — ContentCopy & co. for the live stream links summary.
     implementation("androidx.compose.material:material-icons-extended")
-    implementation("androidx.appcompat:appcompat:1.7.1")
+    implementation("androidx.appcompat:appcompat:1.8.0")
 
     // Testing Dependencies
     testImplementation("junit:junit:4.13.2")
@@ -131,7 +131,7 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-test-manifest")
 
     // Constraint Layout
-    implementation("androidx.constraintlayout:constraintlayout:2.2.1")
+    implementation("androidx.constraintlayout:constraintlayout:2.2.2")
 
     // Media3 (ExoPlayer, UI, HLS, Cast)
     implementation("androidx.media3:media3-exoplayer:1.10.1")
