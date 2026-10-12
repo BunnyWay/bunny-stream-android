@@ -13,7 +13,10 @@ All notable changes to Bunny Stream Android are documented in this file. The for
 ### Changed
 
 - Dependencies: appcompat 1.8.0, constraintlayout 2.2.2 and Ktor 3.5.2. Build requirements are
-  unchanged: `compileSdk` 36, `minSdk` 26 and Kotlin 2.1 or newer.
+  unchanged: `compileSdk` 36, `minSdk` 26 and Kotlin 2.2 or newer.
+- Documentation: the Kotlin requirement is stated as 2.2 or newer, which applies to 4.0.0 and later.
+  The SDK's dependencies bring `kotlin-stdlib` 2.3 into the app, and that needs a Kotlin 2.2
+  compiler. See [MIGRATING.md](MIGRATING.md) section 0.
 
 ## [4.1.0] - 2026-10-02
 
@@ -135,7 +138,7 @@ see [MIGRATING.md](MIGRATING.md) for before/after examples.
   failing somewhere less obvious. Calling it twice is harmless.
 - TUS resume state moved to a per-library store, so a resumable upload interrupted before the
   upgrade restarts instead of resuming. One-off; uploads started after the upgrade are unaffected.
-- **Build requirements moved.** `compileSdk` 36 or higher, Kotlin 2.1 or newer, and core library
+- **Build requirements moved.** `compileSdk` 36 or higher, Kotlin 2.2 or newer, and core library
   desugaring enabled for `net.bunny:player`. `minSdk` stays at 26 and JDK stays at 17, so device
   reach is unchanged. See [MIGRATING.md](MIGRATING.md) section 0; all three are enforced by the
   build, not just documented.
