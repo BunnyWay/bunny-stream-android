@@ -10,6 +10,13 @@ All notable changes to Bunny Stream Android are documented in this file. The for
 
 ## [Unreleased]
 
+### Changed
+
+- Dependencies: appcompat 1.8.0, constraintlayout 2.2.2 and Ktor 3.5.2. Build requirements are
+  unchanged: `compileSdk` 36, `minSdk` 26 and Kotlin 2.1 or newer.
+
+## [4.1.0] - 2026-10-02
+
 ### Added
 
 - `BunnyLiveStreamPlayer` supports `controlsEnabled` to hide native transport controls while keeping
@@ -22,6 +29,8 @@ All notable changes to Bunny Stream Android are documented in this file. The for
   appended to the SDK's User-Agent on REST, upload (basic + TUS) and player media requests —
   including the pre-stream trailer. `BunnyPlayer.playVideo` takes an optional `userAgent` so the
   view reports the instance it plays from rather than always the process-default one.
+
+## [4.0.1] - 2026-09-30
 
 ### Fixed
 
