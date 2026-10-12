@@ -10,6 +10,8 @@ All notable changes to Bunny Stream Android are documented in this file. The for
 
 ## [Unreleased]
 
+## [4.1.1] - 2026-10-12
+
 ### Changed
 
 - Dependencies: appcompat 1.8.0, constraintlayout 2.2.2 and Ktor 3.5.2. Build requirements are
