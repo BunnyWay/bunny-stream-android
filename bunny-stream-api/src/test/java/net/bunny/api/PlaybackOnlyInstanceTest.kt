@@ -151,7 +151,7 @@ class PlaybackOnlyInstanceTest {
 
     @Test
     fun `the heatmap comes from the public endpoint, with the token`() {
-        server.enqueue(json("""{"heatmap":{"0":100,"1":64}}"""))
+        server.enqueue(MockResponse().setResponseCode(200).setHeader("Content-Type", "text/plain").setBody("100,64"))
 
         val result = runBlocking {
             playbackOnly().videoRepository.fetchVideoHeatmap(LIBRARY, VIDEO_ID, token = "signed", expires = 42L)
@@ -179,11 +179,14 @@ class PlaybackOnlyInstanceTest {
 
         runBlocking { playbackOnly().videoRepository.fetchVideoHeatmap(LIBRARY, VIDEO_ID) }
 
-        assertEquals(BunnyCdn.REFERER, server.takeRequest().getHeader("Referer"))
+        val request = server.takeRequest()
+        assertEquals(BunnyCdn.REFERER, request.getHeader("Referer"))
+        // Asked for JSON, the server wraps the values in a JSON string; plain text is the format.
+        assertEquals("text/plain", request.getHeader("Accept"))
     }
 
     @Test
-    fun `a public heatmap body that is not JSON is a decode error`() {
+    fun `a public heatmap body that is not a list of numbers is a decode error`() {
         server.enqueue(MockResponse().setResponseCode(200).setBody("<html>oops</html>"))
 
         val result = runBlocking { playbackOnly().videoRepository.fetchVideoHeatmap(LIBRARY, VIDEO_ID) }
@@ -206,15 +209,14 @@ class PlaybackOnlyInstanceTest {
     }
 
     @Test
-    fun `an instance with a key keeps reading the heatmap from the management endpoint`() {
-        server.enqueue(json("""{"heatmap":{"0":100}}"""))
+    fun `an instance with a key reads the heatmap from the public endpoint too`() {
+        // Playback never depends on the management API, key or no key.
+        server.enqueue(MockResponse().setResponseCode(200).setHeader("Content-Type", "text/plain").setBody("100"))
 
         val result = runBlocking { withKey().videoRepository.fetchVideoHeatmap(LIBRARY, VIDEO_ID) }
 
         assertEquals(mapOf("0" to 100), (result as BunnyResult.Ok).value)
-        val request = server.takeRequest()
-        assertEquals("/library/$LIBRARY/videos/$VIDEO_ID/heatmap", request.path)
-        assertEquals(KEY, request.getHeader("AccessKey"))
+        assertEquals("/library/$LIBRARY/videos/$VIDEO_ID/play/heatmap", server.takeRequest().path)
     }
 
     // endregion

@@ -1,6 +1,6 @@
 package net.bunny.api.video.data
 
-import com.google.gson.JsonParser
+import com.google.gson.JsonParseException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import net.bunny.api.api.ManageVideosApi
@@ -42,9 +42,6 @@ import java.net.URLEncoder
 internal class DefaultVideoRepository(
     private val videosApi: ManageVideosApi,
     private val coroutineDispatcher: CoroutineDispatcher,
-    // True on an instance created without an access key. Only changes where the heatmap comes
-    // from; every other call is refused, or let through, by the HTTP client itself.
-    private val playbackOnly: Boolean = false,
 ) : VideoRepository {
 
     // region — reading
@@ -91,24 +88,18 @@ internal class DefaultVideoRepository(
         token: String?,
         expires: Long?,
     ): BunnyResult<Map<String, Int>> = withContext(coroutineDispatcher) {
-        bunnyCatching {
-            if (playbackOnly) {
-                fetchPublicHeatmap(libraryId, videoId, token, expires)
-            } else {
-                // The DTO wraps a single map; the wrapper carries nothing else worth surfacing.
-                videosApi.videoGetVideoHeatmap(libraryId, videoId).heatmap.orEmpty()
-            }
-        }
+        // The public /play endpoint for every instance, keyed or not: it is the one Bunny's
+        // players read, and playback should never depend on the management API.
+        bunnyCatching { fetchPublicHeatmap(libraryId, videoId, token, expires) }
     }
 
     /**
-     * The heatmap from the public `/play/heatmap` endpoint, for an instance without an access key.
+     * The heatmap from the public `/play/heatmap` endpoint.
      *
      * Called by hand rather than through the generated client: the spec declares the response as
-     * the full play-data model, which has no heatmap field, and with no data the server answers
-     * `200` with an empty `text/plain` body. Both would make the generated call fail on a response
-     * that only means "nothing to draw". An empty body is an empty heatmap; a body is read in the
-     * same `{"heatmap": {"<segment>": <0-100>}}` shape the management endpoint uses.
+     * the full play-data model, but the server answers `text/plain` with the values separated by
+     * commas (`94,89,85,...`), or an empty body when the video has no heatmap data. Asked for
+     * JSON, it wraps the same text in a JSON string, so the request asks for plain text.
      */
     private fun fetchPublicHeatmap(
         libraryId: Long,
@@ -128,7 +119,7 @@ internal class DefaultVideoRepository(
                 expires?.let { addQueryParameter("expires", it.toString()) }
             }
             .build()
-        val request = Request.Builder().url(url).get().header("Accept", "application/json").build()
+        val request = Request.Builder().url(url).get().header("Accept", "text/plain").build()
         // The instance's own client: same Referer, User-Agent and logging as every other call.
         return videosApi.client.newCall(request).execute().use { response ->
             val body = response.body?.string().orEmpty()
@@ -460,23 +451,20 @@ private fun VideoCodec.toGenerated(): EncoderOutputCodec =
 private const val HTTP_SERVER_ERROR = 500
 
 /**
- * Reads a public `/play/heatmap` body: blank is an empty heatmap, otherwise the `heatmap` object's
- * numeric entries. Anything that is not JSON throws [com.google.gson.JsonParseException], which
- * the caller's `bunnyCatching` reports as a decode failure.
+ * Reads a public `/play/heatmap` body: one value per timeline segment, comma separated, in order
+ * (`94,89,85,...`), returned as segment index to value. A blank body is an empty heatmap. Anything
+ * else throws [com.google.gson.JsonParseException], which the caller's `bunnyCatching` reports as a
+ * decode failure.
  */
 internal fun parsePublicHeatmap(body: String): Map<String, Int> {
-    if (body.isBlank()) return emptyMap()
-    val heatmap = JsonParser.parseString(body)
-        .takeIf { it.isJsonObject }
-        ?.asJsonObject
-        ?.get("heatmap")
-        ?.takeIf { it.isJsonObject }
-        ?.asJsonObject
-        ?: return emptyMap()
-    return heatmap.entrySet()
-        .mapNotNull { (segment, value) ->
-            value.takeIf { it.isJsonPrimitive && it.asJsonPrimitive.isNumber }
-                ?.let { segment to it.asInt }
-        }
-        .toMap()
+    // The same text, wrapped in a JSON string, is what the server sends when JSON was asked for.
+    val trimmed = body.trim().removeSurrounding("\"").trim()
+    if (trimmed.isEmpty()) return emptyMap()
+    return trimmed.split(',').mapIndexed { segment, raw ->
+        val value = raw.trim().toIntOrNull()
+            ?: throw JsonParseException("Unexpected heatmap body: ${trimmed.take(HEATMAP_PREVIEW_CHARS)}")
+        segment.toString() to value
+    }.toMap()
 }
+
+private const val HEATMAP_PREVIEW_CHARS = 80

@@ -32,8 +32,9 @@ All notable changes to Bunny Stream Android are documented in this file. The for
   secrets (stream key, ingest URLs, live outputs); use `getLiveStream` for those. If the token
   expires while the stream is playing, the player stops polling and keeps playing instead of
   stopping with an error.
-- `VideoRepository.fetchVideoHeatmap` gained `token`/`expires` parameters. A playback-only instance
-  reads the public `/play/heatmap` endpoint; an instance with a key keeps the management endpoint.
+- `VideoRepository.fetchVideoHeatmap` gained `token`/`expires` parameters and reads the public
+  `/play/heatmap` endpoint, with or without a key, instead of the management endpoint. Keys are
+  segment indexes in timeline order, as before.
 - If you implement `LiveStreamRepository` or `VideoRepository` yourself (a test fake, say), add the
   four-argument `pollLiveStream` and `fetchVideoHeatmap`. The two-argument forms stay, as default
   methods, so code compiled against 4.1 keeps working.

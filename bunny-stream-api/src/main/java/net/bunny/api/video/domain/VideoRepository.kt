@@ -69,12 +69,11 @@ public interface VideoRepository {
      *
      * Keys are the offsets the API returns as strings; a player renders them under the timeline.
      *
-     * An instance with an access key reads the management endpoint. A playback-only instance reads
-     * the public `/play/heatmap` endpoint instead, which honours token authentication through
-     * [token]/[expires] and answers with an empty map when the video has no heatmap data.
+     * Read from the public `/play/heatmap` endpoint, so it needs no access key and honours token
+     * authentication through [token]/[expires]. Keys are segment indexes in timeline order; the map
+     * is empty when the video has no heatmap data.
      *
-     * @param token signed playback token, used by a playback-only instance on a library with token
-     *   authentication on.
+     * @param token signed playback token, required when the library has token authentication on.
      * @param expires expiry that the token was signed for.
      */
     public suspend fun fetchVideoHeatmap(

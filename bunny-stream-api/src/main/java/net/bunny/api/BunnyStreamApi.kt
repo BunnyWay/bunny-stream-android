@@ -316,7 +316,6 @@ class BunnyStreamApi private constructor(
     private val videoRepositoryImpl = DefaultVideoRepository(
         videosApi = videosApi,
         coroutineDispatcher = Dispatchers.IO,
-        playbackOnly = config.isPlaybackOnly,
     )
 
     private val videoUploaderImpl = DefaultVideoUploader(
