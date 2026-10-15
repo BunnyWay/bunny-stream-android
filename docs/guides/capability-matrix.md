@@ -22,6 +22,7 @@ What each playback mode supports on Android, plus availability notes.
 | Pre-stream trailer | n/a | yes, muted loop |
 | Switch to recording after the stream ends | n/a | yes, when the stream records a VOD |
 | Vertical (9:16) content | yes (`onVideoSizeChanged`) | yes (`onVideoSizeChanged`) |
+| Ads (VAST / VMAP via Google IMA) | pre-, mid- and post-rolls | pre-roll before the live edge; the recording gets its own ads |
 
 ## Broadcasting (camera)
 

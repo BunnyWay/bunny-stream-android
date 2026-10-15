@@ -40,6 +40,9 @@ That is the whole integration. The player fetches the video, picks the right ren
 its controls: play/pause, seek bar with preview thumbnails, chapters and moments, captions,
 quality and speed menus, fullscreen, Chromecast and Picture-in-Picture.
 
+Ads configured for the library (a VAST or VMAP tag in the dashboard) play automatically, see
+[Ads](ads.md).
+
 For videos in a token-protected library pass the token too - see
 [Secure playback](secure-playback.md):
 
@@ -139,6 +142,7 @@ player.onMutedChanged = { muted -> muteButton.isSelected = muted }
 player.onPlaybackSpeedChanged = { speed -> speedLabel.text = "${speed}x" }
 player.onPlayerTypeChanged = { type -> /* DEFAULT_PLAYER or CAST_PLAYER */ }
 player.onPlaybackError = { message -> showYourOwnError(message) }
+player.onAdPlayingChanged = { playingAd -> myControls.isVisible = !playingAd }
 ```
 
 `onChaptersUpdated`, `onMomentsUpdated` and `onRetentionGraphUpdated` deliver the same data the

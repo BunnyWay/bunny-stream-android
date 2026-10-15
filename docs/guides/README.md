@@ -13,6 +13,7 @@ Playback:
 - [Play a live stream](play-a-live-stream.md)
 - [Secure playback](secure-playback.md) - token authentication, hotlink protection
 - [Picture-in-Picture and Chromecast](picture-in-picture-and-cast.md)
+- [Ads (VAST and VMAP)](ads.md)
 
 Managing content:
 

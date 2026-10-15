@@ -23,6 +23,10 @@ All notable changes to Bunny Stream Android are documented in this file. The for
 - On a playback-only instance every management call (listing, creating, editing, uploading,
   broadcasting, recording) fails with a terminal `BunnyError.InvalidState` that names the fix,
   without reaching the network.
+- `BunnyStreamPlayer.onAdPlayingChanged` and `BunnyPlayerView.onAdPlayingChanged`, so a custom UI
+  (`controlsEnabled = false`) can step aside during ads.
+- `BunnyStreamPlayer.vastTagUrl` to use a different ad tag than the dashboard's for VOD, or an
+  empty string for no ads.
 
 ### Changed
 
@@ -40,6 +44,12 @@ All notable changes to Bunny Stream Android are documented in this file. The for
   methods, so code compiled against 4.1 keeps working.
 - `BunnyStreamConfig.accessKey` is now `String?`. Code that reads it as a non-null `String` needs a
   null check. A blank key is still rejected: pass `null` for playback only.
+- `getCurrentPosition()` and `getDuration()` report the video during an ad break, not the ad.
+- `BunnyStreamPlayer.playLiveUrl` takes an optional `vastTagUrl`, which defaults to the tag in the
+  `playData` passed in. Apps calling it directly now get the stream's ads; pass `null` to play
+  without them.
+- CMCD telemetry is attached only to requests for the video's own host. Ad creatives load through
+  the same data source and no longer receive the Bunny session data.
 
 ### Fixed
 
@@ -49,6 +59,16 @@ All notable changes to Bunny Stream Android are documented in this file. The for
 - The SDK could not be initialised without an API key. Since 2025 the TUS uploader demanded the
   key while the instance was being built, so `initialize(context, null, libraryId)` threw even
   though its signature accepted `null`, and 4.0 made the key a required `String`.
+- Ads play again. The player passed the library's VAST tag to the engine but the Google IMA ads
+  loader was never wired in, so every ad was skipped without a word in the log. VOD plays
+  pre-rolls, skippable ads and VMAP mid- and post-rolls. Live plays a pre-roll before joining the
+  live edge (once per stream, not again on refreshes or recovery), and the recording of an ended
+  stream gets its own ads. A broken or empty tag never blocks the video. See the new
+  [Ads guide](docs/guides/ads.md).
+- During an ad the built-in controls, LIVE badge, watermark and speed badge stay out of the way,
+  resume positions are not saved, and a `seekTo()` (such as the "continue watching" answer) is
+  applied when the ad break ends instead of being dropped. The ad UI follows the video into
+  fullscreen.
 
 ## [4.1.1] - 2026-10-12
 

@@ -49,6 +49,7 @@ nav:
       - Play a live stream: play-a-live-stream.md
       - Secure playback: secure-playback.md
       - Picture-in-Picture and Chromecast: picture-in-picture-and-cast.md
+      - Ads (VAST and VMAP): ads.md
   - Managing content:
       - Manage videos and collections: manage-videos.md
       - Upload videos: upload-videos.md
