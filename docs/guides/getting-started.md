@@ -8,7 +8,9 @@ Set up the SDK and make your first call. Takes about five minutes.
 - `compileSdk` 36 or higher, JDK 17
 - Kotlin 2.2 or newer (the SDK itself is built with 2.2.20)
 - Core library desugaring enabled, if you use `net.bunny:player`
-- A Bunny Stream video library and its API key (Bunny dashboard: Stream > your library > API)
+- A Bunny Stream video library, and its id (Bunny dashboard: Stream > your library)
+- The library's API key (Stream > your library > API), only if the app manages the library:
+  lists, uploads, edits or broadcasts. Playback does not need it.
 
 The last three are enforced by the build rather than documented politely. A `compileSdk` below 36
 fails with `checkAarMetadata`; an older Kotlin cannot read the SDK's metadata and reports the
@@ -59,28 +61,44 @@ Camera capture needs two more permissions, covered in
 ## 3. Initialize
 
 Call `initialize` once, before anything else from the SDK. `Application.onCreate` is the usual
-place:
+place.
+
+### Apps that only play
 
 ```kotlin
 class MyApp : Application() {
     override fun onCreate() {
         super.onCreate()
-        BunnyStreamApi.initialize(
-            context = this,
-            accessKey = BuildConfig.BUNNY_API_KEY, // your library API key
-            libraryId = 12345L,                    // your library id
-        )
+        BunnyStreamApi.initialize(context = this, libraryId = 12345L)
     }
 }
 ```
 
+That is all a player needs. Videos and live streams play through Bunny's public play endpoints,
+which take the library id, the video or stream id and, when the library has token authentication
+on, a signed token (see [Secure playback](secure-playback.md)). The management calls (listing,
+creating, editing, uploading, broadcasting) fail with `BunnyError.InvalidState` on such an
+instance, without reaching the network.
+
+### Apps that manage the library
+
+```kotlin
+BunnyStreamApi.initialize(
+    context = this,
+    accessKey = BuildConfig.BUNNY_API_KEY, // your library API key
+    libraryId = 12345L,                    // your library id
+)
+```
+
 Keep the API key out of source control. Read it from `local.properties`, an environment variable
-or your secrets tooling, and remember that a key baked into a shipped APK can be extracted; for
-production consider a backend that talks to Bunny on the app's behalf where possible.
+or your secrets tooling, and remember that a key baked into a shipped APK can be extracted. Ship it
+only in apps that need it, such as an internal publishing tool, and keep viewer-facing apps on the
+playback-only setup above.
 
 This registers a *default instance* that the rest of the SDK reaches through `getInstance()`, and
-that the player and camera views fall back to when you do not give them one. Blank credentials are
-rejected here rather than failing later with a 401, so call it once you actually have a key.
+that the player and camera views fall back to when you do not give them one. A blank key or a
+library id of `0` is rejected here rather than failing later with a 401: pass `null` (or leave the
+key out) for playback only.
 
 The most common integration mistake is skipping the call: the player renders a black view and logs
 an error instead of crashing, and the camera view refuses to start. See

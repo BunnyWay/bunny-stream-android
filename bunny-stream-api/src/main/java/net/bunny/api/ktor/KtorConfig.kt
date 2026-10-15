@@ -16,9 +16,12 @@ import io.ktor.client.plugins.plugin
 import io.ktor.client.request.header
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
+import io.ktor.http.encodedPath
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.serialization.json.Json
 import net.bunny.api.BuildConfig
+import net.bunny.api.http.MissingAccessKeyException
+import net.bunny.api.http.isPublicPlaybackPath
 
 val defaultJson = Json {
     isLenient = true
@@ -81,7 +84,14 @@ fun initHttpClient(
     }
 
     client.plugin(HttpSend).intercept { request ->
-        accessKey?.let { request.header("AccessKey", it) }
+        // Same rule as the OkHttp client: a playback-only instance (no key) only reaches the
+        // public /play endpoints. Anything else would answer 401, so it is refused before it
+        // leaves the device and surfaces as a terminal InvalidState.
+        when {
+            accessKey != null -> request.header("AccessKey", accessKey)
+            !isPublicPlaybackPath(request.url.encodedPath) ->
+                throw MissingAccessKeyException("${request.method.value} ${request.url.encodedPath}")
+        }
 
         execute(request)
     }

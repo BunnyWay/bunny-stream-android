@@ -41,19 +41,41 @@ interface LiveStreamRepository {
     ): BunnyResult<LiveStream>
 
     /**
-     * The polling entry point of [getLiveStream] — same call, kept as a named method because the
-     * polling loop's contract is documented here.
+     * The stream's current state, for a player polling it.
+     *
+     * Reads the public live `/play` endpoint rather than [getLiveStream]'s management call, so it
+     * works on a playback-only instance (no access key) and honours token authentication through
+     * [token]/[expires]. The stream it returns is the one viewers may see: the publisher's
+     * secrets ([LiveStream.streamKey], [LiveStream.primaryIngestUrl], [LiveStream.backupIngestUrl],
+     * [LiveStream.rtmpOutputs]) come back empty. Use
+     * [getLiveStream] when you manage the stream and need those.
      *
      * The web player's polling rules branch on the error's terminality:
      * `401`/`403`/`404`/`410` ([net.bunny.api.error.BunnyError.isTerminal]) mean **stop polling**
-     * — retrying can never succeed; `5xx`, network and decode failures are **transient** — keep
-     * polling, the next attempt may recover. Use this method from the live-stream player
-     * ViewModel.
+     * because retrying can never succeed; `5xx`, network and decode failures are **transient**:
+     * keep polling, the next attempt may recover.
+     *
+     * @param token signed playback token, required when the library has token authentication on.
+     * @param expires expiry that the token was signed for.
      */
     suspend fun pollLiveStream(
         libraryId: Long,
         streamId: String,
+        token: String?,
+        expires: Long?,
     ): BunnyResult<LiveStream>
+
+    /**
+     * [pollLiveStream] without a playback token, for libraries without token authentication.
+     *
+     * Kept as its own method rather than as default arguments on the one above: code compiled
+     * against 4.1 calls this exact signature, and default arguments on an interface method would
+     * have replaced it.
+     */
+    suspend fun pollLiveStream(
+        libraryId: Long,
+        streamId: String,
+    ): BunnyResult<LiveStream> = pollLiveStream(libraryId, streamId, null, null)
 
     /**
      * Fetches playback data (HLS URL, controls, DRM, etc.) for a live stream. Optional

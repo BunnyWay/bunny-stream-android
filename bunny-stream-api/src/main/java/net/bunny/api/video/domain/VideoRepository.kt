@@ -68,11 +68,33 @@ public interface VideoRepository {
      * Retention heatmap: how many viewers were still watching at each point.
      *
      * Keys are the offsets the API returns as strings; a player renders them under the timeline.
+     *
+     * An instance with an access key reads the management endpoint. A playback-only instance reads
+     * the public `/play/heatmap` endpoint instead, which honours token authentication through
+     * [token]/[expires] and answers with an empty map when the video has no heatmap data.
+     *
+     * @param token signed playback token, used by a playback-only instance on a library with token
+     *   authentication on.
+     * @param expires expiry that the token was signed for.
      */
     public suspend fun fetchVideoHeatmap(
         libraryId: Long,
         videoId: String,
+        token: String?,
+        expires: Long?,
     ): BunnyResult<Map<String, Int>>
+
+    /**
+     * [fetchVideoHeatmap] without a playback token, for libraries without token authentication.
+     *
+     * Kept as its own method rather than as default arguments on the one above: code compiled
+     * against 4.1 calls this exact signature, and default arguments on an interface method would
+     * have replaced it.
+     */
+    public suspend fun fetchVideoHeatmap(
+        libraryId: Long,
+        videoId: String,
+    ): BunnyResult<Map<String, Int>> = fetchVideoHeatmap(libraryId, videoId, null, null)
 
     /**
      * Play data enriched with heatmap information, for players that draw retention inline.

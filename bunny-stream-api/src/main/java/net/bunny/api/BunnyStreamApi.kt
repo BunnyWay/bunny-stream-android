@@ -9,6 +9,8 @@ import net.bunny.api.api.ManageVideosApi
 import net.bunny.api.collection.data.DefaultCollectionRepository
 import net.bunny.api.collection.domain.CollectionRepository
 import net.bunny.api.error.BunnyResult
+import net.bunny.api.http.MissingAccessKeyException
+import net.bunny.api.http.isPublicPlaybackPath
 import net.bunny.api.ktor.initHttpClient
 import net.bunny.api.livestream.data.DefaultLiveStreamRepository
 import net.bunny.api.settings.data.DefaultSettingsRepository
@@ -55,9 +57,20 @@ class BunnyStreamApi private constructor(
         fun create(context: Context, config: BunnyStreamConfig): StreamApi =
             BunnyStreamApi(context.applicationContext, config)
 
-        /** Creates an instance from the two values most callers configure. @see create */
-        fun create(context: Context, accessKey: String, libraryId: Long): StreamApi =
+        /**
+         * Creates an instance from the two values most callers configure. A `null` [accessKey]
+         * makes a playback-only instance. @see create
+         */
+        fun create(context: Context, accessKey: String?, libraryId: Long): StreamApi =
             create(context, BunnyStreamConfig(accessKey, libraryId))
+
+        /**
+         * Creates a playback-only instance: no access key, so it plays the library's videos and
+         * live streams through the public `/play` endpoints and refuses every management call.
+         * @see create
+         */
+        fun create(context: Context, libraryId: Long): StreamApi =
+            create(context, BunnyStreamConfig(libraryId = libraryId))
 
         /**
          * Creates an instance and keeps it as the default one, reachable from [getInstance].
@@ -88,11 +101,29 @@ class BunnyStreamApi private constructor(
         }
 
         /**
-         * Initialises the default instance. [accessKey] is the library API key and is required —
-         * every SDK feature (REST, uploads, live streaming) authenticates with it.
+         * Initialises the default instance.
+         *
+         * [accessKey] is the library API key. The management calls (listing, creating, editing,
+         * uploading, broadcasting) authenticate with it. Pass `null` for an app that only plays:
+         * playback goes through Bunny's public `/play` endpoints, which need the library id and
+         * the video or stream id, never the key. See [initialize] with a library id only.
          */
-        fun initialize(context: Context, accessKey: String, libraryId: Long) {
+        fun initialize(context: Context, accessKey: String?, libraryId: Long) {
             initialize(context, BunnyStreamConfig(accessKey, libraryId))
+        }
+
+        /**
+         * Initialises a playback-only default instance: no access key.
+         *
+         * Everything a player needs works: VOD and live playback with their player settings, the
+         * live status poll, the heatmap, DRM, the pre-stream trailer and the ended stream's
+         * recording. On a library with token authentication, pass the signed token to the player
+         * as before. Every management call fails with a terminal [net.bunny.api.error.BunnyError.InvalidState]
+         * before reaching the network. This is the setup for apps that ship to viewers, which
+         * should not carry the library's key at all.
+         */
+        fun initialize(context: Context, libraryId: Long) {
+            initialize(context, BunnyStreamConfig(libraryId = libraryId))
         }
 
         /**
@@ -103,8 +134,9 @@ class BunnyStreamApi private constructor(
          */
         fun getInstance(): StreamApi = defaultInstance ?: error(
             "BunnyStreamApi has no default instance. Call BunnyStreamApi.initialize(context, " +
-                "accessKey, libraryId) before using the SDK, or create an instance with " +
-                "BunnyStreamApi.create(...) and pass it in.",
+                "libraryId) for playback, or BunnyStreamApi.initialize(context, accessKey, " +
+                "libraryId) to manage the library, before using the SDK, or create an instance " +
+                "with BunnyStreamApi.create(...) and pass it in.",
         )
 
         /** Returns the default instance if one exists, or `null` without throwing. */
@@ -141,12 +173,29 @@ class BunnyStreamApi private constructor(
         // for all of them. We leave that map empty: the generated `updateAuthParams` only sets the
         // header when it isn't already there, so setting it here wins and each instance carries
         // its own key.
+        //
+        // A playback-only instance has no key to send. The public /play endpoints go out as they
+        // are; anything else is the management API, which would only answer 401, so it is refused
+        // here before it reaches the network and surfaces as a terminal InvalidState.
         .addInterceptor(Interceptor { chain ->
-            chain.proceed(
-                chain.request().newBuilder()
-                    .header("AccessKey", config.accessKey)
-                    .build(),
-            )
+            val request = chain.request()
+            val accessKey = config.accessKey
+            when {
+                accessKey != null -> chain.proceed(
+                    request.newBuilder().header("AccessKey", accessKey).build(),
+                )
+                isPublicPlaybackPath(request.url.encodedPath) -> chain.proceed(request)
+                else -> {
+                    // This runs before the logging interceptor, so say it here: a refused call
+                    // would otherwise leave no line in logcat at all.
+                    Log.w(
+                        HTTP_LOG_TAG,
+                        "refused ${request.method} ${request.url.encodedPath}: " +
+                            "no access key (playback-only instance)",
+                    )
+                    throw MissingAccessKeyException("${request.method} ${request.url.encodedPath}")
+                }
+            }
         })
         // Identifies the SDK on every request, e.g. "bunny-stream-android/1.3.2".
         // Includes the optional wrapper/integrator suffix configured on this instance.
@@ -161,7 +210,7 @@ class BunnyStreamApi private constructor(
             val originalRequest = chain.request()
             val path = originalRequest.url.encodedPath
 
-            val isPlayEndpoint = path.endsWith("/play")
+            val isPlayEndpoint = isPublicPlaybackPath(path)
             val requestBuilder = originalRequest.newBuilder()
 
             if (isPlayEndpoint) {
@@ -266,7 +315,8 @@ class BunnyStreamApi private constructor(
 
     private val videoRepositoryImpl = DefaultVideoRepository(
         videosApi = videosApi,
-        coroutineDispatcher = Dispatchers.IO
+        coroutineDispatcher = Dispatchers.IO,
+        playbackOnly = config.isPlaybackOnly,
     )
 
     private val videoUploaderImpl = DefaultVideoUploader(

@@ -54,14 +54,17 @@ class DefaultLiveStreamRepositoryTest {
     private val api: ManageLiveStreamsApi = mockk()
     private val repo = DefaultLiveStreamRepository(api, dispatcher)
 
-    // region — pollLiveStream: HTTP-status preservation
+    // region — pollLiveStream: public /play endpoint, HTTP-status preservation
 
     @Test fun `pollLiveStream returns Success with domain stream on 2xx`() = runTest(dispatcher) {
-        every { api.liveStreamGetByStreamId(LIBRARY_ID, STREAM_ID) } returns liveStreamModel(
-            guid = STREAM_ID,
-            title = "Hello",
-            status = LiveStreamStatus.RUNNING,
-        )
+        every { api.liveStreamGetStreamPlayData(LIBRARY_ID, STREAM_ID, null, null) } returns
+            LiveStreamPlayDataModel(
+                liveStream = liveStreamModel(
+                    guid = STREAM_ID,
+                    title = "Hello",
+                    status = LiveStreamStatus.RUNNING,
+                ),
+            )
 
         val result = repo.pollLiveStream(LIBRARY_ID, STREAM_ID)
 
@@ -72,8 +75,48 @@ class DefaultLiveStreamRepositoryTest {
         assertEquals(LiveStreamStatus.RUNNING, stream.status)
     }
 
+    @Test fun `pollLiveStream reads the public play endpoint, never the management one`() =
+        runTest(dispatcher) {
+            // The management GET needs the access key, which a viewer-facing app does not carry.
+            // Bunny's rule for every playback path: /play only.
+            every { api.liveStreamGetStreamPlayData(LIBRARY_ID, STREAM_ID, null, null) } returns
+                LiveStreamPlayDataModel(liveStream = liveStreamModel(guid = STREAM_ID))
+
+            repo.pollLiveStream(LIBRARY_ID, STREAM_ID)
+
+            verify(exactly = 1) { api.liveStreamGetStreamPlayData(LIBRARY_ID, STREAM_ID, null, null) }
+            verify(exactly = 0) { api.liveStreamGetByStreamId(any(), any()) }
+        }
+
+    @Test fun `pollLiveStream forwards the playback token`() = runTest(dispatcher) {
+        // A token-authenticated library refuses /play without the signed pair, so a poll that
+        // dropped it would stop the player with a terminal 403 a few seconds into a stream.
+        every { api.liveStreamGetStreamPlayData(LIBRARY_ID, STREAM_ID, "signed", 1_900_000_000L) } returns
+            LiveStreamPlayDataModel(liveStream = liveStreamModel(guid = STREAM_ID))
+
+        val result = repo.pollLiveStream(LIBRARY_ID, STREAM_ID, token = "signed", expires = 1_900_000_000L)
+
+        assertTrue("Expected Ok", result is BunnyResult.Ok)
+        verify(exactly = 1) {
+            api.liveStreamGetStreamPlayData(LIBRARY_ID, STREAM_ID, "signed", 1_900_000_000L)
+        }
+    }
+
+    @Test fun `pollLiveStream treats play data without a stream object as a transient decode error`() =
+        runTest(dispatcher) {
+            // A 404 means "no such stream" and stops the player; a 200 that lost the object is a
+            // malformed answer, and the next poll may be whole again.
+            every { api.liveStreamGetStreamPlayData(LIBRARY_ID, STREAM_ID, null, null) } returns
+                LiveStreamPlayDataModel(liveStream = null)
+
+            val failure = repo.pollLiveStream(LIBRARY_ID, STREAM_ID) as BunnyResult.Err
+
+            assertTrue(failure.error is BunnyError.Decode)
+            assertEquals(false, failure.error.isTerminal)
+        }
+
     @Test fun `pollLiveStream preserves 401 status code on ClientException`() = runTest(dispatcher) {
-        every { api.liveStreamGetByStreamId(LIBRARY_ID, STREAM_ID) } throws
+        every { api.liveStreamGetStreamPlayData(LIBRARY_ID, STREAM_ID, null, null) } throws
             ClientException(message = "nope", statusCode = 401)
 
         val result = repo.pollLiveStream(LIBRARY_ID, STREAM_ID)
@@ -81,8 +124,19 @@ class DefaultLiveStreamRepositoryTest {
         assertEquals(401, failure.httpStatus)
     }
 
+    @Test fun `pollLiveStream preserves 404 status code on ClientException`() = runTest(dispatcher) {
+        // What /play answers for a stream that does not exist (checked against the live API).
+        every { api.liveStreamGetStreamPlayData(LIBRARY_ID, STREAM_ID, null, null) } throws
+            ClientException(message = "Not Found", statusCode = 404)
+
+        val failure = repo.pollLiveStream(LIBRARY_ID, STREAM_ID) as BunnyResult.Err
+
+        assertEquals(404, failure.httpStatus)
+        assertTrue(failure.error.isTerminal)
+    }
+
     @Test fun `pollLiveStream preserves 410 status code on ClientException`() = runTest(dispatcher) {
-        every { api.liveStreamGetByStreamId(LIBRARY_ID, STREAM_ID) } throws
+        every { api.liveStreamGetStreamPlayData(LIBRARY_ID, STREAM_ID, null, null) } throws
             ClientException(message = "Gone", statusCode = 410)
 
         val result = repo.pollLiveStream(LIBRARY_ID, STREAM_ID)
@@ -91,7 +145,7 @@ class DefaultLiveStreamRepositoryTest {
     }
 
     @Test fun `pollLiveStream preserves 500 status code on ServerException`() = runTest(dispatcher) {
-        every { api.liveStreamGetByStreamId(LIBRARY_ID, STREAM_ID) } throws
+        every { api.liveStreamGetStreamPlayData(LIBRARY_ID, STREAM_ID, null, null) } throws
             ServerException(message = "server broke", statusCode = 500)
 
         val result = repo.pollLiveStream(LIBRARY_ID, STREAM_ID)
@@ -102,12 +156,13 @@ class DefaultLiveStreamRepositoryTest {
     @Test fun `pollLiveStream maps generic IOException to httpStatus 0`() = runTest(dispatcher) {
         // Transport-level errors — DNS, socket, timeout — don't carry an HTTP status. The poll
         // loop relies on httpStatus == 0 to classify these as transient (per spec).
-        every { api.liveStreamGetByStreamId(LIBRARY_ID, STREAM_ID) } throws
+        every { api.liveStreamGetStreamPlayData(LIBRARY_ID, STREAM_ID, null, null) } throws
             java.net.SocketTimeoutException("timeout")
 
         val result = repo.pollLiveStream(LIBRARY_ID, STREAM_ID)
         val failure = result as BunnyResult.Err
         assertEquals(0, failure.httpStatus)
+        assertTrue(failure.error is BunnyError.Network)
     }
 
     // endregion

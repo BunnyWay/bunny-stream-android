@@ -649,7 +649,11 @@ class BunnyStreamPlayer @JvmOverloads constructor(
                 "serverCustomization=${playData != null} startPositionMs=$startPositionMs",
         )
         if (!hasSdk) {
-            Log.e(TAG, "Unable to play live, initialize BunnyStreamApi first")
+            Log.e(
+                TAG,
+                "Unable to play live, call BunnyStreamApi.initialize(context, libraryId) first " +
+                    "(no access key needed for playback)",
+            )
             return
         }
 
@@ -721,7 +725,8 @@ class BunnyStreamPlayer @JvmOverloads constructor(
         if (!hasSdk) {
             Log.e(
                 TAG,
-                "Unable to play video, initialize the player first using BunnyStreamSdk.initialize"
+                "Unable to play video, call BunnyStreamApi.initialize(context, libraryId) first " +
+                    "(no access key needed for playback)"
             )
             return
         }
@@ -924,7 +929,7 @@ class BunnyStreamPlayer @JvmOverloads constructor(
         if (playerSettings.showHeatmap) {
             try {
                 retentionData = sdk.videoRepository
-                    .fetchVideoHeatmap(video.videoLibraryId, video.id)
+                    .fetchVideoHeatmap(video.videoLibraryId, video.id, token, expires)
                     .getOrNull()
                     .orEmpty()
                     .getSanitizedRetentionData()
