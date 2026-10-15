@@ -56,6 +56,7 @@ fun SettingsRoute(
         )
     }
     var tokenAuthKey by remember { mutableStateOf(viewModel.tokenAuthKey) }
+    var vastTagOverride by remember { mutableStateOf(viewModel.vastTagOverride) }
 
     val state = viewModel.state
 
@@ -82,7 +83,9 @@ fun SettingsRoute(
             tokenAuthKey = it
             viewModel.dismissError()
         },
-        onSaveClicked = { viewModel.saveAndVerify(accessKey, libraryId, tokenAuthKey) },
+        vastTagOverride = vastTagOverride,
+        onVastTagOverrideUpdated = { vastTagOverride = it },
+        onSaveClicked = { viewModel.saveAndVerify(accessKey, libraryId, tokenAuthKey, vastTagOverride) },
         checking = state == SettingsState.Checking,
         errorMessage = (state as? SettingsState.Failed)?.message,
     )
@@ -99,6 +102,8 @@ private fun SettingsScreen(
     onLibraryIdUpdated: (String) -> Unit,
     tokenAuthKey: String = "",
     onTokenAuthKeyUpdated: (String) -> Unit = {},
+    vastTagOverride: String = "",
+    onVastTagOverrideUpdated: (String) -> Unit = {},
     onSaveClicked: () -> Unit,
     checking: Boolean = false,
     errorMessage: String? = null,
@@ -172,6 +177,22 @@ private fun SettingsScreen(
                         "Only needed when the library has token authentication enabled. " +
                             "Without it playback shows a black picture. Bunny dashboard > " +
                             "Stream > your library > Security."
+                    )
+                },
+            )
+
+            OutlinedTextField(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                value = vastTagOverride,
+                onValueChange = onVastTagOverrideUpdated,
+                singleLine = true,
+                label = { Text("VAST ad tag override (optional)") },
+                supportingText = {
+                    Text(
+                        "Played before and during videos instead of the library's own ad tag. " +
+                            "Leave empty to use the tag from the dashboard."
                     )
                 },
             )
