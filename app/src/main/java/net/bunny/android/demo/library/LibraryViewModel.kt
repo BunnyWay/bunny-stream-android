@@ -31,6 +31,8 @@ import net.bunny.api.upload.model.PauseState
 import net.bunny.api.upload.model.UploadEvent
 import net.bunny.api.error.BunnyResult
 import net.bunny.api.error.getOrNull
+import net.bunny.api.error.errorOrNull
+import net.bunny.api.error.BunnyError
 import net.bunny.api.video.domain.model.Video as SdkVideo
 import java.util.UUID
 import kotlin.time.DurationUnit
@@ -120,9 +122,9 @@ class LibraryViewModel : ViewModel() {
     private fun fetchLibrary(silent: Boolean) {
         scope.launch {
             try {
-                val page = App.di.streamSdk.videoRepository.listVideos(libraryId)
-                    .getOrNull()
-                    ?: return@launch handleFetchFailure(silent)
+                val result = App.di.streamSdk.videoRepository.listVideos(libraryId)
+                val page = result.getOrNull()
+                    ?: return@launch handleFetchFailure(silent, result.errorOrNull())
                 val loadedVideos = page.items.map { it.toVideo() }
                 if (silent && mutableUiState.value == VideoListUiState.VideoListUiLoading) {
                     // A full (user-triggered) reload is in flight — let its result win
@@ -391,12 +393,17 @@ class LibraryViewModel : ViewModel() {
     }
 
     /** A failed listing is silent while polling and surfaced when the user asked for it. */
-    private suspend fun handleFetchFailure(silent: Boolean) {
+    private suspend fun handleFetchFailure(silent: Boolean, error: BunnyError?) {
         if (silent) {
-            Log.w(TAG, "Silent refresh failed")
+            Log.w(TAG, "Silent refresh failed: ${error?.message}")
         } else {
-            Log.w(TAG, "Failed to fetch videos")
-            mutableErrorState.emit(Error("Could not load the video library"))
+            Log.w(TAG, "Failed to fetch videos: ${error?.message}")
+            // The SDK refusing the call itself (a playback-only setup, with no API key) explains
+            // exactly what to change, so pass that on rather than a generic failure.
+            val detail = (error as? BunnyError.InvalidState)?.message
+            mutableErrorState.emit(
+                Error(listOfNotNull("Could not load the video library", detail).joinToString("\n\n")),
+            )
         }
     }
 

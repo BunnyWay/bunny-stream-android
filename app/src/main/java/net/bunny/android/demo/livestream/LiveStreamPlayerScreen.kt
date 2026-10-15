@@ -119,8 +119,8 @@ fun LiveStreamPlayerRoute(
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
-                    text = "Bunny Stream API isn't initialized — set the library ID and API key " +
-                        "in Settings.",
+                    text = "Bunny Stream API isn't initialized. Set the library ID in Settings " +
+                        "(the API key is not needed to play).",
                     color = Color.White,
                 )
             }

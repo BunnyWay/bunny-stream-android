@@ -35,7 +35,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import net.bunny.android.demo.App
 import net.bunny.android.demo.R
+import net.bunny.android.demo.livestream.navigateToLiveStreamPlayer
 import net.bunny.android.demo.settings.LocalPrefs
 import net.bunny.android.demo.ui.AppState
 import net.bunny.android.demo.ui.theme.BunnyStreamTheme
@@ -58,6 +60,10 @@ sealed class HomeOption(
 
     object DirectVideoPlay : HomeOption(
         R.string.home_option_direct_play,
+        textColor = { MaterialTheme.colorScheme.primary })
+
+    object DirectLivePlay : HomeOption(
+        R.string.home_option_direct_live_play,
         textColor = { MaterialTheme.colorScheme.primary })
 
     object BunnyStreamConfiguration : HomeOption(
@@ -92,9 +98,12 @@ fun HomeScreenRoute(
     modifier: Modifier = Modifier,
 ) {
     var showDialog by remember { mutableStateOf(false) }
+    var showLiveDialog by remember { mutableStateOf(false) }
     HomeScreenContent(
         modifier = modifier,
         showDialog,
+        showLiveDialog = showLiveDialog,
+        playbackOnly = App.di.isPlaybackOnly,
         onOptionClick = { option ->
             when (option) {
                 HomeOption.VideoPlayer -> {
@@ -117,6 +126,10 @@ fun HomeScreenRoute(
                     showDialog = true
                 }
 
+                HomeOption.DirectLivePlay -> {
+                    showLiveDialog = true
+                }
+
                 HomeOption.BunnyStreamConfiguration -> {
                     navigateToSettings()
                 }
@@ -134,8 +147,13 @@ fun HomeScreenRoute(
             showDialog = false
             navigateToPlayer(videoId, libraryId)
         },
+        onPlayLiveDirect = { streamId ->
+            showLiveDialog = false
+            appState.navController.navigateToLiveStreamPlayer(streamId, title = null)
+        },
         onDismiss = {
             showDialog = false
+            showLiveDialog = false
         }
     )
 }
@@ -145,8 +163,11 @@ fun HomeScreenRoute(
 fun HomeScreenContent(
     modifier: Modifier,
     showDialog: Boolean = false,
+    showLiveDialog: Boolean = false,
+    playbackOnly: Boolean = false,
     onOptionClick: (HomeOption) -> Unit,
     onPlayDirect: (String, Long) -> Unit,
+    onPlayLiveDirect: (String) -> Unit = {},
     onDismiss: () -> Unit
 ) {
     Scaffold(
@@ -164,10 +185,15 @@ fun HomeScreenContent(
     ) { innerPadding ->
         OptionsList(
             onOptionClick = onOptionClick,
+            playbackOnly = playbackOnly,
             modifier = Modifier
                 .padding(innerPadding)
                 .fillMaxSize()
         )
+
+        if (showLiveDialog) {
+            EnterLiveStreamIdDialog(onPlay = onPlayLiveDirect, onDismiss = onDismiss)
+        }
 
         if (showDialog) {
             EnterVideoIdDialog(
@@ -185,14 +211,16 @@ fun HomeScreenContent(
 @Composable
 fun OptionsList(
     onOptionClick: (HomeOption) -> Unit,
-    modifier: Modifier
+    modifier: Modifier,
+    playbackOnly: Boolean = false,
 ) {
     val actionItems = listOf(
         HomeOption.VideoPlayer,
         HomeOption.VideoUpload,
         HomeOption.CameraUpload,
         HomeOption.LiveStreams,
-        HomeOption.DirectVideoPlay
+        HomeOption.DirectVideoPlay,
+        HomeOption.DirectLivePlay,
     )
 
     val resumeItems = listOf(
@@ -209,6 +237,24 @@ fun OptionsList(
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
     ) {
+        if (playbackOnly) {
+            item {
+                Text(
+                    text = stringResource(R.string.home_playback_only_banner),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 16.dp, end = 16.dp, top = 16.dp)
+                        .background(
+                            MaterialTheme.colorScheme.secondaryContainer,
+                            RoundedCornerShape(12.dp),
+                        )
+                        .padding(12.dp),
+                )
+            }
+        }
+
         item {
             OptionsCategory(title = stringResource(R.string.home_category_actions))
             OptionsGroupCard(items = actionItems, onItemClick = onOptionClick)
@@ -387,6 +433,72 @@ private fun EnterVideoIdDialog(
             TextButton(
                 onClick = onDismiss
             ) {
+                Text(stringResource(R.string.button_cancel))
+            }
+        }
+    )
+}
+
+/** Asks for a live stream id in the configured library; the live player needs nothing else. */
+@Composable
+private fun EnterLiveStreamIdDialog(
+    onPlay: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var streamId by remember { mutableStateOf("") }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+    val errorEmpty = stringResource(R.string.error_live_stream_id_empty)
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = stringResource(R.string.dialog_enter_live_stream_id_title),
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        },
+        text = {
+            Column {
+                Text(
+                    text = stringResource(R.string.dialog_enter_live_stream_id_message),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                TextField(
+                    value = streamId,
+                    onValueChange = {
+                        streamId = it
+                        errorMessage = null
+                    },
+                    placeholder = { Text(stringResource(R.string.placeholder_live_stream_id)) },
+                    singleLine = true,
+                    isError = errorMessage != null,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                errorMessage?.let { message ->
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = message,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    val trimmed = streamId.trim().substringBefore('?')
+                    if (trimmed.isEmpty()) errorMessage = errorEmpty else onPlay(trimmed)
+                }
+            ) {
+                Text(stringResource(R.string.button_play), color = MaterialTheme.colorScheme.primary)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
                 Text(stringResource(R.string.button_cancel))
             }
         }

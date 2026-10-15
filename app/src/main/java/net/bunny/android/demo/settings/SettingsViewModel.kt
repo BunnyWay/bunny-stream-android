@@ -67,12 +67,14 @@ class SettingsViewModel : ViewModel() {
         val library = rawLibraryId.trim().toLongOrDefault(-1)
         val tokenKey = rawTokenAuthKey.trim()
 
-        if (key.isEmpty()) {
-            state = SettingsState.Failed("Enter the library's API key.")
-            return
-        }
         if (library <= 0) {
             state = SettingsState.Failed("Enter the numeric library id, as shown in the Bunny dashboard.")
+            return
+        }
+        if (key.isEmpty()) {
+            // Playback only: the setup a viewer-facing app ships with. There is nothing to verify
+            // without a key (listing videos is a management call), so save and let playback prove it.
+            savePlaybackOnly(library, tokenKey)
             return
         }
 
@@ -108,6 +110,15 @@ class SettingsViewModel : ViewModel() {
                 state = SettingsState.Verified
             }
         }
+    }
+
+    private fun savePlaybackOnly(library: Long, tokenKey: String) {
+        accessKey = ""
+        libraryId = library
+        tokenAuthKey = tokenKey
+        App.di.localPrefs.tokenAuthKey = tokenKey
+        App.di.updateKeys("", library)
+        state = SettingsState.Verified
     }
 
     /**

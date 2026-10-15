@@ -155,7 +155,8 @@ private fun SettingsScreen(
                 value = accessKey,
                 onValueChange = onAccessKeyUpdated,
                 singleLine = true,
-                label = { Text(stringResource(id = R.string.hint_access_key)) }
+                label = { Text(stringResource(id = R.string.hint_access_key)) },
+                supportingText = { Text(stringResource(id = R.string.hint_access_key_optional)) },
             )
 
             OutlinedTextField(
