@@ -32,6 +32,9 @@ internal const val DEFAULT_LIVE_CONTROLS: String =
  * @param isVodRecording  the URL is an ended stream's recording, not the live edge. A recording is
  *                        a fully seekable VOD, so the timeline is NOT stripped regardless of
  *                        [dvrEnabled] (which describes the *live* time-shift capability only).
+ * @param vastTagUrl      the ad tag for this load. Defaults to the stream's tag from [playData];
+ *                        the live surface passes `null` for a reload that must not play the
+ *                        pre-roll again (see [net.bunny.bunnystreamplayer.ads.liveAdTagForLoad]).
  */
 internal fun livePlayerSettings(
     playData: LiveStreamPlayData?,
@@ -39,6 +42,7 @@ internal fun livePlayerSettings(
     dvrEnabled: Boolean,
     enableSubtitles: Boolean = false,
     isVodRecording: Boolean = false,
+    vastTagUrl: String? = playData?.vastTagUrl,
 ): PlayerSettings {
     val serverControls = playData?.controls?.takeIf { it.isNotBlank() } ?: DEFAULT_LIVE_CONTROLS
     // Strip the dashboard's `captions` token by default: live has no caption tracks here, so the
@@ -68,7 +72,7 @@ internal fun livePlayerSettings(
         // entry point today, so speeds stay pinned there too.
         playbackSpeeds = listOf(1.0f),
         drmEnabled = false,
-        vastTagUrl = null,
+        vastTagUrl = vastTagUrl,
         videoUrl = hlsUrl,
         seekPath = playData?.seekPath.orEmpty(),
         captionsPath = playData?.captionsPath.orEmpty(),

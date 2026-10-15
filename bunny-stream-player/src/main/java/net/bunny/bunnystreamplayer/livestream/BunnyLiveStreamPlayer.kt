@@ -34,6 +34,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
@@ -73,6 +74,7 @@ import net.bunny.api.livestream.domain.model.LiveStreamPlayData
 import net.bunny.player.R
 import net.bunny.bunnystreamplayer.PlaybackFailureInfo
 import net.bunny.bunnystreamplayer.model.PlayerWatermark
+import net.bunny.bunnystreamplayer.ads.liveAdTagForLoad
 import net.bunny.bunnystreamplayer.ui.BunnyStreamPlayer
 import kotlinx.coroutines.delay
 import java.util.Locale
@@ -217,6 +219,8 @@ public fun BunnyLiveStreamPlayer(
 
             is LiveStreamPlayerState.LivePlay -> {
                 Log.d(TAG_UI, "render: LivePlay")
+                // The badge would sit on top of a pre-roll, over the ad's own UI.
+                var playingAd by remember { mutableStateOf(false) }
                 // A blocked stream (CDN 403) goes terminal while the state stays LivePlay. Keeping
                 // the surface out of composition takes the engine's own banner down with it, and
                 // a recreated Activity never asks the CDN again — the panel below is the only UI.
@@ -235,13 +239,16 @@ public fun BunnyLiveStreamPlayer(
                         onPlaybackFailureInfo = { info -> viewModel.onPlaybackFailure(info) },
                         onPlaybackStarted = { viewModel.onPlaybackStarted() },
                         onVideoSizeChanged = onVideoSizeChanged,
+                        onAdPlayingChanged = { playingAd = it },
                     )
-                    LiveBadge(
-                        primaryColor = playData?.keyColor,
-                        modifier = Modifier
-                            .align(Alignment.TopStart)
-                            .padding(16.dp),
-                    )
+                    if (!playingAd) {
+                        LiveBadge(
+                            primaryColor = playData?.keyColor,
+                            modifier = Modifier
+                                .align(Alignment.TopStart)
+                                .padding(16.dp),
+                        )
+                    }
                 }
             }
 
@@ -621,6 +628,7 @@ private fun BunnyPlayerSurface(
     onPlaybackFailureInfo: ((PlaybackFailureInfo) -> Unit)? = null,
     onPlaybackStarted: (() -> Unit)? = null,
     onVideoSizeChanged: ((width: Int, height: Int) -> Unit)? = null,
+    onAdPlayingChanged: ((isPlayingAd: Boolean) -> Unit)? = null,
 ) {
     // [AndroidView.update] runs on every recomposition, but `playLiveUrl` tears down the engine
     // and rebuilds — calling it on a no-op recompose would interrupt playback. Track the last
@@ -635,6 +643,25 @@ private fun BunnyPlayerSurface(
     val lastIsVodRecordingState = remember { mutableStateOf(false) }
     val lastControlsEnabledState = remember { mutableStateOf(controlsEnabled) }
     val lastWatermarkState = remember { mutableStateOf(watermark) }
+    // Ads go out once per content: the live edge and the recording are separate surfaces with
+    // their own stream ids. A load only counts once playback actually starts with the tag on it:
+    // until the view is attached a load is queued, and a quicker follow-up (the play data landing
+    // a moment later) replaces it before it ever ran.
+    val adsLoadedForState = remember { mutableStateOf<String?>(null) }
+    val adsPendingForState = remember { mutableStateOf<String?>(null) }
+    fun adTagForLoad(): String? =
+        liveAdTagForLoad(streamId, playData?.vastTagUrl, adsLoadedForState.value)
+            .also { adsPendingForState.value = if (it != null) streamId else null }
+    // Only the `true` edge counts as "playback started". Attaching a state listener replays the
+    // engine's current isPlaying(), which is false on an idle or errored player, so a rebuild
+    // after a failure can't fake a success the VM would act on.
+    val onPlayingChanged: (Boolean) -> Unit = { playing ->
+        if (playing) {
+            adsPendingForState.value?.let { adsLoadedForState.value = it }
+            adsPendingForState.value = null
+            onPlaybackStarted?.invoke()
+        }
+    }
     AndroidView(
         modifier = Modifier.fillMaxSize(),
         factory = { ctx ->
@@ -651,12 +678,13 @@ private fun BunnyPlayerSurface(
                 // instance rather than always the process-default one.
                 this.bunny = bunny
                 this.onVideoSizeChanged = onVideoSizeChanged
+                this.onAdPlayingChanged = onAdPlayingChanged
                 this.onPlaybackError = onPlaybackError?.let { cb -> { message -> cb(message) } }
                 this.onPlaybackFailureInfo = onPlaybackFailureInfo?.let { cb -> { info -> cb(info) } }
                 // Only the `true` edge counts as "playback started". Attaching a state listener
                 // replays the engine's current isPlaying(), which is false on an idle or errored
                 // player — so a rebuild after a failure can't fake a success the VM would act on.
-                this.onPlayingChanged = { playing -> if (playing) onPlaybackStarted?.invoke() }
+                this.onPlayingChanged = onPlayingChanged
                 // BunnyStreamPlayer queues the play call until it's attached to the window; safe
                 // to invoke from factory.
                 playLiveUrl(
@@ -667,6 +695,7 @@ private fun BunnyPlayerSurface(
                     playData = playData,
                     dvrEnabled = dvrEnabled,
                     isVodRecording = isVodRecording,
+                    vastTagUrl = adTagForLoad(),
                 )
                 lastUrlState.value = hlsUrl
                 lastPlayDataState.value = playData
@@ -679,9 +708,10 @@ private fun BunnyPlayerSurface(
         update = { view ->
             view.bunny = bunny
             view.onVideoSizeChanged = onVideoSizeChanged
+            view.onAdPlayingChanged = onAdPlayingChanged
             view.onPlaybackError = onPlaybackError?.let { cb -> { message -> cb(message) } }
             view.onPlaybackFailureInfo = onPlaybackFailureInfo?.let { cb -> { info -> cb(info) } }
-            view.onPlayingChanged = { playing -> if (playing) onPlaybackStarted?.invoke() }
+            view.onPlayingChanged = onPlayingChanged
 
             if (lastControlsEnabledState.value != controlsEnabled) {
                 view.controlsEnabled = controlsEnabled
@@ -727,6 +757,7 @@ private fun BunnyPlayerSurface(
                 dvrEnabled = dvrEnabled,
                 isVodRecording = isVodRecording,
                 startPositionMs = startPositionMs,
+                vastTagUrl = adTagForLoad(),
             )
             lastUrlState.value = hlsUrl
             lastPlayDataState.value = playData

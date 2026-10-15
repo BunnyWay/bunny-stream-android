@@ -377,6 +377,8 @@ open class BunnyTVPlayerActivity : AppCompatActivity() {
         }
     }
 
+    private fun isPlayingAd(): Boolean = playerView.player?.isPlayingAd == true
+
     private fun startPlayback() {
         Log.d(TAG, "startPlayback - Starting video playback")
 
@@ -384,7 +386,7 @@ open class BunnyTVPlayerActivity : AppCompatActivity() {
             bunnyPlayer?.let { player ->
                 if (isVideoInitialized && !isFinishing) {
                     player.play()
-                    tvControls.show()
+                    if (!isPlayingAd()) tvControls.show()
                 }
             } ?: Log.w(TAG, "Cannot start playback: player is null")
         } catch (e: Exception) {
@@ -424,7 +426,8 @@ open class BunnyTVPlayerActivity : AppCompatActivity() {
                 try {
                     if (bunnyPlayer != null && isVideoInitialized && !isFinishing) {
                         withContext(Dispatchers.Main) {
-                            tvControls.updateProgress()
+                            // The controls would cover the ad and take focus from its skip button.
+                            if (isPlayingAd()) tvControls.hide() else tvControls.updateProgress()
                         }
                     }
                     delay(1000)
@@ -466,6 +469,21 @@ open class BunnyTVPlayerActivity : AppCompatActivity() {
         // Only handle key down events
         if (keyEvent.action != KeyEvent.ACTION_DOWN) {
             return false
+        }
+
+        // During an ad only play/pause is ours. The rest goes to the default handling: the D-pad
+        // already reached the ad's skip button, which has focus, and seeking is ignored until the
+        // ad break ends anyway.
+        if (isPlayingAd()) {
+            return when (keyCode) {
+                KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE -> {
+                    bunnyPlayer?.let { if (it.isPlaying()) it.pause() else it.play() }
+                    true
+                }
+                KeyEvent.KEYCODE_MEDIA_PLAY -> { bunnyPlayer?.play(); true }
+                KeyEvent.KEYCODE_MEDIA_PAUSE -> { bunnyPlayer?.pause(); true }
+                else -> false
+            }
         }
 
         when (keyCode) {

@@ -176,6 +176,7 @@ class BunnyPlayerView @JvmOverloads constructor(
             addView(it)
         }
         view.alpha = config.opacity
+        view.isVisible = !playingAd
         view.layoutParams = FrameLayout.LayoutParams(
             FrameLayout.LayoutParams.WRAP_CONTENT,
             FrameLayout.LayoutParams.WRAP_CONTENT,
@@ -346,14 +347,44 @@ class BunnyPlayerView @JvmOverloads constructor(
      */
     var onPlayerTypeChanged: ((playerType: PlayerType) -> Unit)? = null
 
+    /**
+     * Invoked with `true` when an ad break starts and `false` when the video takes over again. The
+     * built-in control bar hides itself for the ad; a custom UI ([controlsEnabled] off) should do
+     * the same, since seeking is ignored until the ad break ends.
+     */
+    var onAdPlayingChanged: ((isPlayingAd: Boolean) -> Unit)? = null
+
+    /** Whether an ad is on screen, as last reported by the engine. */
+    private var playingAd = false
+
+    private fun onAdPlaybackChanged(isPlayingAd: Boolean, force: Boolean = false) {
+        if (playingAd == isPlayingAd && !force) return
+        playingAd = isPlayingAd
+        // The control bar (timeline, live badge, fullscreen and PiP buttons) hides itself through
+        // PlayerView's controllerHideDuringAds. What sits outside it would cover the ad's own UI.
+        watermarkView?.isVisible = !isPlayingAd
+        if (isPlayingAd) hideSpeedBadge()
+        onAdPlayingChanged?.invoke(isPlayingAd)
+    }
+
     var bunnyPlayer: BunnyPlayer? = null
         set(value) {
+            // Letting go of the engine (the fullscreen screen taking over, or this view going away)
+            // leaves the ad UI behind otherwise.
+            if (value == null) (field as? DefaultBunnyPlayer)?.detachAdUi(this)
             field = value
             field?.playerStateListener = playStateListener
             // The structured report rides along with the public listener: whichever view holds
             // the engine's listener slot holds this one too.
             (field as? DefaultBunnyPlayer)?.playbackFailureInfoListener = { info ->
                 onPlaybackFailureInfo?.invoke(info)
+            }
+            (field as? DefaultBunnyPlayer)?.let { engine ->
+                engine.attachAdUi(this)
+                engine.adPlaybackListener = { onAdPlaybackChanged(it) }
+                // The fullscreen view can take over in the middle of an ad break, and a host that
+                // rebuilt its UI needs the current state even when this view thinks it has it.
+                onAdPlaybackChanged(engine.isPlayingAd(), force = true)
             }
             player = bunnyPlayer?.currentPlayer
             playerSettings = value?.playerSettings
@@ -1183,11 +1214,14 @@ class BunnyPlayerView @JvmOverloads constructor(
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
         liveEdgeUpdater.start()
+        // Back on screen while still holding the engine: take the ad UI back.
+        (bunnyPlayer as? DefaultBunnyPlayer)?.attachAdUi(this)
         applyWatermark()
     }
 
     override fun onDetachedFromWindow() {
         liveEdgeUpdater.stop()
+        (bunnyPlayer as? DefaultBunnyPlayer)?.detachAdUi(this)
         // Keep the configured watermark — a transient detach only tears down the overlay view,
         // and onAttachedToWindow re-applies it.
         removeWatermark()

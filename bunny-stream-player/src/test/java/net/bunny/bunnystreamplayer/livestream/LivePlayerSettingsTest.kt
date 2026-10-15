@@ -3,6 +3,7 @@ package net.bunny.bunnystreamplayer.livestream
 import net.bunny.api.livestream.domain.model.LiveStreamPlayData
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -21,6 +22,7 @@ class LivePlayerSettingsTest {
         fontFamily: String? = "Rubik",
         showHeatmap: Boolean = true,
         enableCompactControls: Boolean = true,
+        vastTagUrl: String? = null,
     ) = LiveStreamPlayData(
         liveStream = null,
         libraryName = null,
@@ -35,7 +37,7 @@ class LivePlayerSettingsTest {
         enableDRM = false,
         drmVersion = 0,
         keyColor = keyColor,
-        vastTagUrl = null,
+        vastTagUrl = vastTagUrl,
         captionsFontSize = 18,
         captionsFontColor = 0xFFFFFFFF.toInt(),
         captionsBackgroundColor = 0x80000000.toInt(),
@@ -205,5 +207,36 @@ class LivePlayerSettingsTest {
         // present on the domain model the surface reads.
         assertTrue(playData(enableCompactControls = true).enableCompactControls)
         assertFalse(playData(enableCompactControls = false).enableCompactControls)
+    }
+
+    @Test
+    fun `the stream's ad tag from play-data reaches the engine`() {
+        val tag = "https://ads.example.com/vast.xml"
+        val s = livePlayerSettings(
+            playData = playData(vastTagUrl = tag),
+            hlsUrl = "https://x/playlist.m3u8",
+            dvrEnabled = false,
+        )
+
+        assertEquals(tag, s.vastTagUrl)
+    }
+
+    @Test
+    fun `a reload can drop the ad tag so the pre-roll does not play again`() {
+        val s = livePlayerSettings(
+            playData = playData(vastTagUrl = "https://ads.example.com/vast.xml"),
+            hlsUrl = "https://x/playlist.m3u8",
+            dvrEnabled = false,
+            vastTagUrl = null,
+        )
+
+        assertNull(s.vastTagUrl)
+    }
+
+    @Test
+    fun `no play-data means no ads`() {
+        val s = livePlayerSettings(playData = null, hlsUrl = "https://x/playlist.m3u8", dvrEnabled = false)
+
+        assertNull(s.vastTagUrl)
     }
 }
