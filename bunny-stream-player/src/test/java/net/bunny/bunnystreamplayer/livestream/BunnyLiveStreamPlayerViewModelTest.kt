@@ -83,6 +83,45 @@ class BunnyLiveStreamPlayerViewModelTest {
     }
 
     @Test
+    fun `a foreground signal that arrives before start still starts the status poll`() {
+        // What the composable actually does: its lifecycle observer fires ON_START synchronously
+        // while the effect calling start() is still queued. The poll loop used to be dropped,
+        // so a stream that ended went unnoticed unless playback happened to fail.
+        val polls = AtomicInteger(0)
+        val repo = FakeRepo(pollResult = { polls.incrementAndGet(); BunnyResult.Ok(runningStream()) })
+        val vm = newVm(repo)
+        try {
+            vm.onForeground()
+            vm.start(libraryId = 1L, streamId = "s")
+            scheduler.runCurrent()
+            scheduler.advanceTimeBy(5_000L); scheduler.runCurrent()
+            scheduler.advanceTimeBy(5_000L); scheduler.runCurrent()
+
+            assertTrue("expected the 5 s loop to run (got ${polls.get()})", polls.get() >= 3)
+        } finally {
+            vm.onBackground()
+        }
+    }
+
+    @Test
+    fun `a background signal cancels a foreground that arrived before start`() {
+        val polls = AtomicInteger(0)
+        val repo = FakeRepo(pollResult = { polls.incrementAndGet(); BunnyResult.Ok(runningStream()) })
+        val vm = newVm(repo)
+        try {
+            vm.onForeground()
+            vm.onBackground()
+            vm.start(libraryId = 1L, streamId = "s")
+            scheduler.runCurrent()
+            scheduler.advanceTimeBy(15_000L); scheduler.runCurrent()
+
+            assertEquals(0, polls.get())
+        } finally {
+            vm.onBackground()
+        }
+    }
+
+    @Test
     fun `transient status code keeps polling`() {
         // 5xx and network errors must not stop the loop — the spec is explicit: "Treat them as
         // transient; back off if you want, but do not stop."

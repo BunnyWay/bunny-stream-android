@@ -188,6 +188,9 @@ public open class BunnyLiveStreamPlayerViewModel internal constructor(
      */
     private var pollingStopped: Boolean = false
     private var started: Boolean = false
+
+    /** [onForeground] arrived before [start]; the poll loop starts as soon as [start] runs. */
+    private var foregroundBeforeStart: Boolean = false
     private var lastRecoveryAtMs: Long? = null
     private var deferredRecoveryJob: Job? = null
 
@@ -255,6 +258,11 @@ public open class BunnyLiveStreamPlayerViewModel internal constructor(
         this.expires = expires
         Log.d(TAG, "start — libraryId=$libraryId streamId=$streamId hasToken=${token != null}")
         viewModelScope.launch { fetchPlayData(reason = "start") }
+
+        if (foregroundBeforeStart) {
+            foregroundBeforeStart = false
+            onForeground()
+        }
     }
 
     /**
@@ -268,7 +276,13 @@ public open class BunnyLiveStreamPlayerViewModel internal constructor(
             return
         }
         if (!started) {
-            Log.w(TAG, "onForeground before start() — ignoring")
+            // The composable registers its lifecycle observer synchronously, so an already
+            // started host delivers ON_START before the effect that calls start() has run.
+            // Dropping it left the 5 s status poll off for the whole session: a stream that ended
+            // was only noticed if playback happened to fail. Remember it and start polling as soon
+            // as start() has run.
+            Log.d(TAG, "onForeground before start() — polling begins once start() runs")
+            foregroundBeforeStart = true
             return
         }
         Log.d(TAG, "onForeground — restarting poll loop with immediate tick")
@@ -288,6 +302,7 @@ public open class BunnyLiveStreamPlayerViewModel internal constructor(
      */
     public fun onBackground() {
         Log.d(TAG, "onBackground — cancelling poll loop")
+        foregroundBeforeStart = false
         pollJob?.cancel()
         pollJob = null
     }
