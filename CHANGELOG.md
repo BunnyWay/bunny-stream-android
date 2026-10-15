@@ -42,6 +42,9 @@ All notable changes to Bunny Stream Android are documented in this file. The for
 
 ### Fixed
 
+- The live player's status poll never started: `BunnyLiveStreamPlayer` delivered `ON_START`
+  before `start()` had run and the view model dropped it, so a stream going live or ending was
+  only noticed when playback happened to fail. The poll now starts as soon as the player does.
 - The SDK could not be initialised without an API key. Since 2025 the TUS uploader demanded the
   key while the instance was being built, so `initialize(context, null, libraryId)` threw even
   though its signature accepted `null`, and 4.0 made the key a required `String`.
