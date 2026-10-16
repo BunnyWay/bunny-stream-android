@@ -10,6 +10,8 @@ All notable changes to Bunny Stream Android are documented in this file. The for
 
 ## [Unreleased]
 
+## [4.2.0] - 2026-10-16
+
 ### Added
 
 - Playback without an API key. `BunnyStreamApi.initialize(context, libraryId)` and
