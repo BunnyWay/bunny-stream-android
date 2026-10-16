@@ -197,7 +197,8 @@ class BunnyStreamApi private constructor(
                 }
             }
         })
-        // Identifies the SDK on every request, e.g. "bunny-stream-android/1.3.2".
+        // Identifies the device and the SDK on every request, e.g. "Dalvik/2.1.0 (Linux; U;
+        // Android 15; Pixel 8 Build/AP4A.250105.002) bunny-stream-android/4.2.1 (mobile)".
         // Includes the optional wrapper/integrator suffix configured on this instance.
         .addInterceptor(Interceptor { chain ->
             chain.proceed(

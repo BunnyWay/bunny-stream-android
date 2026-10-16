@@ -44,7 +44,8 @@ public data class BunnyStreamIntegrator(
  *   still let you override it per call; this is the default the SDK's own views use.
  * @param baseApi the Stream API host. Leave it alone unless Bunny has given you a different one.
  * @param integrator optional identifier of the framework wrapping the SDK. When set, it is appended
- *   to the SDK's User-Agent header as `bunny-stream-android/<version> <name>/<version>`.
+ *   to the SDK's User-Agent header as
+ *   `<platform User-Agent> bunny-stream-android/<version> (<device type>) <name>/<version>`.
  */
 data class BunnyStreamConfig(
     val accessKey: String? = null,
@@ -77,9 +78,15 @@ data class BunnyStreamConfig(
     val isPlaybackOnly: Boolean
         get() = accessKey == null
 
-    /** Full User-Agent string used by this SDK instance, including any configured integrator. */
+    /**
+     * Full User-Agent string used by this SDK instance: the platform's own User-Agent, the SDK with
+     * its version and the device type (`mobile`, `tablet` or `tv`), then any configured
+     * integrator, e.g.
+     * `Dalvik/2.1.0 (Linux; U; Android 15; Pixel 8 Build/AP4A.250105.002) bunny-stream-android/4.2.1 (mobile) bunny-stream-react-native/1.0.0`.
+     */
     val userAgent: String
-        get() = BuildConfig.USER_AGENT + (integrator?.let { " $it" } ?: "")
+        get() = "${DeviceUserAgent.platform} ${BuildConfig.USER_AGENT} (${DeviceUserAgent.type})" +
+            (integrator?.let { " $it" } ?: "")
 
     /**
      * Renders the config without the key.
