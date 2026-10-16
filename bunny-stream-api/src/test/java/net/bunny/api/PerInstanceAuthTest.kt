@@ -111,7 +111,8 @@ class PerInstanceAuthTest {
 
         val request = firstLibrary.takeRequest()
         assertEquals(KEY_A, request.getHeader("AccessKey"))
-        assertEquals(BuildConfig.USER_AGENT, request.getHeader("User-Agent"))
+        assertEquals(first.config.userAgent, request.getHeader("User-Agent"))
+        assertTrue(request.getHeader("User-Agent")!!.contains(" ${BuildConfig.USER_AGENT} ("))
     }
 
     @Test
@@ -132,7 +133,7 @@ class PerInstanceAuthTest {
 
         val request = firstLibrary.takeRequest()
         val userAgent = request.getHeader("User-Agent")!!
-        assertTrue(userAgent.startsWith(BuildConfig.USER_AGENT))
+        assertTrue(userAgent.contains(" ${BuildConfig.USER_AGENT} ("))
         assertTrue(userAgent.endsWith("bunny-stream-react-native/0.1.1"))
     }
 

@@ -33,9 +33,12 @@ class BunnyStreamIntegratorTest {
     }
 
     @Test
-    fun `config without integrator keeps native user agent`() {
+    fun `config without integrator sends the SDK and the device`() {
         val config = BunnyStreamConfig("key", 1L)
-        assertEquals(BuildConfig.USER_AGENT, config.userAgent)
+        assertEquals(
+            "${DeviceUserAgent.platform} ${BuildConfig.USER_AGENT} (${DeviceUserAgent.type})",
+            config.userAgent,
+        )
         assertNull(config.integrator)
     }
 
@@ -46,6 +49,10 @@ class BunnyStreamIntegratorTest {
             1L,
             integrator = BunnyStreamIntegrator("bunny-stream-react-native", "0.1.1"),
         )
-        assertEquals("${BuildConfig.USER_AGENT} bunny-stream-react-native/0.1.1", config.userAgent)
+        assertEquals(
+            "${DeviceUserAgent.platform} ${BuildConfig.USER_AGENT} (${DeviceUserAgent.type}) " +
+                "bunny-stream-react-native/0.1.1",
+            config.userAgent,
+        )
     }
 }

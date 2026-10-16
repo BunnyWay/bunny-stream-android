@@ -10,6 +10,18 @@ All notable changes to Bunny Stream Android are documented in this file. The for
 
 ## [Unreleased]
 
+### Changed
+
+- The SDK's User-Agent starts with the platform's own one, the header Android's HTTP stack sends
+  by default, and adds the device type after the SDK version:
+  `Dalvik/2.1.0 (Linux; U; Android 15; Pixel 8 Build/AP4A.250105.002) bunny-stream-android/4.2.1 (mobile)`.
+  The type is `mobile`, `tablet` or `tv`. An integrator suffix still comes last, e.g.
+  `... bunny-stream-android/4.2.1 (mobile) bunny-stream-react-native/1.0.0`. It goes on API calls,
+  uploads and media requests alike, so standard User-Agent parsers see the OS and the device, and
+  Bunny's analytics can tell mobile traffic apart. Nothing to change in your app. If your own code
+  matched the whole header against `bunny-stream-android/<version>`, look for that token inside
+  the header instead.
+
 ## [4.2.0] - 2026-10-16
 
 ### Added

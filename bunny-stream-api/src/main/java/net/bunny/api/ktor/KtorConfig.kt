@@ -72,8 +72,9 @@ fun initHttpClient(
             header(HttpHeaders.Accept, "*/*")
         }
 
-        // Identify the SDK on every request, e.g. "bunny-stream-android/1.3.2".
-    // The caller (BunnyStreamApi) already bound the integrator suffix into [userAgent].
+        // Identify the device and the SDK on every request, e.g.
+    // "Dalvik/2.1.0 (Linux; U; Android 15; Pixel 8 Build/AP4A.250105.002) bunny-stream-android/4.2.1 (mobile)".
+    // The caller (BunnyStreamApi) already bound the device and the integrator suffix into [userAgent].
     install(UserAgent) {
         agent = userAgent
     }
