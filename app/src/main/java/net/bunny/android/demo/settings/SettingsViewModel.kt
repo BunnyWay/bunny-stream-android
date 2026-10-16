@@ -47,6 +47,9 @@ class SettingsViewModel : ViewModel() {
     var tokenAuthKey by mutableStateOf(prefs.tokenAuthKey)
         private set
 
+    var vastTagOverride by mutableStateOf(prefs.vastTagOverride)
+        private set
+
     var state by mutableStateOf<SettingsState>(SettingsState.Idle)
         private set
 
@@ -62,7 +65,15 @@ class SettingsViewModel : ViewModel() {
      * and only surfaced later as "could not load the video library" on a different screen. One
      * cheap listing call turns that into an answer here, where it can still be corrected.
      */
-    fun saveAndVerify(rawAccessKey: String, rawLibraryId: String, rawTokenAuthKey: String) {
+    fun saveAndVerify(
+        rawAccessKey: String,
+        rawLibraryId: String,
+        rawTokenAuthKey: String,
+        rawVastTagOverride: String = vastTagOverride,
+    ) {
+        // Not a credential, nothing to verify: kept even when the check below fails.
+        vastTagOverride = rawVastTagOverride.trim()
+        App.di.localPrefs.vastTagOverride = vastTagOverride
         val key = rawAccessKey.trim()
         val library = rawLibraryId.trim().toLongOrDefault(-1)
         val tokenKey = rawTokenAuthKey.trim()

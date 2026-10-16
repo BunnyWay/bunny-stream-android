@@ -300,6 +300,30 @@ class BunnyStreamPlayer @JvmOverloads constructor(
         }
 
     /**
+     * Invoked with `true` when an ad break starts and `false` when the video takes over again. The
+     * built-in controls hide themselves for the ad; with [controlsEnabled] off, hide your own the
+     * same way. Seeking is ignored until the ad break ends, and [getCurrentPosition] keeps
+     * reporting the position in the video rather than in the ad.
+     *
+     * Forwards to [BunnyPlayerView.onAdPlayingChanged].
+     */
+    var onAdPlayingChanged: ((isPlayingAd: Boolean) -> Unit)?
+        get() = playerView.onAdPlayingChanged
+        set(value) {
+            playerView.onAdPlayingChanged = value
+        }
+
+    /**
+     * The VAST or VMAP ad tag for videos played with [playVideo], overriding the one set in the
+     * library's player settings on the Bunny dashboard. Leave it `null` (the default) to use the
+     * dashboard's tag; set it to an empty string to play without ads.
+     *
+     * Ads are requested and played by the Google IMA SDK. Assign before calling [playVideo]; the
+     * value is read per call. Live streams always use the tag from the dashboard.
+     */
+    var vastTagUrl: String? = null
+
+    /**
      * The playback rate. Setting it takes effect immediately and, with
      * [PlaybackSpeedConfig.rememberLastSpeed] on, is remembered for the next video.
      *
@@ -631,6 +655,9 @@ class BunnyStreamPlayer @JvmOverloads constructor(
      *                  rebuilds the player after a playback failure: a recovery must not send them
      *                  back to the start of a recording they were half way through. It takes
      *                  precedence over any stored resume position for this load.
+     * @param vastTagUrl the VAST or VMAP ad tag for this load. Defaults to the stream's tag from
+     *                  [playData]. The live surface passes `null` when it reloads a URL whose ads
+     *                  already played, so a refresh or a recovery does not show the pre-roll again.
      */
     fun playLiveUrl(
         libraryId: Long,
@@ -642,11 +669,13 @@ class BunnyStreamPlayer @JvmOverloads constructor(
         dvrEnabled: Boolean = false,
         isVodRecording: Boolean = false,
         startPositionMs: Long? = null,
+        vastTagUrl: String? = playData?.vastTagUrl,
     ) {
         Log.d(
             TAG,
             "playLiveUrl streamId=$streamId hlsUrl=${hlsUrl.take(80)} " +
-                "serverCustomization=${playData != null} startPositionMs=$startPositionMs",
+                "serverCustomization=${playData != null} startPositionMs=$startPositionMs " +
+                "ads=${vastTagUrl != null}",
         )
         if (!hasSdk) {
             Log.e(
@@ -679,6 +708,7 @@ class BunnyStreamPlayer @JvmOverloads constructor(
             dvrEnabled = dvrEnabled,
             enableSubtitles = enableSubtitles,
             isVodRecording = isVodRecording,
+            vastTagUrl = vastTagUrl,
         )
 
         // CMCD (CTA-5004 v2) stream type: the ended stream's recording is plain VOD (st=v); a
@@ -742,6 +772,9 @@ class BunnyStreamPlayer @JvmOverloads constructor(
 
         loadVideoJob?.cancel()
 
+        // Read now, like the rest of this call's input: the load below finishes asynchronously.
+        val adTagOverride = vastTagUrl
+
         pendingJob = {
             scope!!.launch {
 
@@ -800,7 +833,10 @@ class BunnyStreamPlayer @JvmOverloads constructor(
                         )
                         playerView.showError(it.message)
                     },
-                    onOk = { initializeVideo(video, it, token, expires) }
+                    onOk = { settings ->
+                        val withAdTag = adTagOverride?.let { settings.copy(vastTagUrl = it) } ?: settings
+                        initializeVideo(video, withAdTag, token, expires)
+                    }
                 )
             }
         }
@@ -1033,6 +1069,8 @@ class BunnyStreamPlayer @JvmOverloads constructor(
      * another video's position - which is how positions ended up saved against the wrong video.
      */
     private fun progressSnapshot(): ProgressSnapshot? {
+        // An ad break is not progress through the video: keep whatever was saved before it.
+        if ((bunnyPlayer as? DefaultBunnyPlayer)?.isPlayingAd() == true) return null
         val videoId = currentVideoId ?: return null
         return ProgressSnapshot(videoId, bunnyPlayer.getCurrentPosition(), bunnyPlayer.getDuration())
     }

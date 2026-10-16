@@ -685,6 +685,8 @@ fun BunnyPlayerComposable(
                 val request = player to Triple(videoId, libraryId, playbackAttempt)
                 if (lastStarted != request) {
                     lastStarted = request
+                    // Demo setting for trying ad tags; null keeps the library's own tag.
+                    player.vastTagUrl = App.di.localPrefs.vastTagOverride.ifBlank { null }
                     player.playVideo(
                         videoId,
                         libraryId,

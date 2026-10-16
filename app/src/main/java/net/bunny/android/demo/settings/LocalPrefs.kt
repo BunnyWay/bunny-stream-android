@@ -9,6 +9,7 @@ class LocalPrefs(private val prefs: SharedPreferences) {
         private const val ACCESS_KEY = "accessKey"
         private const val LIBRARY_ID = "libraryId"
         private const val TOKEN_AUTH_KEY = "tokenAuthKey"
+        private const val VAST_TAG_OVERRIDE = "vastTagOverride"
 
         // Sourced from BuildConfig: dev convenience values in debug/staging,
         // empty in release so no API key is shipped. Set them in local.properties
@@ -40,4 +41,14 @@ class LocalPrefs(private val prefs: SharedPreferences) {
             prefs.edit().putString(TOKEN_AUTH_KEY, value).apply()
         }
         get() = prefs.getString(TOKEN_AUTH_KEY, DEFAULT_TOKEN_AUTH_KEY) ?: DEFAULT_TOKEN_AUTH_KEY
+
+    /**
+     * Ad tag the demo's video player uses instead of the library's dashboard setting, for trying
+     * VAST / VMAP tags without touching the library. Blank means "use the dashboard's tag".
+     */
+    var vastTagOverride: String
+        set(value) {
+            prefs.edit().putString(VAST_TAG_OVERRIDE, value).apply()
+        }
+        get() = prefs.getString(VAST_TAG_OVERRIDE, "").orEmpty()
 }

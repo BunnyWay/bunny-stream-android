@@ -6,16 +6,22 @@ import android.content.pm.PackageManager
 import android.graphics.Color
 import android.net.Uri
 import android.util.Log
+import android.view.View
+import android.view.ViewGroup
+import android.widget.FrameLayout
 import androidx.media3.cast.CastPlayer
 import androidx.media3.cast.SessionAvailabilityListener
 import androidx.media3.common.C
 import androidx.media3.common.Format
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
+import androidx.media3.common.AdOverlayInfo
+import androidx.media3.common.AdViewProvider
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
+import androidx.media3.common.Timeline
 import androidx.media3.common.Tracks
 import androidx.media3.common.VideoSize
 import androidx.media3.common.util.Util
@@ -27,9 +33,14 @@ import androidx.media3.datasource.ResolvingDataSource
 import androidx.media3.datasource.TransferListener
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.analytics.AnalyticsListener
+import androidx.media3.exoplayer.ima.ImaAdsLoader
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import androidx.media3.ui.PlayerView
+import com.google.ads.interactivemedia.v3.api.AdErrorEvent
+import com.google.ads.interactivemedia.v3.api.AdEvent
+import com.google.ads.interactivemedia.v3.api.ImaSdkFactory
+import net.bunny.bunnystreamplayer.ads.adTagUrlOrNull
 import net.bunny.bunnystreamplayer.cmcd.CmcdPlayerSnapshot
 import net.bunny.bunnystreamplayer.cmcd.CmcdResolver
 import net.bunny.bunnystreamplayer.cmcd.CmcdSession
@@ -50,7 +61,6 @@ import net.bunny.api.playback.ResumeConfig
 import net.bunny.api.playback.ResumePositionListener
 import net.bunny.api.settings.PlaybackSpeedManager
 import net.bunny.api.settings.domain.model.PlayerSettings
-import net.bunny.api.settings.toUri
 import net.bunny.bunnystreamplayer.cast.BunnyMediaItemConverter
 import net.bunny.bunnystreamplayer.cast.CastCustomData
 import net.bunny.bunnystreamplayer.cast.CastTrackBridge
@@ -186,6 +196,52 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
      */
     internal var playbackFailureInfoListener: ((PlaybackFailureInfo) -> Unit)? = null
 
+    /**
+     * SDK-internal: fires `true` when an ad break starts and `false` when content takes over again,
+     * so the view can take its own overlays out of the ad's way. Same reasoning as
+     * [playbackFailureInfoListener] for keeping it off [BunnyPlayer].
+     */
+    internal var adPlaybackListener: ((Boolean) -> Unit)? = null
+
+    /**
+     * Client-side ads (VAST / VMAP through the Google IMA SDK). One loader per [playVideo] that has an
+     * ad tag, released when the next video loads or the engine is released. Keeping it for the whole
+     * video is what stops a pre-roll from playing twice when the player moves to Chromecast and back:
+     * the loader remembers which ad breaks were already played.
+     */
+    private var adsLoader: ImaAdsLoader? = null
+
+    /**
+     * Where IMA draws the ad UI (countdown, skip button, "learn more"). IMA takes its container once,
+     * when the ads are requested, and keeps it for the whole video. Handing it a player view's own
+     * ad overlay would leave the UI behind in the inline view when the viewer goes fullscreen: the
+     * mid-roll then plays with no skip button, and IMA, measuring an invisible container, reports
+     * the impression late. So IMA gets this container instead, and [attachAdUi] moves it into
+     * whichever view shows the video.
+     */
+    private var adUiContainer: FrameLayout? = null
+
+    /** The view [adUiContainer] currently sits in. Its controls are what IMA has to look past. */
+    private var adUiHost: PlayerView? = null
+
+    /**
+     * Last ad state passed to [adPlaybackListener]. Written on the main thread, read from the
+     * position auto-save as well, which runs off it and must not touch the player there.
+     */
+    @Volatile
+    private var playingAd = false
+
+    /**
+     * A content seek asked for while an ad was playing. media3 ignores seeks during ads ("seekTo
+     * ignored because an ad is playing"), and the resume prompt is answered exactly then, while the
+     * pre-roll runs, so the position is held here and applied when the ad break ends.
+     * [C.TIME_UNSET] stands for the default position: the live edge after a pre-roll on live.
+     */
+    private var pendingContentSeekMs: Long? = null
+
+    /** The ad group last seen playing, so [syncAdPlayback] can tell when IMA has closed it. */
+    private var lastAdGroupIndex = C.INDEX_UNSET
+
     private var mediaItem: MediaItem? = null
     private var mediaItemBuilder: MediaItem.Builder? = null
 
@@ -204,6 +260,10 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
     private val drmConfig = MediaItem.DrmConfiguration.Builder(C.WIDEVINE_UUID)
 
     private val playerListener = object : Player.Listener {
+        override fun onEvents(player: Player, events: Player.Events) {
+            if (player === currentPlayer) syncAdPlayback(player)
+        }
+
         override fun onIsPlayingChanged(isPlaying: Boolean) {
             Log.d(TAG, "onIsPlayingChanged: $isPlaying")
             playerStateListener?.onPlayingChanged(isPlaying)
@@ -452,7 +512,8 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
         autoSaveJob = coroutineScope.launch(Dispatchers.Main) { // <- Use Main dispatcher
             while (isActive) {
                 delay(interval)
-                if (isPlaying()) { // Now safely on main thread
+                // An ad's progress is not the video's: nothing is saved until content is back.
+                if (isPlaying() && !isPlayingAd()) { // Now safely on main thread
                     // Move save operation to background
                     launch(Dispatchers.IO) {
                         saveCurrentPosition()
@@ -505,6 +566,7 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
         http: DataSource.Factory,
         contentId: String,
         streamingFormat: String,
+        contentHost: String?,
     ): DataSource.Factory {
         val session = CmcdSession(
             contentId = contentId,
@@ -512,7 +574,7 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
             streamingFormat = streamingFormat,
             snapshotProvider = { CmcdPlayerSnapshot(cmcdBufferLengthMs, cmcdBufferStarved) },
         )
-        return ResolvingDataSource.Factory(http, CmcdResolver(session))
+        return ResolvingDataSource.Factory(http, CmcdResolver(session, contentHost))
     }
 
     private fun checkForSavedPosition(videoId: String) {
@@ -526,6 +588,7 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
         }
     }
     private fun saveCurrentPosition() {
+        if (isPlayingAd()) return
         currentVideoId?.let { videoId ->
             positionManager?.let { manager ->
                 coroutineScope.launch {
@@ -659,8 +722,12 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
         // MediaItem MIME below. Drives the CMCD `sf` too.
         val manifestFormat = ManifestFormat.fromUrl(playerSettings.videoUrl)
         val cmcdContentId = video.id
-        val cmcdDataSourceFactory =
-            buildCmcdDataSourceFactory(httpFactory, cmcdContentId, manifestFormat.cmcdSf)
+        val cmcdDataSourceFactory = buildCmcdDataSourceFactory(
+            httpFactory,
+            cmcdContentId,
+            manifestFormat.cmcdSf,
+            contentHost = Uri.parse(playerSettings.videoUrl).host,
+        )
         val mediaSourceFactory = DefaultMediaSourceFactory(context)
             .setDataSourceFactory(cmcdDataSourceFactory)
 
@@ -736,9 +803,14 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
             )
         }
 
-        playerSettings.vastTagUrl.toUri()?.let { vastUri ->
+        // The library's VAST / VMAP tag. The ads configuration only names the tag: the IMA loader
+        // that actually requests and plays the ads is wired into the media source factory below.
+        // Without that loader media3 logs "Playing media without ads" and skips them silently,
+        // which is how ads went missing for a long time.
+        val adTagUrl = adTagUrlOrNull(playerSettings.vastTagUrl)
+        adTagUrl?.let {
             mediaItemBuilder.setAdsConfiguration(
-                MediaItem.AdsConfiguration.Builder(vastUri).build()
+                MediaItem.AdsConfiguration.Builder(Uri.parse(it)).build()
             )
         }
 
@@ -767,6 +839,27 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
         // later playback in a session hit it, which is why every single-play test passed.
         playerView.player = null
         localPlayer?.release()
+        // After the player: releasing it is what detaches the previous video's ads from the loader.
+        releaseAdsLoader()
+
+        val adsLoader = adTagUrl?.let { buildAdsLoader(playerSettings.uiLanguage) }
+        this.adsLoader = adsLoader
+        if (adsLoader != null) {
+            val container = FrameLayout(playerView.context)
+            adUiContainer = container
+            attachAdUi(playerView)
+            mediaSourceFactory.setLocalAdInsertionComponents(
+                { adsLoader },
+                object : AdViewProvider {
+                    override fun getAdViewGroup(): ViewGroup = container
+
+                    // Our controls sit above the ad UI; IMA's viewability measurement is told
+                    // they are part of the player, not something hiding the ad.
+                    override fun getAdOverlayInfos(): List<AdOverlayInfo> =
+                        adUiHost?.adOverlayInfos.orEmpty()
+                },
+            )
+        }
 
         localPlayer = ExoPlayer.Builder(context)
             .setTrackSelector(trackSelector!!)
@@ -819,6 +912,10 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
                     }
                 })
             }
+        // Always the local player, even when this video starts on Chromecast: the receiver gets no
+        // client-side ads, and the loader has to know the local player before it is prepared (on a
+        // cast handback) or media3 throws instead of playing.
+        adsLoader?.setPlayer(localPlayer)
 
         // While a cast session is connected, new playback must go to the
         // receiver: assigning the local player here would silently drop out
@@ -835,6 +932,7 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
         }
         playerView.player = currentPlayer
         playerView.keepScreenOn = true
+        updateAdUiVisibility()
         playerStateListener?.onPlayerTypeChanged(
             currentPlayer!!,
             if (currentPlayer === castPlayer) PlayerType.CAST_PLAYER else PlayerType.DEFAULT_PLAYER,
@@ -892,12 +990,15 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
     }
 
     override fun skipForward() {
+        // An ad cannot be scrubbed; the skip button IMA draws is the only way past it.
+        if (isPlayingAd()) return
         currentPlayer?.let {
             it.seekTo(it.currentPosition + SEEK_SKIP_MILLIS)
         }
     }
 
     override fun replay() {
+        if (isPlayingAd()) return
         currentPlayer?.let {
             val current = it.currentPosition
             val target = if(current > SEEK_SKIP_MILLIS) {
@@ -1054,6 +1155,7 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
 
         localPlayer?.release()
         localPlayer = null
+        releaseAdsLoader()
 
         castPlayer?.release()
         castPlayer = null
@@ -1071,7 +1173,7 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
         // Live playback reports C.TIME_UNSET too, so this deliberately changes it as well: pressing
         // play after a pause used to jump back to the start of the live window instead of resuming
         // where the viewer left off. Replaying a live edge from "the top" was never meaningful.
-        if (duration != C.TIME_UNSET && current >= duration) {
+        if (!isPlayingAd() && duration != C.TIME_UNSET && current >= duration) {
             currentPlayer?.seekTo(0)
         }
         // An error leaves media3 in STATE_IDLE, where playWhenReady is remembered but never acted
@@ -1095,7 +1197,7 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
         this.autoPaused = autoPaused
 
         // Save position on background thread, but get current position on main thread
-        coroutineScope.launch {
+        if (!isPlayingAd()) coroutineScope.launch {
             val position = getCurrentPosition() // Already on main thread
             val duration = getDuration() // Already on main thread
 
@@ -1118,6 +1220,12 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
     }
 
     override fun seekTo(positionMs: Long) {
+        // The player itself, not the cached flag: this is exactly the check media3 makes.
+        if (currentPlayer?.isPlayingAd == true) {
+            Log.d(TAG, "seekTo($positionMs) held until the ad break ends")
+            pendingContentSeekMs = positionMs
+            return
+        }
         currentPlayer?.seekTo(positionMs)
         // Save new position after seek
         coroutineScope.launch {
@@ -1147,9 +1255,134 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
 
     override fun isPlaying(): Boolean = currentPlayer?.isPlaying ?: false
 
-    override fun getDuration(): Long = currentPlayer?.duration ?: 0L
+    // Both report the video, never the ad playing over it: during an ad break media3's plain
+    // position and duration describe the ad, and every caller here (resume saving, progress
+    // listeners, the live surface's recovery) means the video.
+    override fun getDuration(): Long =
+        currentPlayer?.let { if (it.isPlayingAd) it.contentDuration else it.duration } ?: 0L
 
-    override fun getCurrentPosition(): Long = currentPlayer?.currentPosition ?: 0L
+    override fun getCurrentPosition(): Long = currentPlayer?.contentPosition ?: 0L
+
+    /** Whether an ad is on screen right now. Safe from any thread. */
+    internal fun isPlayingAd(): Boolean = playingAd
+
+    private fun buildAdsLoader(uiLanguage: String): ImaAdsLoader {
+        val builder = ImaAdsLoader.Builder(context)
+            .setAdEventListener { event ->
+                when (event.type) {
+                    // Fires several times a second and says nothing new.
+                    AdEvent.AdEventType.AD_PROGRESS -> Unit
+                    // IMA reports non-fatal problems (an ad in a pod that failed to load, say)
+                    // as LOG events; the details are in the ad data.
+                    AdEvent.AdEventType.LOG -> Log.w(TAG, "IMA ad log: ${event.adData}")
+                    else -> Log.d(TAG, "IMA ad event: ${event.type}")
+                }
+            }
+            .setAdErrorListener { event: AdErrorEvent ->
+                // Content plays on without the failed ad; this is the only trace of why.
+                Log.w(TAG, "IMA ad error: ${event.error.errorCode} ${event.error.message}")
+            }
+        // The ad UI ("Ad", "Skip ad") follows the player language set on the dashboard.
+        if (uiLanguage.isNotBlank()) {
+            builder.setImaSdkSettings(
+                ImaSdkFactory.getInstance().createImaSdkSettings().apply { setLanguage(uiLanguage) }
+            )
+        }
+        return builder.build()
+    }
+
+    /**
+     * Moves the ad UI into [playerView]. Called whenever a view takes the engine (the fullscreen
+     * view on the way in, the inline view on the way back) so the skip button follows the video.
+     */
+    internal fun attachAdUi(playerView: PlayerView) {
+        val container = adUiContainer ?: return
+        val overlay = playerView.adViewGroup
+        if (container.parent === overlay) return
+        (container.parent as? ViewGroup)?.removeView(container)
+        overlay.addView(
+            container,
+            ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT),
+        )
+        adUiHost = playerView
+    }
+
+    /**
+     * Takes the ad UI out of [playerView] when that view lets go of the engine or leaves the
+     * window, so a screen the viewer closed does not keep IMA's views. A no-op when the UI has
+     * already moved on to another view.
+     */
+    internal fun detachAdUi(playerView: PlayerView) {
+        val container = adUiContainer ?: return
+        if (container.parent !== playerView.adViewGroup) return
+        playerView.adViewGroup.removeView(container)
+        adUiHost = null
+    }
+
+    /**
+     * The receiver plays no client-side ads. Casting in the middle of one leaves IMA's UI paused on
+     * the phone, with buttons that still take taps, so it is hidden until playback comes back.
+     */
+    private fun updateAdUiVisibility() {
+        adUiContainer?.visibility = if (isCasting()) View.GONE else View.VISIBLE
+    }
+
+    private fun releaseAdsLoader() {
+        adsLoader?.let {
+            it.setPlayer(null)
+            it.release()
+        }
+        adsLoader = null
+        adUiContainer?.let { (it.parent as? ViewGroup)?.removeView(it) }
+        adUiContainer = null
+        adUiHost = null
+        pendingContentSeekMs = null
+        lastAdGroupIndex = C.INDEX_UNSET
+        updatePlayingAd(false)
+    }
+
+    /** Follows [player] in and out of ad breaks. Runs after every batch of player events. */
+    private fun syncAdPlayback(player: Player) {
+        val nowPlayingAd = player.isPlayingAd
+        if (nowPlayingAd) lastAdGroupIndex = player.currentAdGroupIndex
+        val adBreakEnded = playingAd && !nowPlayingAd
+        updatePlayingAd(nowPlayingAd)
+        if (nowPlayingAd) return
+
+        // A pre-roll on a live stream holds the content back by the length of the ad, which can
+        // be more than the whole live window. Join the live edge, as the ad promised.
+        if (adBreakEnded && pendingContentSeekMs == null && player.isCurrentMediaItemLive) {
+            pendingContentSeekMs = C.TIME_UNSET
+        }
+        val target = pendingContentSeekMs ?: return
+        // The ad break ends a moment before IMA marks it played. A seek in between finds the
+        // break still due and media3 starts it over, so wait for the timeline update that closes
+        // it; it arrives as another batch of events.
+        if (isAdGroupStillDue(player, lastAdGroupIndex)) return
+        pendingContentSeekMs = null
+        if (target == C.TIME_UNSET) {
+            Log.d(TAG, "Ad break over, joining the live edge")
+            player.seekToDefaultPosition()
+        } else {
+            Log.d(TAG, "Ad break over, applying the held seek to ${target}ms")
+            player.seekTo(target)
+        }
+    }
+
+    private fun isAdGroupStillDue(player: Player, adGroupIndex: Int): Boolean {
+        if (adGroupIndex == C.INDEX_UNSET) return false
+        val timeline = player.currentTimeline
+        if (timeline.isEmpty) return false
+        val period = timeline.getPeriod(player.currentPeriodIndex, Timeline.Period())
+        return adGroupIndex < period.adGroupCount && !period.hasPlayedAdGroup(adGroupIndex)
+    }
+
+    private fun updatePlayingAd(nowPlayingAd: Boolean) {
+        if (nowPlayingAd == playingAd) return
+        playingAd = nowPlayingAd
+        Log.d(TAG, if (nowPlayingAd) "Ad break started" else "Ad break ended")
+        adPlaybackListener?.invoke(nowPlayingAd)
+    }
 
     @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
     private fun switchCurrentPlayer(newPlayer: Player) {
@@ -1173,7 +1406,9 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
             val playbackState = previousPlayer.playbackState
 
             if (playbackState != Player.STATE_ENDED) {
-                newPlaybackPositionMs = previousPlayer.currentPosition
+                // Mid-ad, currentPosition is the ad's. The receiver plays no ads, so hand it the
+                // spot in the video instead.
+                newPlaybackPositionMs = previousPlayer.contentPosition
                 newPlayWhenReady = previousPlayer.playWhenReady
             }
 
@@ -1184,6 +1419,7 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
 
         currentPlayer = newPlayer
         currentPlayer?.addListener(playerListener)
+        updateAdUiVisibility()
 
         mediaItem?.let {
             newPlayer.setMediaItem(it, newPlaybackPositionMs)

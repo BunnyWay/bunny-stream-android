@@ -39,6 +39,8 @@ own; you never refresh or reconnect manually:
 - Stream ends: if the stream records a VOD, the player switches to the recording, with a normal
   seek bar.
 - Stream offline or over: an offline screen with the stream thumbnail.
+- Ads configured for the library: a pre-roll before the live edge, and the recording gets its own
+  ads. See [Ads](ads.md).
 
 The player checks the stream status every few seconds and connects automatically the moment the
 stream goes live.
