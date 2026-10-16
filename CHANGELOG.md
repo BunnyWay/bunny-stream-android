@@ -10,6 +10,8 @@ All notable changes to Bunny Stream Android are documented in this file. The for
 
 ## [Unreleased]
 
+## [4.2.1] - 2026-10-16
+
 ### Added
 
 - `PlayerSettings` carries the library's Enterprise DRM settings: `widevineMinClientSecurityLevel`,
