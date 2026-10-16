@@ -1,0 +1,128 @@
+# Keeps CHANGELOG.md and the GitHub release notes in sync.
+#
+# Entries are written by hand under "## [Unreleased]" as part of each pull request. When a release
+# is published, this workflow:
+#   1. takes the Unreleased entries at the released tag and puts them in the release notes, in place
+#      of the list of PR titles GitHub generates;
+#   2. opens a pull request that moves them under "## [X.Y.Z] - date" on main. main only takes
+#      changes through pull requests, so this is a PR rather than a push.
+#
+# Nothing here publishes anything: Maven Central is publish.yml, triggered by the tag itself.
+# Run it by hand from the Actions tab (with the tag) to redo a release whose run failed.
+name: Release changelog
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Released tag, for example 4.3.0
+        required: true
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: release-changelog-${{ github.event.release.tag_name || inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  changelog:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      VERSION: ${{ github.event.release.tag_name || inputs.tag }}
+      PUBLISHED_AT: ${{ github.event.release.published_at }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Check the tag
+        run: |
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::'$VERSION' is not an X.Y.Z tag"
+            exit 1
+          fi
+          git rev-parse --verify --quiet "refs/tags/$VERSION" > /dev/null \
+            || { echo "::error::tag $VERSION does not exist"; exit 1; }
+          # The release's own date; a manual run on an old tag falls back to today.
+          echo "RELEASE_DATE=${PUBLISHED_AT:0:10}" >> "$GITHUB_ENV"
+          if [ -z "$PUBLISHED_AT" ]; then echo "RELEASE_DATE=$(date -u +%F)" >> "$GITHUB_ENV"; fi
+
+      - name: Collect the release's entries from the tag
+        id: entries
+        run: |
+          git show "$VERSION:CHANGELOG.md" > "$RUNNER_TEMP/tag-changelog.md"
+          if python3 scripts/release_changelog.py --changelog "$RUNNER_TEMP/tag-changelog.md" \
+              notes "$VERSION" > "$RUNNER_TEMP/entries.md" 2> /dev/null; then
+            echo "source=section" >> "$GITHUB_OUTPUT"
+          else
+            python3 scripts/release_changelog.py --changelog "$RUNNER_TEMP/tag-changelog.md" \
+              unreleased > "$RUNNER_TEMP/entries.md"
+            echo "source=unreleased" >> "$GITHUB_OUTPUT"
+          fi
+          if [ -z "$(tr -d '[:space:]' < "$RUNNER_TEMP/entries.md")" ]; then
+            echo "empty=true" >> "$GITHUB_OUTPUT"
+            echo "::warning::CHANGELOG.md has no entries for $VERSION; the generated release notes stay as they are"
+          fi
+
+      - name: Put the entries in the release notes
+        if: steps.entries.outputs.empty != 'true'
+        run: |
+          notes="$RUNNER_TEMP/notes.md"
+          cp "$RUNNER_TEMP/entries.md" "$notes"
+          previous=$(git describe --tags --abbrev=0 "$VERSION^" 2> /dev/null || true)
+          if [ -n "$previous" ]; then
+            printf '\n\n**Full Changelog**: %s/%s/compare/%s...%s\n' \
+              "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$previous" "$VERSION" >> "$notes"
+          fi
+          gh release edit "$VERSION" --notes-file "$notes"
+
+      - name: Open the pull request that dates the changelog
+        if: steps.entries.outputs.empty != 'true' && steps.entries.outputs.source == 'unreleased'
+        run: |
+          branch="changelog/$VERSION"
+          if gh pr list --head "$branch" --state open --json number --jq '.[].number' | grep -q .; then
+            echo "A pull request for $branch is already open"
+            exit 0
+          fi
+          git switch -C "$branch" origin/main
+
+          # Releases are cut from main, so main normally still has exactly what the tag had. If
+          # something was merged in between, moving Unreleased would put it in the wrong version.
+          python3 scripts/release_changelog.py unreleased > "$RUNNER_TEMP/main-unreleased.md"
+          if python3 scripts/release_changelog.py notes "$VERSION" > /dev/null 2>&1; then
+            echo "main already has a section for $VERSION, nothing to do"
+            exit 0
+          fi
+          if ! cmp -s "$RUNNER_TEMP/main-unreleased.md" "$RUNNER_TEMP/entries.md"; then
+            {
+              echo "## Changelog not dated"
+              echo
+              echo "Unreleased on main has changed since $VERSION was tagged, so the section was"
+              echo "not moved automatically. Move the $VERSION entries under"
+              echo "\`## [$VERSION] - $RELEASE_DATE\` by hand and leave the newer ones under Unreleased."
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo "::warning::Unreleased on main changed after $VERSION was tagged; date the changelog by hand"
+            exit 0
+          fi
+
+          python3 scripts/release_changelog.py release "$VERSION" "$RELEASE_DATE"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "docs(changelog): add the $VERSION section" \
+            -m "Moves the Unreleased entries released as $VERSION under a dated section. The empty Unreleased heading stays as the place for the next entries."
+          git push --force origin "$branch"
+          if ! gh pr create --base main --head "$branch" \
+              --title "docs(changelog): add the $VERSION section" \
+              --body "$VERSION was released on $RELEASE_DATE. This moves its entries from Unreleased into a dated \`## [$VERSION] - $RELEASE_DATE\` section; the text of the entries is unchanged. Opened by the release-changelog workflow, docs only."; then
+            # Creating pull requests with the workflow token needs "Allow GitHub Actions to create
+            # and approve pull requests" in the repository's Actions settings. The branch is pushed
+            # either way, so the PR is one click away.
+            compare="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/compare/main...$branch?expand=1"
+            echo "Open the changelog PR by hand: $compare" >> "$GITHUB_STEP_SUMMARY"
+            echo "::warning::Could not open the pull request; the branch $branch is pushed, open it from $compare"
+          fi
