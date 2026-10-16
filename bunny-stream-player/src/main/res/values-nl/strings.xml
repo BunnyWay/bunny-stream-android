@@ -10,4 +10,5 @@
     <string name="label_drm_not_supported_exception">DRM is ingeschakeld voor deze video, afspelen wordt niet ondersteund op dit apparaat.</string>
     <string name="error_video_not_available">Video is niet beschikbaar</string>
     <string name="error_no_internet_connection">Geen internetverbinding</string>
+    <string name="error_drm_security_level_unsupported">Deze video kan niet worden afgespeeld op dit apparaat</string>
 </resources>

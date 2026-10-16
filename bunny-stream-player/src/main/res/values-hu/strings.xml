@@ -10,4 +10,5 @@
     <string name="label_drm_not_supported_exception">A DRM engedélyezve van ehhez a videóhoz, a lejátszás nem támogatott ezen az eszközön.</string>
     <string name="error_video_not_available">A videó nem érhető el</string>
     <string name="error_no_internet_connection">Nincs internetkapcsolat</string>
+    <string name="error_drm_security_level_unsupported">Ez a videó nem játszható le ezen az eszközön</string>
 </resources>

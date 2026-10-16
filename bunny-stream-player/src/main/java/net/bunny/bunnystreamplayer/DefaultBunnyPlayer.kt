@@ -247,6 +247,11 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
 
     private var trackSelector: DefaultTrackSelector? = null
 
+    // Max video size the current video's DRM license allows on this device (width to height), or
+    // null when it allows every rendition. Set per video in playVideo; see WidevinePolicy.
+    private var drmMaxVideoSize: Pair<Int, Int>? = null
+    private var drmMaxResolution: Int? = null
+
     private val httpDataSourceFactory: HttpDataSource.Factory =
         DefaultHttpDataSource.Factory().setAllowCrossProtocolRedirects(true)
 
@@ -408,7 +413,15 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
                         override fun onCastSessionUnavailable() {
                             Log.d(TAG, "onCastSessionUnavailable")
                             castSessionAvailable = false
+                            // The phone takes the video back, so its own Widevine level counts
+                            // again: a video only the receiver could license must not be loaded.
+                            val settings = playerSettings?.takeIf { it.drmEnabled }
+                            val deviceLevel = settings?.let { WidevinePolicy.deviceSecurityLevel }
+                            val refused = settings != null &&
+                                !WidevinePolicy.isSecurityLevelSupported(settings, deviceLevel)
+                            if (refused) mediaItem = null
                             localPlayer?.let { local -> switchCurrentPlayer(local) }
+                            if (refused && settings != null) failUnsupportedSecurityLevel(settings, deviceLevel)
                         }
                     })
                 }
@@ -668,6 +681,23 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
         currentLibraryId = video.videoLibraryId
         resumePosition = playerSettings.resumePosition
 
+        // Enterprise DRM restrictions concern this device's own decoder. While a cast session is
+        // up the receiver plays the video and licenses it with its own Widevine level, so only the
+        // refusal waits for the handback (onCastSessionUnavailable). The cap is set either way: it
+        // lives on the local track selector, which is the one that takes over when casting ends.
+        val deviceDrmLevel = if (playerSettings.drmEnabled) WidevinePolicy.deviceSecurityLevel else null
+        if (!castSessionAvailable && !WidevinePolicy.isSecurityLevelSupported(playerSettings, deviceDrmLevel)) {
+            failUnsupportedSecurityLevel(playerSettings, deviceDrmLevel)
+            return
+        }
+        drmMaxResolution = WidevinePolicy.maxResolution(playerSettings, deviceDrmLevel)
+        drmMaxVideoSize = drmMaxResolution?.let {
+            WidevinePolicy.maxVideoSize(it, video.width, video.height)
+        }
+        drmMaxResolution?.let {
+            Log.i(TAG, "Widevine L$deviceDrmLevel: the library licenses up to ${it}p here, capping video")
+        }
+
         // Set up TransferListener for debugging
         val transferListener = object : TransferListener {
             override fun onTransferInitializing(
@@ -818,7 +848,14 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
         trackSelector = DefaultTrackSelector(context)
         trackSelector?.parameters = trackSelector!!.buildUponParameters()
             .setPreferredVideoMimeType(MimeTypes.VIDEO_H264)
-            .clearVideoSizeConstraints()
+            .apply {
+                val maxSize = drmMaxVideoSize
+                if (maxSize != null) {
+                    setMaxVideoSize(maxSize.first, maxSize.second)
+                } else {
+                    clearVideoSizeConstraints()
+                }
+            }
             .build()
 
         playerView.setShutterBackgroundColor(Color.TRANSPARENT)
@@ -985,6 +1022,36 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
         }
     }
 
+    /**
+     * Ends a load the library's DRM policy rules out on this device: the license server refuses
+     * Widevine levels below `widevineMinClientSecurityLevel`, so starting playback would only end
+     * in a raw DRM error. The previous video stops too, since the viewer asked for a new one.
+     */
+    private fun failUnsupportedSecurityLevel(playerSettings: PlayerSettings, deviceLevel: Int?) {
+        stopAutoSavePosition()
+        currentPlayer?.stop()
+        currentPlayer?.clearMediaItems()
+        mediaItem = null
+        // Nothing of the previous video may linger on the time bar behind the error.
+        seekThumbnail = null
+        moments = emptyList()
+        chapters = emptyList()
+        retentionData = emptyList()
+
+        val rawMessage = "Widevine L$deviceLevel is below the L${playerSettings.widevineMinClientSecurityLevel} " +
+            "this library requires; the license server will not issue a license to this device"
+        Log.w(TAG, rawMessage)
+        val info = PlaybackFailureInfo(
+            errorCode = PlaybackException.ERROR_CODE_DRM_SYSTEM_ERROR,
+            errorCodeName = PlaybackException.getErrorCodeName(PlaybackException.ERROR_CODE_DRM_SYSTEM_ERROR),
+            httpStatus = null,
+            rawMessage = rawMessage,
+            userMessage = context.getString(R.string.error_drm_security_level_unsupported),
+        )
+        playbackFailureInfoListener?.invoke(info)
+        playerStateListener?.onPlayerError(info.userMessage)
+    }
+
     override fun setResumePosition(position: Long) {
         resumePosition = position
     }
@@ -1118,8 +1185,12 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
 
     override fun selectQuality(quality: VideoQuality) {
         Log.d(TAG, "selectQuality: $quality")
+        // "Auto" is MAX x MAX, and any pick is bounded by what the DRM license allows here.
+        val maxSize = drmMaxVideoSize
+        val width = maxSize?.let { minOf(quality.width, it.first) } ?: quality.width
+        val height = maxSize?.let { minOf(quality.height, it.second) } ?: quality.height
         trackSelector?.let {
-            val params = it.buildUponParameters().setMaxVideoSize(quality.width, quality.height)
+            val params = it.buildUponParameters().setMaxVideoSize(width, height)
             it.setParameters(params)
         }
     }
@@ -1438,7 +1509,12 @@ class DefaultBunnyPlayer private constructor(private val appContext: Context) : 
             for (trackIndex in 0 until it.length) {
                 if (it.isTrackSupported(trackIndex)) {
                     val format = it.getTrackFormat(trackIndex)
-                    if (format.width != Format.NO_VALUE || format.height != Format.NO_VALUE) {
+                    // Renditions the DRM license won't cover on this device would only fail in
+                    // the decoder, so they are not offered.
+                    val allowed = drmMaxResolution
+                        ?.let { max -> WidevinePolicy.fits(format.width, format.height, max) }
+                        ?: true
+                    if (allowed && (format.width != Format.NO_VALUE || format.height != Format.NO_VALUE)) {
                         options.add(VideoQuality(format.width, format.height))
                     }
                 }

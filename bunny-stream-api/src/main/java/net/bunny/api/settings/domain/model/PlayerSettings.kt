@@ -17,6 +17,18 @@ data class PlayerSettings(
     val seekPath: String,
     val captionsPath: String,
     val resumePosition: Long = 0L, // Position in milliseconds
+    /**
+     * Lowest Widevine security level the library accepts (1 = L1, hardware-backed, the strictest;
+     * 3 = L3, software only). Null when the library does not restrict it.
+     */
+    val widevineMinClientSecurityLevel: Int? = null,
+    /**
+     * The library only licenses SD renditions to Widevine L3 devices: on such a device the player
+     * has to stay at or below [maxSoftwareWidevineResolution].
+     */
+    val widevineSdOnlyForL3: Boolean = false,
+    /** Highest rendition (in "p", e.g. 480) a Widevine L3 device may play when [widevineSdOnlyForL3] is on. */
+    val maxSoftwareWidevineResolution: Int? = null,
 ) {
     // "rewind,fast-forward,play-large,captions,current-time,duration,fullscreen,mute,pip,play,progress,settings,volume"
     val subtitlesEnabled = controls.contains("captions")

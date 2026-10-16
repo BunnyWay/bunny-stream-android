@@ -10,4 +10,5 @@
     <string name="label_drm_not_supported_exception">Το DRM είναι ενεργοποιημένο για αυτό το βίντεο, η αναπαραγωγή δεν υποστηρίζεται σε αυτήν τη συσκευή.</string>
     <string name="error_video_not_available">Το βίντεο δεν είναι διαθέσιμο</string>
     <string name="error_no_internet_connection">Δεν υπάρχει σύνδεση στο διαδίκτυο</string>
+    <string name="error_drm_security_level_unsupported">Αυτό το βίντεο δεν μπορεί να αναπαραχθεί σε αυτήν τη συσκευή</string>
 </resources>

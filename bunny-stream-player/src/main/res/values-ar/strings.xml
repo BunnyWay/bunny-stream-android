@@ -10,4 +10,5 @@
     <string name="label_drm_not_supported_exception">تم تمكين DRM لهذا الفيديو، التشغيل غير مدعوم على هذا الجهاز.</string>
     <string name="error_video_not_available">الفيديو غير متاح</string>
     <string name="error_no_internet_connection">لا يوجد اتصال بالإنترنت</string>
+    <string name="error_drm_security_level_unsupported">لا يمكن تشغيل هذا الفيديو على هذا الجهاز</string>
 </resources>

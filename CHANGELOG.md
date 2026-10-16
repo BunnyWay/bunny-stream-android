@@ -10,6 +10,12 @@ All notable changes to Bunny Stream Android are documented in this file. The for
 
 ## [Unreleased]
 
+### Added
+
+- `PlayerSettings` carries the library's Enterprise DRM settings: `widevineMinClientSecurityLevel`,
+  `widevineSdOnlyForL3` and `maxSoftwareWidevineResolution`. All three have defaults, so code that
+  builds `PlayerSettings` by hand keeps compiling.
+
 ### Changed
 
 - The SDK's User-Agent starts with the platform's own one, the header Android's HTTP stack sends
@@ -21,6 +27,18 @@ All notable changes to Bunny Stream Android are documented in this file. The for
   Bunny's analytics can tell mobile traffic apart. Nothing to change in your app. If your own code
   matched the whole header against `bunny-stream-android/<version>`, look for that token inside
   the header instead.
+
+### Fixed
+
+- Videos from a library with Enterprise DRM set to "SD only for L3" failed on Widevine L3 devices
+  (emulators and many cheaper phones) with `ERROR_CODE_DECODING_FAILED`. The SDK ignored
+  `widevineSdOnlyForL3` and `maxSoftwareWidevineResolution` from `/play`, so the player picked the
+  1080p rendition, which the license does not cover on L3. On L3 the player now stays at or below
+  that resolution, and the quality menu only offers renditions that will play.
+- A device below the library's minimum Widevine security level (`widevineMinClientSecurityLevel`,
+  for example an L3 device on an L1-only library) showed a raw DRM error code. The player now
+  checks the level before loading and shows "This video can't be played on this device" in all 31
+  player languages. The reason goes to logcat.
 
 ## [4.2.0] - 2026-10-16
 

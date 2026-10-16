@@ -10,4 +10,5 @@
     <string name="label_drm_not_supported_exception">此视频已启用DRM，此设备不支持播放。</string>
     <string name="error_video_not_available">视频不可用</string>
     <string name="error_no_internet_connection">无网络连接</string>
+    <string name="error_drm_security_level_unsupported">此视频无法在此设备上播放</string>
 </resources>

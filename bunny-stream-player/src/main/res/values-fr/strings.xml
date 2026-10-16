@@ -10,4 +10,5 @@
     <string name="label_drm_not_supported_exception">DRM est activé pour cette vidéo, la lecture n\'est pas prise en charge sur cet appareil.</string>
     <string name="error_video_not_available">La vidéo n\'est pas disponible</string>
     <string name="error_no_internet_connection">Pas de connexion Internet</string>
+    <string name="error_drm_security_level_unsupported">Cette vidéo ne peut pas être lue sur cet appareil</string>
 </resources>

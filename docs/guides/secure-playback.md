@@ -54,6 +54,26 @@ val glideUrl = GlideUrl(thumbnailUrl) { mapOf("Referer" to BunnyCdn.REFERER) }
 
 Without the header those requests come back as `403`.
 
+## Enterprise DRM (Widevine)
+
+The player follows the library's Enterprise DRM settings on its own; there is nothing to configure
+in the app. What viewers see depends on the Widevine security level of their device. Emulators and
+many cheaper phones only have L3 (software), most current phones have L1 (hardware).
+
+- **SD only for L3**: the license server only gives L3 devices the keys for the SD renditions.
+  On an L3 device the player stays at or below the library's maximum software resolution (480p
+  unless the library says otherwise), and the quality menu only lists those renditions. L1 devices
+  get the full ladder.
+- **Minimum security level**: a device below the library's minimum gets no license at all. The
+  player does not start playback there and shows "This video can't be played on this device". The
+  same text reaches `onPlaybackError`, and the exact reason (device level and required level) goes
+  to logcat.
+
+When the SDK can't read the device's level, it applies neither rule and leaves the decision to the
+license server. While casting, the receiver plays and licenses the video itself. The phone's level
+counts again when playback comes back to the phone: the cap applies there, and a video the phone
+can't license stops with the same message.
+
 ## Keep the API key server-side where you can
 
 The `accessKey` passed to `initialize` is your library's API key. It can manage content, not just

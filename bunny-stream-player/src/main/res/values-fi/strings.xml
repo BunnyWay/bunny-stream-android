@@ -10,4 +10,5 @@
     <string name="label_drm_not_supported_exception">DRM on käytössä tälle videolle, toisto ei ole tuettu tällä laitteella.</string>
     <string name="error_video_not_available">Video ei ole saatavilla</string>
     <string name="error_no_internet_connection">Ei internetyhteyttä</string>
+    <string name="error_drm_security_level_unsupported">Tätä videota ei voi toistaa tällä laitteella</string>
 </resources>
