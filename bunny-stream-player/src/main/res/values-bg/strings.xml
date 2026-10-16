@@ -10,4 +10,5 @@
     <string name="label_drm_not_supported_exception">DRM е активиран за това видео, възпроизвеждането не се поддържа на това устройство.</string>
     <string name="error_video_not_available">Видеото не е налично</string>
     <string name="error_no_internet_connection">Няма интернет връзка</string>
+    <string name="error_drm_security_level_unsupported">Това видео не може да се пусне на това устройство</string>
 </resources>

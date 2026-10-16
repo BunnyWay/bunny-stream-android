@@ -10,4 +10,5 @@
     <string name="label_drm_not_supported_exception">このビデオではDRMが有効になっています。このデバイスでは再生がサポートされていません。</string>
     <string name="error_video_not_available">ビデオは利用できません</string>
     <string name="error_no_internet_connection">インターネットに接続されていません</string>
+    <string name="error_drm_security_level_unsupported">この動画はこのデバイスでは再生できません</string>
 </resources>

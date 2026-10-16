@@ -58,6 +58,17 @@ data class PlayerSettingsResponse(
     @SerialName("resumePosition")
     val resumePosition: Long? = 0L,
 
+    // Enterprise DRM restrictions. Libraries without them leave these out or send null, so every
+    // one of them needs a default.
+    @SerialName("widevineMinClientSecurityLevel")
+    val widevineMinClientSecurityLevel: Int? = null,
+
+    @SerialName("widevineSdOnlyForL3")
+    val widevineSdOnlyForL3: Boolean? = null,
+
+    @SerialName("maxSoftwareWidevineResolution")
+    val maxSoftwareWidevineResolution: Int? = null,
+
     ) {
     fun toModel() = PlayerSettings(
         thumbnailUrl = thumbnailUrl,
@@ -76,6 +87,9 @@ data class PlayerSettingsResponse(
         seekPath = seekPath,
         videoUrl = videoUrl,
         resumePosition = resumePosition ?: 0L,
+        widevineMinClientSecurityLevel = widevineMinClientSecurityLevel,
+        widevineSdOnlyForL3 = widevineSdOnlyForL3 ?: false,
+        maxSoftwareWidevineResolution = maxSoftwareWidevineResolution,
     )
 
     private fun parsePlaybackSpeeds(): List<Float> {

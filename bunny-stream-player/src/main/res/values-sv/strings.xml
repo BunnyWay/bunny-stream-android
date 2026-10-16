@@ -10,4 +10,5 @@
     <string name="label_drm_not_supported_exception">DRM är aktiverat för denna video, uppspelning stöds inte på denna enhet.</string>
     <string name="error_video_not_available">Videon är inte tillgänglig</string>
     <string name="error_no_internet_connection">Ingen internetanslutning</string>
+    <string name="error_drm_security_level_unsupported">Den här videon kan inte spelas upp på den här enheten</string>
 </resources>

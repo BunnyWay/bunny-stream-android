@@ -10,4 +10,5 @@
     <string name="label_drm_not_supported_exception">DRM diaktifkan untuk video ini, pemutaran tidak didukung pada perangkat ini.</string>
     <string name="error_video_not_available">Video tidak tersedia</string>
     <string name="error_no_internet_connection">Tidak ada koneksi internet</string>
+    <string name="error_drm_security_level_unsupported">Video ini tidak dapat diputar di perangkat ini</string>
 </resources>

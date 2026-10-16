@@ -10,4 +10,5 @@
     <string name="label_drm_not_supported_exception">DRM được bật cho video này, phát lại không được hỗ trợ trên thiết bị này.</string>
     <string name="error_video_not_available">Video không khả dụng</string>
     <string name="error_no_internet_connection">Không có kết nối internet</string>
+    <string name="error_drm_security_level_unsupported">Không thể phát video này trên thiết bị này</string>
 </resources>

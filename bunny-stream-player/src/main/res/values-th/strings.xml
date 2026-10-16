@@ -10,4 +10,5 @@
     <string name="label_drm_not_supported_exception">DRM เปิดใช้งานสำหรับวิดีโอนี้ การเล่นไม่รองรับบนอุปกรณ์นี้</string>
     <string name="error_video_not_available">วิดีโอไม่พร้อมใช้งาน</string>
     <string name="error_no_internet_connection">ไม่มีการเชื่อมต่ออินเทอร์เน็ต</string>
+    <string name="error_drm_security_level_unsupported">ไม่สามารถเล่นวิดีโอนี้บนอุปกรณ์นี้ได้</string>
 </resources>

@@ -10,4 +10,5 @@
     <string name="label_drm_not_supported_exception">DRM je omogočen za ta videoposnetek, predvajanje ni podprto na tej napravi.</string>
     <string name="error_video_not_available">Videoposnetek ni na voljo</string>
     <string name="error_no_internet_connection">Ni internetne povezave</string>
+    <string name="error_drm_security_level_unsupported">Tega videoposnetka ni mogoče predvajati v tej napravi</string>
 </resources>
