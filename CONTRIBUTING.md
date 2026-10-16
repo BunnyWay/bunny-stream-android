@@ -62,6 +62,27 @@ Pull requests should include:
 - How it was tested
 - Any migration notes for SDK users
 
+### Pull request titles
+
+Pull requests are squash-merged, so the title becomes the commit on `main`. Use the
+[Conventional Commits](https://www.conventionalcommits.org/) form, `type(scope): summary`:
+
+- types: `feat`, `fix`, `docs`, `deps`, `ci`, `refactor`, `test`, `chore`
+- scope: the area touched, such as `api`, `player`, `recording`, `tv`, `demo` or `docs`
+- for example `fix(player): play VAST and VMAP ads through the Google IMA ads loader`
+
+### Changelog
+
+`CHANGELOG.md` is written by hand, for the developers who integrate the SDK. A pull request that
+changes what they see (behavior, public API, dependencies, requirements) adds its entry under
+`## [Unreleased]`, in the `Added`, `Changed` or `Fixed` group. Say what changed and what an
+integrator has to do about it, not how the code was refactored.
+
+Do not date the section yourself. When a release is published on GitHub, the
+`release-changelog` workflow puts the Unreleased entries into the release notes and opens a pull
+request that moves them under `## [X.Y.Z] - date`. Merge that pull request and the changelog is
+done.
+
 ## API and Compatibility
 
 This repository publishes Android libraries used by external applications. Please be careful with:
