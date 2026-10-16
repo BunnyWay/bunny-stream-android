@@ -10,6 +10,46 @@ All notable changes to Bunny Stream Android are documented in this file. The for
 
 ## [Unreleased]
 
+### Added
+
+- Playback without an API key. `BunnyStreamApi.initialize(context, libraryId)` and
+  `BunnyStreamApi.create(context, libraryId)` create a playback-only instance, and
+  `BunnyStreamConfig.accessKey` is optional (`null` by default). The three-argument
+  `initialize`/`create` accept a `null` key too. VOD and live playback, player settings, the
+  live status poll, the heatmap, DRM, the pre-stream trailer and the ended stream's recording all
+  work with the library id, the video or stream id and, on a token-authenticated library, the
+  signed token. Apps that ship to viewers no longer have to carry a key that can manage the
+  library. `BunnyStreamConfig.isPlaybackOnly` tells the two kinds of instance apart.
+- On a playback-only instance every management call (listing, creating, editing, uploading,
+  broadcasting, recording) fails with a terminal `BunnyError.InvalidState` that names the fix,
+  without reaching the network.
+
+### Changed
+
+- The live player reads the stream's status from the public live `/play` endpoint, with the
+  playback token, instead of the management `GET /live/{id}`. `LiveStreamRepository.pollLiveStream`
+  gained `token`/`expires` parameters, and the stream it returns no longer carries the publisher's
+  secrets (stream key, ingest URLs, live outputs); use `getLiveStream` for those. If the token
+  expires while the stream is playing, the player stops polling and keeps playing instead of
+  stopping with an error.
+- `VideoRepository.fetchVideoHeatmap` gained `token`/`expires` parameters and reads the public
+  `/play/heatmap` endpoint, with or without a key, instead of the management endpoint. Keys are
+  segment indexes in timeline order, as before.
+- If you implement `LiveStreamRepository` or `VideoRepository` yourself (a test fake, say), add the
+  four-argument `pollLiveStream` and `fetchVideoHeatmap`. The two-argument forms stay, as default
+  methods, so code compiled against 4.1 keeps working.
+- `BunnyStreamConfig.accessKey` is now `String?`. Code that reads it as a non-null `String` needs a
+  null check. A blank key is still rejected: pass `null` for playback only.
+
+### Fixed
+
+- The live player's status poll never started: `BunnyLiveStreamPlayer` delivered `ON_START`
+  before `start()` had run and the view model dropped it, so a stream going live or ending was
+  only noticed when playback happened to fail. The poll now starts as soon as the player does.
+- The SDK could not be initialised without an API key. Since 2025 the TUS uploader demanded the
+  key while the instance was being built, so `initialize(context, null, libraryId)` threw even
+  though its signature accepted `null`, and 4.0 made the key a required `String`.
+
 ## [4.1.1] - 2026-10-12
 
 ### Changed

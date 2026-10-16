@@ -24,6 +24,16 @@ BunnyStreamApi.initialize(context, accessKey = "your-api-key", libraryId = 12345
 `accessKey` is your library's API key (Bunny dashboard > Stream > your library > API). Keep it
 out of source control. Blank credentials are rejected here rather than failing later with a 401.
 
+An app that only plays needs no key:
+
+```kotlin
+BunnyStreamApi.initialize(context, libraryId = 12345L)
+```
+
+Such an instance serves everything a player reads from Bunny's public play endpoints (video and
+live play data, player settings, the live status, the heatmap). Every management call returns
+`BunnyError.InvalidState` without reaching the network.
+
 ### More than one library
 
 `initialize` registers a *default instance*. Each instance owns its credentials, HTTP client and

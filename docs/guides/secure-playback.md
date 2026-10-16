@@ -57,5 +57,7 @@ Without the header those requests come back as `403`.
 ## Keep the API key server-side where you can
 
 The `accessKey` passed to `initialize` is your library's API key. It can manage content, not just
-read it. For apps that only play content, consider a thin backend that performs management calls
-and hands the app only what it needs (video ids, playback tokens).
+read it. Apps that only play content do not need it at all: initialise with
+`BunnyStreamApi.initialize(context, libraryId)` and the SDK plays through the public play
+endpoints. If the library has token authentication on, have a backend sign the playback tokens and
+hand the app only what it needs (video ids, tokens), so neither key ships in the APK.

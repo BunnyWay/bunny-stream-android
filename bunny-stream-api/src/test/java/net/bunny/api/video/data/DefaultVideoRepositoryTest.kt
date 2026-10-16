@@ -27,7 +27,6 @@ import org.openapitools.client.models.StatusModelOfVideoStorageSizeModel
 import org.openapitools.client.models.VideoStorageSizeModel
 import org.openapitools.client.models.CaptionModelAdd
 import org.openapitools.client.models.CreateVideoModel
-import org.openapitools.client.models.VideoHeatmapModel
 import org.openapitools.client.models.VideoModel
 import org.openapitools.client.models.UpdateVideoModel
 
@@ -142,19 +141,34 @@ class DefaultVideoRepositoryTest {
         }
 
     @Test
-    fun `the heatmap wrapper is unwrapped to the map itself`() = runTest(dispatcher) {
-        every { api.videoGetVideoHeatmap(LIBRARY_ID, VIDEO_ID) } returns
-            VideoHeatmapModel(heatmap = mapOf("0" to 100, "30" to 60))
-
-        val heatmap = (repo.fetchVideoHeatmap(LIBRARY_ID, VIDEO_ID) as BunnyResult.Ok).value
-        assertEquals(mapOf("0" to 100, "30" to 60), heatmap)
+    fun `a public heatmap body reads as segment index to value, in order`() {
+        // The shape Bunny's /play/heatmap actually answers with (Bunny's demo library, 2026-10-15).
+        assertEquals(
+            mapOf("0" to 94, "1" to 89, "2" to 85, "3" to 6),
+            parsePublicHeatmap("94,89,85,6"),
+        )
+        assertEquals(mapOf("0" to 11, "1" to 9), parsePublicHeatmap(" 11, 9\n"))
     }
 
     @Test
-    fun `an absent heatmap reads as empty rather than failing`() = runTest(dispatcher) {
-        every { api.videoGetVideoHeatmap(LIBRARY_ID, VIDEO_ID) } returns VideoHeatmapModel()
+    fun `a public heatmap wrapped in a JSON string reads the same`() {
+        // What the server sends when the request asks for application/json.
+        assertEquals(mapOf("0" to 94, "1" to 89), parsePublicHeatmap("\"94,89\""))
+        assertTrue(parsePublicHeatmap("\"\"").isEmpty())
+    }
 
-        assertTrue((repo.fetchVideoHeatmap(LIBRARY_ID, VIDEO_ID) as BunnyResult.Ok).value.isEmpty())
+    @Test
+    fun `an empty public heatmap body is an empty heatmap`() {
+        // What the server answers for a video without heatmap data: 200 and nothing in the body.
+        assertTrue(parsePublicHeatmap("").isEmpty())
+        assertTrue(parsePublicHeatmap("  \n").isEmpty())
+    }
+
+    @Test
+    fun `a public heatmap body that is not a list of numbers is a decode error`() {
+        val error = runCatching { parsePublicHeatmap("""{"heatmap":{}}""") }.exceptionOrNull()
+
+        assertTrue("expected JsonParseException, was $error", error is com.google.gson.JsonParseException)
     }
 
     // endregion

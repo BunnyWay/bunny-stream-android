@@ -5,8 +5,9 @@ The failure modes integrators actually hit, with fixes.
 ## Player shows a black view, no crash
 
 `BunnyStreamApi.initialize(...)` was not called before `playVideo`. The player logs an error
-(`Unable to play video, initialize the player first...`) and renders nothing. Initialize in
-`Application.onCreate`, see [Getting started](getting-started.md).
+(`Unable to play video, call BunnyStreamApi.initialize(context, libraryId) first...`) and renders
+nothing. Initialize in `Application.onCreate`, see [Getting started](getting-started.md). A
+library id is enough for playback; the API key is not needed.
 
 ## The video plays black, but the controls and timeline work
 
@@ -27,9 +28,17 @@ opens first. Either initialise earlier, guard with `isInitialized()`, or create 
 
 ## `IllegalArgumentException: accessKey must not be blank`
 
-`initialize` is being called with placeholder credentials — commonly an empty key read from
+`initialize` is being called with placeholder credentials, commonly an empty key read from
 preferences before the user has entered one, or a `libraryId` of `0`. The SDK rejects these instead
-of accepting them and failing later with a `401`. Call `initialize` once you have real values.
+of accepting them and failing later with a `401`. If the app only plays, pass `null` for the key
+(or call `initialize(context, libraryId)`); otherwise call `initialize` once you have real values.
+
+## `InvalidState: ... needs the library's access key`
+
+The instance was created without an API key (playback only), and something called a management
+endpoint: listing or editing videos, uploading, creating or starting a live stream, recording from
+the camera. The SDK refuses it before it reaches the network. Initialise with the key in the app
+that manages the library, or keep that work on a backend.
 
 ## Images come back as HTTP 403
 

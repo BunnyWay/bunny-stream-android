@@ -5,7 +5,8 @@ Show a live stream to viewers with one composable.
 ## Prerequisites
 
 - `net.bunny:player` dependency
-- `BunnyStreamApi.initialize(...)` called, see [Getting started](getting-started.md)
+- `BunnyStreamApi.initialize(...)` called, see [Getting started](getting-started.md). The library
+  id is enough: `BunnyStreamApi.initialize(context, libraryId)`. Playback does not need the API key.
 - Jetpack Compose (the live player is Compose-only)
 - The stream's GUID, from the dashboard or from
   [Manage live streams](manage-live-streams.md)

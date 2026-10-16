@@ -24,6 +24,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
@@ -77,6 +78,149 @@ class BunnyLiveStreamPlayerViewModelTest {
             scheduler.advanceTimeBy(60_000L)
             scheduler.runCurrent()
             assertEquals("no polls after terminal status", 1, callCount.get())
+        } finally {
+            vm.onBackground()
+        }
+    }
+
+    @Test
+    fun `every poll carries the playback token the player was started with`() {
+        // The poll reads the public live /play endpoint, which a token-authenticated library
+        // refuses without the signed pair. Dropping it would stop the player with a terminal 403
+        // on the first poll, a few seconds into a stream that was playing fine.
+        val repo = FakeRepo(pollResult = { BunnyResult.Ok(runningStream()) })
+        val vm = newVm(repo)
+        try {
+            vm.start(libraryId = 1L, streamId = "s", token = "signed", expires = 1_900_000_000L)
+            scheduler.runCurrent()
+            vm.onForeground()
+            scheduler.runCurrent()
+            scheduler.advanceTimeBy(5_000L); scheduler.runCurrent()
+
+            assertTrue("expected at least two polls", repo.pollCredentials.size >= 2)
+            repo.pollCredentials.forEach { assertEquals("signed" to 1_900_000_000L, it) }
+        } finally {
+            vm.onBackground()
+        }
+    }
+
+    @Test
+    fun `an expired playback token stops the poll but keeps a playing stream on screen`() {
+        // The poll reads /play with the viewer's token. Once that token runs out the poll is
+        // refused, but the stream already playing does not need /play again: tearing the picture
+        // down would turn a token lifetime into a hard cap on how long anyone can watch.
+        val refused = AtomicBoolean(false)
+        val polls = AtomicInteger(0)
+        val repo = FakeRepo(
+            pollResult = {
+                polls.incrementAndGet()
+                if (refused.get()) BunnyResult.Err(BunnyError.Auth(403, "Forbidden"))
+                else BunnyResult.Ok(runningStream())
+            },
+            playData = { BunnyResult.Ok(playDataWithUrl("https://live.test/p.m3u8")) },
+        )
+        val vm = newVm(repo, nowEpochMs = 2_000_000_000_000L)
+        try {
+            // Signed for a moment that is already behind the pinned clock.
+            vm.start(libraryId = 1L, streamId = "s", token = "signed", expires = 1_900_000_000L)
+            scheduler.runCurrent()
+            vm.onForeground()
+            scheduler.runCurrent()
+            assertTrue(vm.state.value is LiveStreamPlayerState.LivePlay)
+
+            refused.set(true)
+            scheduler.advanceTimeBy(5_000L); scheduler.runCurrent()
+            val pollsAtRefusal = polls.get()
+            scheduler.advanceTimeBy(30_000L); scheduler.runCurrent()
+
+            assertNull("no terminal error over a playing stream", vm.terminalError.value)
+            assertTrue(vm.state.value is LiveStreamPlayerState.LivePlay)
+            assertEquals("the poll stops after the refusal", pollsAtRefusal, polls.get())
+        } finally {
+            vm.onBackground()
+        }
+    }
+
+    @Test
+    fun `a refused poll is still terminal while the token is valid`() {
+        // Geo-blocking, a revoked token or a deleted stream answer 401/403 too. Only an expired
+        // token on a playing stream is let off; everything else stops the player as before.
+        val refused = AtomicBoolean(false)
+        val repo = FakeRepo(
+            pollResult = {
+                if (refused.get()) BunnyResult.Err(BunnyError.Auth(403, "Forbidden"))
+                else BunnyResult.Ok(runningStream())
+            },
+            playData = { BunnyResult.Ok(playDataWithUrl("https://live.test/p.m3u8")) },
+        )
+        val vm = newVm(repo, nowEpochMs = 1_000_000_000_000L)
+        try {
+            vm.start(libraryId = 1L, streamId = "s", token = "signed", expires = 1_900_000_000L)
+            scheduler.runCurrent()
+            vm.onForeground()
+            scheduler.runCurrent()
+
+            refused.set(true)
+            scheduler.advanceTimeBy(5_000L); scheduler.runCurrent()
+
+            assertNotNull(vm.terminalError.value)
+        } finally {
+            vm.onBackground()
+        }
+    }
+
+    @Test
+    fun `an expired token is terminal when nothing is playing yet`() {
+        // Nothing on screen to protect: the viewer would wait forever for a status this token
+        // can never read, so say so instead.
+        val repo = FakeRepo(pollResult = { BunnyResult.Err(BunnyError.Auth(403, "Forbidden")) })
+        val vm = newVm(repo, nowEpochMs = 2_000_000_000_000L)
+        try {
+            vm.start(libraryId = 1L, streamId = "s", token = "signed", expires = 1_900_000_000L)
+            scheduler.runCurrent()
+            vm.onForeground()
+            scheduler.runCurrent()
+
+            assertNotNull(vm.terminalError.value)
+        } finally {
+            vm.onBackground()
+        }
+    }
+
+    @Test
+    fun `a foreground signal that arrives before start still starts the status poll`() {
+        // What the composable actually does: its lifecycle observer fires ON_START synchronously
+        // while the effect calling start() is still queued. The poll loop used to be dropped,
+        // so a stream that ended went unnoticed unless playback happened to fail.
+        val polls = AtomicInteger(0)
+        val repo = FakeRepo(pollResult = { polls.incrementAndGet(); BunnyResult.Ok(runningStream()) })
+        val vm = newVm(repo)
+        try {
+            vm.onForeground()
+            vm.start(libraryId = 1L, streamId = "s")
+            scheduler.runCurrent()
+            scheduler.advanceTimeBy(5_000L); scheduler.runCurrent()
+            scheduler.advanceTimeBy(5_000L); scheduler.runCurrent()
+
+            assertTrue("expected the 5 s loop to run (got ${polls.get()})", polls.get() >= 3)
+        } finally {
+            vm.onBackground()
+        }
+    }
+
+    @Test
+    fun `a background signal cancels a foreground that arrived before start`() {
+        val polls = AtomicInteger(0)
+        val repo = FakeRepo(pollResult = { polls.incrementAndGet(); BunnyResult.Ok(runningStream()) })
+        val vm = newVm(repo)
+        try {
+            vm.onForeground()
+            vm.onBackground()
+            vm.start(libraryId = 1L, streamId = "s")
+            scheduler.runCurrent()
+            scheduler.advanceTimeBy(15_000L); scheduler.runCurrent()
+
+            assertEquals(0, polls.get())
         } finally {
             vm.onBackground()
         }
@@ -1036,11 +1180,14 @@ class BunnyLiveStreamPlayerViewModelTest {
 
     // region — Fixtures
 
-    private fun newVm(repo: LiveStreamRepository): BunnyLiveStreamPlayerViewModel =
+    private fun newVm(
+        repo: LiveStreamRepository,
+        nowEpochMs: Long = 0L,
+    ): BunnyLiveStreamPlayerViewModel =
         BunnyLiveStreamPlayerViewModel(
             repository = repo,
             ioDispatcher = testDispatcher,
-            nowEpochMs = { 0L },
+            nowEpochMs = { nowEpochMs },
             pollIntervalMs = 5_000L,
         )
 
@@ -1228,7 +1375,15 @@ class BunnyLiveStreamPlayerViewModelTest {
         private val playData: suspend () -> BunnyResult<LiveStreamPlayData> =
             { BunnyResult.Err(BunnyError.Network("not used in this test")) },
     ) : LiveStreamRepository {
-        override suspend fun pollLiveStream(libraryId: Long, streamId: String) = pollResult()
+        /** The token/expires pair each poll was made with, in order. */
+        val pollCredentials = mutableListOf<Pair<String?, Long?>>()
+
+        override suspend fun pollLiveStream(
+            libraryId: Long, streamId: String, token: String?, expires: Long?,
+        ): BunnyResult<LiveStream> {
+            pollCredentials += token to expires
+            return pollResult()
+        }
 
         override suspend fun fetchLiveStreamPlayData(
             libraryId: Long, streamId: String, token: String?, expires: Long?,

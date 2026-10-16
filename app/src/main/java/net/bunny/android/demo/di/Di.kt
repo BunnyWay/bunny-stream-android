@@ -22,17 +22,26 @@ class Di(val context: Context) {
 
     init {
         // Release builds ship without demo credentials and the settings screen starts empty, so
-        // there is nothing to initialise with until the user enters a key. The SDK rejects blank
-        // credentials rather than pretending to be configured, and every screen already checks
-        // BunnyStreamApi.isInitialized() before it calls anything.
+        // there is nothing to initialise with until the user enters a library. Every screen
+        // already checks BunnyStreamApi.isInitialized() before it calls anything.
         if (hasCredentials) {
-            BunnyStreamApi.initialize(context, localPrefs.accessKey, localPrefs.libraryId)
+            BunnyStreamApi.initialize(context, localPrefs.accessKey.ifBlank { null }, localPrefs.libraryId)
         }
     }
 
-    /** True once the user (or a debug build's `local.properties`) has supplied a key and library. */
+    /**
+     * True once the user (or a debug build's `local.properties`) has supplied a library. The key
+     * is optional: without one the SDK plays, but cannot manage the library.
+     */
     val hasCredentials: Boolean
-        get() = localPrefs.accessKey.isNotBlank() && localPrefs.libraryId > 0
+        get() = localPrefs.libraryId > 0
+
+    /**
+     * True when the demo runs the way a viewer-facing app should: a library id and no API key.
+     * Playback works; listing, uploading, broadcasting and editing are refused by the SDK.
+     */
+    val isPlaybackOnly: Boolean
+        get() = hasCredentials && localPrefs.accessKey.isBlank()
 
     // Uploaders are reached straight off the SDK (streamSdk.videoUploader /
     // streamSdk.tusVideoUploader). Before 4.0.0 a demo-side wrapper existed to hold the single
@@ -79,7 +88,7 @@ class Di(val context: Context) {
         activeUpload = null
         activeTrailerUpload = null
         if (hasCredentials) {
-            BunnyStreamApi.initialize(context, accessKey, libraryId)
+            BunnyStreamApi.initialize(context, accessKey.ifBlank { null }, libraryId)
         } else {
             BunnyStreamApi.release()
         }

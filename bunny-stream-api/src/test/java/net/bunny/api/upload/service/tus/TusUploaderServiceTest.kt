@@ -76,10 +76,10 @@ class TusUploaderServiceTest {
         inputStream = ByteArrayInputStream(ByteArray(fileSize.toInt())),
     )
 
-    private fun TestScope.service(): TusUploaderService = TusUploaderService(
+    private fun TestScope.service(accessKey: String? = "access-key"): TusUploaderService = TusUploaderService(
         preferences = mockk<SharedPreferences>(relaxed = true),
         chunkSize = chunkBytes.toInt(),
-        accessKey = "access-key",
+        accessKey = accessKey,
         dispatcher = UnconfinedTestDispatcher(testScheduler),
     )
 
@@ -223,6 +223,22 @@ class TusUploaderServiceTest {
         val failed = events.single() as UploadEvent.Failed
         assertTrue(failed.error is BunnyError.Network)
     }
+
+    @Test
+    fun `without an access key the upload fails as a terminal invalid state before any transfer`() =
+        runTest {
+            // A playback-only instance still builds this service. It used to demand the key in its
+            // constructor, which is what made the whole SDK impossible to initialise without one.
+            val events = service(accessKey = null)
+                .upload(libraryId, videoId, fileInfo(), UploadControl())
+                .toList()
+
+            val failed = events.single() as UploadEvent.Failed
+            assertTrue(failed.error is BunnyError.InvalidState)
+            assertTrue(failed.error.isTerminal)
+            assertTrue(failed.error.message.contains("access key"))
+            verify(exactly = 0) { anyConstructed<TusClient>().resumeOrCreateUpload(any()) }
+        }
 
     // endregion
 

@@ -40,13 +40,14 @@ import net.bunny.bunnystreamplayer.PlaybackFailureInfo
  *  1. [start] kicks off an initial [fetchPlayData] (carries stream snapshot + playable URL) and,
  *     if the snapshot warrants it, an async [fetchTrailerUrl]. Starts the 5s poll loop.
  *
- *  2. The poll loop calls [LiveStreamRepository.pollLiveStream] every 5 s — lightweight, returns
- *     only the stream snapshot, no play-data. In-flight guard prevents overlapping requests.
+ *  2. The poll loop calls [LiveStreamRepository.pollLiveStream] every 5 s for the stream snapshot.
+ *     It reads the public live `/play` endpoint with the same token as play-data, so the player
+ *     needs no access key. In-flight guard prevents overlapping requests.
  *
  *  3. Whenever the snapshot status transitions to a state that *needs* a URL we don't have yet
  *     (Running with no live URL; Ended/VodProcessing+recordVod with no VOD URL), the view model
- *     re-fetches play-data to pick up the new URL. We avoid re-fetching on every poll because
- *     play-data is the heavier endpoint.
+ *     re-fetches play-data to pick up the new URL. Both calls now hit the same endpoint; the
+ *     split is kept because the URL handling only runs on transitions, not on every poll.
  *
  *  4. Lifecycle: [onForeground] fires one immediate poll then resumes the 5s cadence;
  *     [onBackground] cancels the loop. Terminal failure (`401/403/404/410`) stops polling
@@ -188,6 +189,9 @@ public open class BunnyLiveStreamPlayerViewModel internal constructor(
      */
     private var pollingStopped: Boolean = false
     private var started: Boolean = false
+
+    /** [onForeground] arrived before [start]; the poll loop starts as soon as [start] runs. */
+    private var foregroundBeforeStart: Boolean = false
     private var lastRecoveryAtMs: Long? = null
     private var deferredRecoveryJob: Job? = null
 
@@ -255,6 +259,11 @@ public open class BunnyLiveStreamPlayerViewModel internal constructor(
         this.expires = expires
         Log.d(TAG, "start — libraryId=$libraryId streamId=$streamId hasToken=${token != null}")
         viewModelScope.launch { fetchPlayData(reason = "start") }
+
+        if (foregroundBeforeStart) {
+            foregroundBeforeStart = false
+            onForeground()
+        }
     }
 
     /**
@@ -268,7 +277,13 @@ public open class BunnyLiveStreamPlayerViewModel internal constructor(
             return
         }
         if (!started) {
-            Log.w(TAG, "onForeground before start() — ignoring")
+            // The composable registers its lifecycle observer synchronously, so an already
+            // started host delivers ON_START before the effect that calls start() has run.
+            // Dropping it left the 5 s status poll off for the whole session: a stream that ended
+            // was only noticed if playback happened to fail. Remember it and start polling as soon
+            // as start() has run.
+            Log.d(TAG, "onForeground before start() — polling begins once start() runs")
+            foregroundBeforeStart = true
             return
         }
         Log.d(TAG, "onForeground — restarting poll loop with immediate tick")
@@ -288,6 +303,7 @@ public open class BunnyLiveStreamPlayerViewModel internal constructor(
      */
     public fun onBackground() {
         Log.d(TAG, "onBackground — cancelling poll loop")
+        foregroundBeforeStart = false
         pollJob?.cancel()
         pollJob = null
     }
@@ -308,7 +324,7 @@ public open class BunnyLiveStreamPlayerViewModel internal constructor(
         try {
             Log.v(TAG, "pollOnce[$reason] — calling pollLiveStream")
             val result = withContext(ioDispatcher) {
-                repository.pollLiveStream(libraryId, streamId)
+                repository.pollLiveStream(libraryId, streamId, token, expires)
             }
             when (result) {
                 is BunnyResult.Ok -> handleStreamUpdate(result.value)
@@ -323,6 +339,18 @@ public open class BunnyLiveStreamPlayerViewModel internal constructor(
         // A poll already in flight when playback went terminal — or when the ended recording took
         // the loop down — must not overwrite that verdict nor revive the loop.
         if (terminated || pollingStopped) return
+        if (error is BunnyError.Auth && playbackTokenExpired() && isPlaying()) {
+            // The poll reads the public /play endpoint with the viewer's signed token, and that
+            // token has run out mid-stream. What is already playing keeps playing (it does not
+            // need /play again), so stop asking for a status this token can no longer read rather
+            // than tear the picture down. Before 4.2 the poll used the access key, which never
+            // expires; an app that wants status updates past the expiry signs a longer token.
+            Log.w(TAG, "poll refused (${error.httpStatus}) after the playback token expired — " +
+                "stopping the status poll, playback continues")
+            pollJob?.cancel()
+            pollJob = null
+            return
+        }
         if (error.isTerminal) {
             Log.w(TAG, "poll failed with terminal status ${error.httpStatus} — stopping polling")
             terminated = true
@@ -335,6 +363,17 @@ public open class BunnyLiveStreamPlayerViewModel internal constructor(
             Log.w(TAG, "poll failed with transient status ${error.httpStatus}: ${error.message}")
         }
     }
+
+    /** True when the player was started with a signed token whose expiry is already behind us. */
+    private fun playbackTokenExpired(): Boolean {
+        val expiresAtSeconds = expires ?: return false
+        // Compared in seconds: multiplying a far-future expiry into milliseconds can overflow.
+        return token != null && expiresAtSeconds <= nowEpochMs() / MILLIS_PER_SECOND
+    }
+
+    private fun isPlaying(): Boolean =
+        mutableState.value is LiveStreamPlayerState.LivePlay ||
+            mutableState.value is LiveStreamPlayerState.VodPlay
 
     private suspend fun handleStreamUpdate(stream: LiveStream) {
         // A poll already in flight when playback went terminal — or when the ended recording took
@@ -692,6 +731,7 @@ public open class BunnyLiveStreamPlayerViewModel internal constructor(
 
     public companion object {
         private const val TAG = "BunnyLive/VM"
+private const val MILLIS_PER_SECOND = 1_000L
 
         /** Production poll interval, matched to the web player. Don't lower without sign-off. */
         public const val DEFAULT_POLL_INTERVAL_MS: Long = 5_000L

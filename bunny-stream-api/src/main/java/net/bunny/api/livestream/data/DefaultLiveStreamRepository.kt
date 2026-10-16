@@ -4,6 +4,7 @@ import android.graphics.Color
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import net.bunny.api.api.ManageLiveStreamsApi
+import net.bunny.api.error.BunnyError
 import net.bunny.api.error.BunnyResult
 import net.bunny.api.error.bunnyCatching
 import net.bunny.api.http.postExpectingSuccess
@@ -104,11 +105,34 @@ internal class DefaultLiveStreamRepository(
     override suspend fun pollLiveStream(
         libraryId: Long,
         streamId: String,
-    ): BunnyResult<LiveStream> =
-        // Same call as [getLiveStream]; kept as a named entry point because the polling loop's
-        // terminal-vs-transient contract is documented on it. The BunnyResult envelope carries
-        // the HTTP status and terminality the old LiveStreamPollResult existed to preserve.
-        getLiveStream(libraryId, streamId)
+        token: String?,
+        expires: Long?,
+    ): BunnyResult<LiveStream> = withContext(coroutineDispatcher) {
+        // The public /play endpoint, not GET /live/{id}: that one is the management API and needs
+        // the access key, which a viewer-facing app must not ship. /play carries the same stream
+        // object minus the publisher's secrets (stream key, ingest endpoints, outputs), and it is
+        // what Bunny asks every playback path to use.
+        val playData = when (
+            val result = bunnyCatching {
+                liveStreamsApi.liveStreamGetStreamPlayData(
+                    libraryId = libraryId,
+                    streamId = streamId,
+                    token = token,
+                    expires = expires,
+                )
+            }
+        ) {
+            is BunnyResult.Err -> return@withContext result
+            is BunnyResult.Ok -> result.value
+        }
+        val stream = playData.liveStream
+            // A 200 without the stream object is a malformed answer, not a missing stream (that
+            // is a 404). Transient, like any undecodable body: the next poll may be whole again.
+            ?: return@withContext BunnyResult.Err(
+                BunnyError.Decode("Live play data for stream $streamId carried no stream object"),
+            )
+        bunnyCatching { stream.toDomain() }
+    }
 
     override suspend fun fetchLiveStreamPlayData(
         libraryId: Long,

@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import net.bunny.api.BuildConfig
 import net.bunny.api.error.BunnyErrorMapper
+import net.bunny.api.http.MissingAccessKeyException
 import net.bunny.api.upload.model.FileInfo
 import net.bunny.api.upload.model.PauseState
 import net.bunny.api.upload.model.UploadEvent
@@ -32,7 +33,10 @@ import java.security.MessageDigest
 internal class TusUploaderService(
     private val preferences: SharedPreferences,
     private val chunkSize: Int,
-    private val accessKey: String,
+    // Null on a playback-only instance. Kept nullable rather than refused here: this service is
+    // built with the SDK instance, and failing in that constructor is what made the whole SDK
+    // impossible to initialise without a key up to 4.1.x.
+    private val accessKey: String?,
     private val dispatcher: CoroutineDispatcher,
     private val userAgent: String = BuildConfig.USER_AGENT,
 ) : UploadService {
@@ -157,6 +161,9 @@ internal class TusUploaderService(
     }
 
     private fun signedHeaders(libraryId: Long, videoId: String): Map<String, String> {
+        // The signature is derived from the key; without one there is nothing to sign with. The
+        // TUS client has its own HTTP stack, so the guard on the SDK's clients does not cover it.
+        val accessKey = accessKey ?: throw MissingAccessKeyException("A TUS upload")
         val expire = System.currentTimeMillis() / MILLIS_PER_SECOND + SIGNATURE_VALIDITY_SECONDS
         return mapOf(
             "AuthorizationSignature" to sha256("$libraryId$accessKey$expire$videoId"),

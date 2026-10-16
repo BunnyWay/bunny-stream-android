@@ -6,6 +6,7 @@ import java.io.IOException
 import net.bunny.api.error.BunnyError.Companion.HTTP_FORBIDDEN
 import net.bunny.api.error.BunnyError.Companion.HTTP_NOT_FOUND
 import net.bunny.api.error.BunnyError.Companion.HTTP_UNAUTHORIZED
+import net.bunny.api.http.MissingAccessKeyException
 import org.openapitools.client.infrastructure.ClientException
 import org.openapitools.client.infrastructure.ServerException
 
@@ -17,6 +18,10 @@ import org.openapitools.client.infrastructure.ServerException
  *  * generated-client [ClientException]/[ServerException] — carry the HTTP status code; routed
  *    by [fromHttpStatus]. The repositories' manual OkHttp calls throw the same exception types
  *    on non-success responses, so they need no extra case here.
+ *  * [MissingAccessKeyException] — a playback-only instance refused a management call before it
+ *    reached the network: [BunnyError.InvalidState], terminal. It is an [IOException] for the
+ *    HTTP stacks' sake, so it has to be matched before the [IOException] case below; that one
+ *    would make it transient and every polling loop would retry it forever.
  *  * Gson [JsonParseException] (generated client) and Ktor [ContentConvertException] (settings
  *    path) — the response arrived but the body did not match the expected shape:
  *    [BunnyError.Decode].
@@ -35,6 +40,10 @@ internal object BunnyErrorMapper {
     public fun map(throwable: Throwable): BunnyError = when (throwable) {
         is ClientException -> fromHttpStatus(throwable.statusCode, throwable.message)
         is ServerException -> fromHttpStatus(throwable.statusCode, throwable.message)
+        is MissingAccessKeyException -> BunnyError.InvalidState(
+            message = throwable.message.orEmpty(),
+            isTerminal = true,
+        )
         is JsonParseException -> BunnyError.Decode(
             message = throwable.message ?: "Malformed response body",
             cause = throwable,

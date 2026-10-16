@@ -84,11 +84,21 @@ recording artifact does):
 <uses-permission android:name="android.permission.INTERNET" />
 ```
 
-Initialize once, in `Application.onCreate`:
+Initialize once, in `Application.onCreate`. An app that only plays needs the library id and
+nothing else:
+
+```kotlin
+BunnyStreamApi.initialize(context, libraryId = 12345L)
+```
+
+An app that also manages the library (lists, uploads, edits, broadcasts) passes its API key:
 
 ```kotlin
 BunnyStreamApi.initialize(context, accessKey = "your-api-key", libraryId = 12345L)
 ```
+
+Playback goes through Bunny's public play endpoints and never needs the key, so leave it out of
+apps you ship to viewers: anyone who unpacks the APK can read it.
 
 That registers a default instance the whole SDK reaches through `getInstance()`. If your app talks
 to several libraries, create an instance per library instead and hand it to the views:

@@ -40,14 +40,26 @@ internal class DefaultRecordingRepository(
         internal fun buildVodIngestUrl(
             rtmpEndpoint: String,
             videoGuid: String,
-            accessKey: String?,
+            accessKey: String,
             libraryId: Long,
         ): String = "${rtmpEndpoint.trimEnd('/')}/??vid=$videoGuid&accessKey=$accessKey&lib=$libraryId"
     }
 
     override suspend fun prepareRecording(libraryId: Long): BunnyResult<String> =
         withContext(coroutineDispatcher) {
-            val created = sdk().videoRepository.createVideo(
+            // One instance for the whole call: the key that signs the ingest URL has to belong to
+            // the instance that created the video.
+            val sdk = sdk()
+            // The VOD ingest authenticates with the key itself, so a playback-only instance cannot
+            // record. Say so before creating anything (the create would be refused anyway).
+            val accessKey = sdk.config.accessKey ?: return@withContext BunnyResult.Err(
+                BunnyError.InvalidState(
+                    "Recording needs the library's access key, and this SDK instance was " +
+                        "created without one (playback only). Pass the key to " +
+                        "BunnyStreamApi.initialize(context, accessKey, libraryId).",
+                ),
+            )
+            val created = sdk.videoRepository.createVideo(
                 libraryId = libraryId,
                 request = CreateVideoRequest(title = "recording-${System.currentTimeMillis()}"),
             )
@@ -60,7 +72,7 @@ internal class DefaultRecordingRepository(
                     val endpoint = buildVodIngestUrl(
                         rtmpEndpoint = BuildConfig.RTMP_ENDPOINT,
                         videoGuid = created.value.id,
-                        accessKey = sdk().config.accessKey,
+                        accessKey = accessKey,
                         libraryId = libraryId,
                     )
                     Log.d(TAG, "endpoint=${endpoint.redactSecrets()}")

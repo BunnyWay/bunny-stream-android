@@ -131,7 +131,8 @@ public sealed class BunnyError {
      *    ended, or one whose stream key has not been issued yet.
      *  * **The SDK or the object being used is** — continuing a resumable upload on the plain
      *    uploader, which records no offset; using an upload after `release()`; an upload that was
-     *    torn down before it finished.
+     *    torn down before it finished; a management call (listing, creating, editing, uploading,
+     *    broadcasting) on an instance created without an access key, which only plays.
      *
      * Terminality is explicit here because it genuinely varies and cannot be derived: an ended
      * stream never becomes publishable again, while a stream key that has not appeared yet

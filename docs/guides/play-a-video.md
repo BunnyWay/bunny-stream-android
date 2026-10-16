@@ -5,7 +5,8 @@ Embed the player and play a video from your library.
 ## Prerequisites
 
 - `net.bunny:player` dependency
-- `BunnyStreamApi.initialize(...)` called, see [Getting started](getting-started.md)
+- `BunnyStreamApi.initialize(...)` called, see [Getting started](getting-started.md). The library
+  id is enough: `BunnyStreamApi.initialize(context, libraryId)`. Playback does not need the API key.
 
 ## Basic playback
 

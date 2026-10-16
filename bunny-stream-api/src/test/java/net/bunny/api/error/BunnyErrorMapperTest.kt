@@ -2,6 +2,7 @@ package net.bunny.api.error
 
 import com.google.gson.JsonSyntaxException
 import java.io.IOException
+import net.bunny.api.http.MissingAccessKeyException
 import java.net.ConnectException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
@@ -139,5 +140,17 @@ class BunnyErrorMapperTest {
         )
         assertEquals(BunnyError.Http(500, "boom"), BunnyErrorMapper.fromHttpStatus(500, "boom"))
         assertTrue(BunnyErrorMapper.fromHttpStatus(-1, null) is BunnyError.Network)
+    }
+
+    @Test
+    fun `a refused call on a playback-only instance is a terminal invalid state, not a network error`() {
+        // It extends IOException because that is what OkHttp interceptors may throw. Mapped as
+        // one, it would be transient and every polling loop would retry it forever.
+        val error = BunnyErrorMapper.map(MissingAccessKeyException("GET /library/1/videos"))
+
+        assertTrue(error is BunnyError.InvalidState)
+        assertTrue(error.isTerminal)
+        assertEquals(BunnyError.NO_HTTP_STATUS, error.httpStatus)
+        assertTrue(error.message.contains("GET /library/1/videos"))
     }
 }

@@ -34,12 +34,19 @@ class BunnyStreamApiTest {
 
     @Test
     fun `a blank access key is rejected at construction`() {
-        // 3.x accepted it and every call then failed with 401, far from the cause.
+        // 3.x accepted it and every call then failed with 401, far from the cause. A blank string
+        // is still not "no key": it is almost always a key that failed to load. Null is the way
+        // to ask for a playback-only instance, and the message says so.
         val error = runCatching { BunnyStreamConfig(accessKey = "  ", libraryId = LIBRARY) }
             .exceptionOrNull()
 
         assertTrue(error is IllegalArgumentException)
         assertTrue(error!!.message!!.contains("accessKey"))
+        assertTrue("the message has to name the playback-only route", error.message!!.contains("null"))
+        assertTrue(
+            runCatching { BunnyStreamConfig(accessKey = "", libraryId = LIBRARY) }
+                .exceptionOrNull() is IllegalArgumentException,
+        )
     }
 
     @Test

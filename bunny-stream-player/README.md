@@ -14,10 +14,13 @@ Requires Android 8.0 (API 26) and the `INTERNET` permission in your manifest.
 ## Initialization
 
 ```kotlin
-BunnyStreamApi.initialize(context, accessKey = "your-api-key", libraryId = 12345L)
+BunnyStreamApi.initialize(context, libraryId = 12345L)
 ```
 
-Without this call the player renders a black view and logs an error.
+The player needs the library id only: playback goes through Bunny's public play endpoints, so the
+API key stays out of apps that only play. Pass it (`initialize(context, accessKey, libraryId)`)
+when the same app also manages the library. Without this call the player renders a black view and
+logs an error.
 
 To play from a specific library in an app that uses several, give the view its own instance:
 

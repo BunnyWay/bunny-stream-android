@@ -1,5 +1,6 @@
 package net.bunny.api.video.data
 
+import com.google.gson.JsonParseException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import net.bunny.api.api.ManageVideosApi
@@ -22,7 +23,10 @@ import net.bunny.api.video.domain.model.VideoPlayData
 import net.bunny.api.video.domain.model.VideoResolutionsInfo
 import net.bunny.api.video.domain.model.VideoStatistics
 import net.bunny.api.video.domain.model.VideoStorageSize
+import okhttp3.HttpUrl.Companion.toHttpUrl
+import okhttp3.Request
 import org.openapitools.client.infrastructure.ClientException
+import org.openapitools.client.infrastructure.ServerException
 import org.openapitools.client.models.EncoderOutputCodec
 import java.io.File
 import java.net.URLEncoder
@@ -81,10 +85,50 @@ internal class DefaultVideoRepository(
     override suspend fun fetchVideoHeatmap(
         libraryId: Long,
         videoId: String,
+        token: String?,
+        expires: Long?,
     ): BunnyResult<Map<String, Int>> = withContext(coroutineDispatcher) {
-        bunnyCatching {
-            // The DTO wraps a single map; the wrapper carries nothing else worth surfacing.
-            videosApi.videoGetVideoHeatmap(libraryId, videoId).heatmap.orEmpty()
+        // The public /play endpoint for every instance, keyed or not: it is the one Bunny's
+        // players read, and playback should never depend on the management API.
+        bunnyCatching { fetchPublicHeatmap(libraryId, videoId, token, expires) }
+    }
+
+    /**
+     * The heatmap from the public `/play/heatmap` endpoint.
+     *
+     * Called by hand rather than through the generated client: the spec declares the response as
+     * the full play-data model, but the server answers `text/plain` with the values separated by
+     * commas (`94,89,85,...`), or an empty body when the video has no heatmap data. Asked for
+     * JSON, it wraps the same text in a JSON string, so the request asks for plain text.
+     */
+    private fun fetchPublicHeatmap(
+        libraryId: Long,
+        videoId: String,
+        token: String?,
+        expires: Long?,
+    ): Map<String, Int> {
+        val url = videosApi.baseUrl.toHttpUrl().newBuilder()
+            .addPathSegment("library")
+            .addPathSegment(libraryId.toString())
+            .addPathSegment("videos")
+            .addPathSegment(videoId)
+            .addPathSegment("play")
+            .addPathSegment("heatmap")
+            .apply {
+                token?.let { addQueryParameter("token", it) }
+                expires?.let { addQueryParameter("expires", it.toString()) }
+            }
+            .build()
+        val request = Request.Builder().url(url).get().header("Accept", "text/plain").build()
+        // The instance's own client: same Referer, User-Agent and logging as every other call.
+        return videosApi.client.newCall(request).execute().use { response ->
+            val body = response.body?.string().orEmpty()
+            when {
+                response.isSuccessful -> parsePublicHeatmap(body)
+                response.code >= HTTP_SERVER_ERROR ->
+                    throw ServerException(body.ifBlank { response.message }, response.code)
+                else -> throw ClientException(body.ifBlank { response.message }, response.code)
+            }
         }
     }
 
@@ -403,3 +447,24 @@ internal class DefaultVideoRepository(
 /** Maps the domain codec onto the generated enum, whose entries are named `_0`.. `_3`. */
 private fun VideoCodec.toGenerated(): EncoderOutputCodec =
     EncoderOutputCodec.entries.first { it.value == value }
+
+private const val HTTP_SERVER_ERROR = 500
+
+/**
+ * Reads a public `/play/heatmap` body: one value per timeline segment, comma separated, in order
+ * (`94,89,85,...`), returned as segment index to value. A blank body is an empty heatmap. Anything
+ * else throws [com.google.gson.JsonParseException], which the caller's `bunnyCatching` reports as a
+ * decode failure.
+ */
+internal fun parsePublicHeatmap(body: String): Map<String, Int> {
+    // The same text, wrapped in a JSON string, is what the server sends when JSON was asked for.
+    val trimmed = body.trim().removeSurrounding("\"").trim()
+    if (trimmed.isEmpty()) return emptyMap()
+    return trimmed.split(',').mapIndexed { segment, raw ->
+        val value = raw.trim().toIntOrNull()
+            ?: throw JsonParseException("Unexpected heatmap body: ${trimmed.take(HEATMAP_PREVIEW_CHARS)}")
+        segment.toString() to value
+    }.toMap()
+}
+
+private const val HEATMAP_PREVIEW_CHARS = 80

@@ -146,6 +146,10 @@ A blank access key or a `libraryId` of `0`/`-1` now throws `IllegalArgumentExcep
 initialise with placeholder values and fill them in later, move the call to the point where you
 have the real ones.
 
+If you passed `null` as the key in 3.x because the app only plays: that threw at runtime, and from
+4.2.0 it works. Call `BunnyStreamApi.initialize(context, libraryId)` (or keep passing `null`) and
+the instance plays without a key.
+
 ### `getInstance()` before `initialize` throws a clear error
 
 It was `instance!!`, so the failure surfaced as an unexplained `NullPointerException`. It is now an

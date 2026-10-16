@@ -61,6 +61,8 @@
     <string name="home_option_camera_upload">Camera upload</string>
     <string name="home_option_live_streams">Manage live streams</string>
     <string name="home_option_direct_play">Direct video play</string>
+    <string name="home_option_direct_live_play">Direct live stream play</string>
+    <string name="home_playback_only_banner">Playback-only mode: no API key is configured, the way a viewer-facing app should ship. Direct video and live stream play work. Listing, uploading, broadcasting and editing need the key and are refused by the SDK.</string>
     <string name="home_option_resume_management">Manage Resume Positions</string>
 
     <!-- Direct play dialog -->
@@ -71,7 +73,12 @@
     <string name="placeholder_library_id">Video Library ID (numeric)</string>
     <string name="error_video_id_empty">Please enter a video ID.</string>
     <string name="error_library_id_invalid">Library ID must be a number (e.g. 12345), not a GUID or URL.</string>
-    <string name="note_direct_play_access_key">Note: the Bunny access key is per-library, so the video must belong to the library configured in Bunny Stream Configuration. Libraries with token authentication enabled can\'t be played here.</string>
+    <string name="dialog_enter_live_stream_id_title">Enter Live Stream ID</string>
+    <string name="dialog_enter_live_stream_id_message">Enter the ID of a live stream in the library configured in Bunny Stream Configuration</string>
+    <string name="placeholder_live_stream_id">Live stream ID</string>
+    <string name="error_live_stream_id_empty">Please enter a live stream ID.</string>
+    <string name="hint_access_key_optional">Optional. Leave empty for playback only: the SDK then plays videos and live streams without the key, and refuses library management.</string>
+    <string name="note_direct_play_access_key">Playback goes through Bunny\'s public play endpoint, so no API key is needed. If the library has token authentication on, the token authentication key set in Bunny Stream Configuration has to belong to that library.</string>
     <string name="button_play">Play</string>
     <string name="button_cancel">Cancel</string>
 
