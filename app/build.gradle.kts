@@ -154,7 +154,7 @@ dependencies {
     // Functional Programming (Arrow)
 
     // Work Manager for background tasks
-    implementation("androidx.work:work-runtime-ktx:2.11.2")
+    implementation("androidx.work:work-runtime-ktx:2.12.0")
 
     // JSON processing - Essential for our position storage
     implementation("com.google.code.gson:gson:2.14.0")
