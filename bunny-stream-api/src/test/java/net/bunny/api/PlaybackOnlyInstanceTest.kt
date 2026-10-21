@@ -126,6 +126,9 @@ class PlaybackOnlyInstanceTest {
         val request = server.takeRequest()
         assertEquals("/library/$LIBRARY/videos/$VIDEO_ID/play?token=signed&expires=42", request.path)
         assertNull(request.getHeader("AccessKey"))
+        // Without a key nothing else vouches for the request: a library that blocks requests
+        // without a referrer answers 401, and the player starts with an empty video URL.
+        assertEquals(BunnyCdn.REFERER, request.getHeader("Referer"))
     }
 
     @Test

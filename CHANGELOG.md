@@ -10,6 +10,13 @@ All notable changes to Bunny Stream Android are documented in this file. The for
 
 ## [Unreleased]
 
+### Fixed
+
+- Player settings are requested from `/play` with the same `Referer` as the rest of the playback
+  calls. A playback-only instance (no access key) on a library that blocks requests without a
+  referrer used to get a 401 there, start with empty settings and fail with
+  `Source error` (`MalformedURLException: no protocol: ?CMCD=…`). Nothing to change in your app.
+
 ## [4.2.1] - 2026-10-16
 
 ### Added

@@ -20,6 +20,7 @@ import io.ktor.http.encodedPath
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.serialization.json.Json
 import net.bunny.api.BuildConfig
+import net.bunny.api.BunnyCdn
 import net.bunny.api.http.MissingAccessKeyException
 import net.bunny.api.http.isPublicPlaybackPath
 
@@ -92,6 +93,12 @@ fun initHttpClient(
             accessKey != null -> request.header("AccessKey", accessKey)
             !isPublicPlaybackPath(request.url.encodedPath) ->
                 throw MissingAccessKeyException("${request.method.value} ${request.url.encodedPath}")
+        }
+        // Same Referer the OkHttp client sends to /play. Without a key it is all that vouches for
+        // the request, so a library that blocks requests without a referrer answers 401 and the
+        // player starts with empty settings (no video URL).
+        if (isPublicPlaybackPath(request.url.encodedPath)) {
+            request.header(HttpHeaders.Referrer, BunnyCdn.REFERER)
         }
 
         execute(request)
