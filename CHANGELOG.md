@@ -10,6 +10,8 @@ All notable changes to Bunny Stream Android are documented in this file. The for
 
 ## [Unreleased]
 
+## [4.2.2] - 2026-10-22
+
 ### Fixed
 
 - On a playback-only instance (no API key), VOD failed with "Source error" on libraries that block
