@@ -799,39 +799,16 @@ class BunnyStreamPlayer @JvmOverloads constructor(
 
                 settings.fold(
                     onErr = {
-                        initializeVideo(
-                            video,
-                            token = token,
-                            expires = expires,
-                            playerSettings = PlayerSettings(
-                                thumbnailUrl = "",
-                                controls = "",
-                                keyColor = 0,
-                                captionsFontSize = 0,
-                                captionsFontColor = null,
-                                captionsBackgroundColor = null,
-                                uiLanguage = "",
-                                showHeatmap = false,
-                                fontFamily = "",
-                                playbackSpeeds = listOf(
-                                    0.25f,
-                                    0.5f,
-                                    0.75f,
-                                    1.0f,
-                                    1.25f,
-                                    1.5f,
-                                    2.0f,
-                                    3.0f,
-                                    4.0f
-                                ),
-                                drmEnabled = false,
-                                vastTagUrl = null,
-                                videoUrl = "",
-                                seekPath = "",
-                                captionsPath = ""
-                            )
-                        )
+                        // The video URL only comes with the player settings, so there is nothing
+                        // to play without them. This used to start the engine anyway with empty
+                        // settings, which buried this message under "Source error" and a
+                        // MalformedURLException about a URL that was never there.
+                        Log.w(TAG, "Error fetching player settings for $videoId — ${it.message}")
+                        // The engine may still be playing the previous video (playVideo called on
+                        // a view that is already playing); it must not go on under the error.
+                        bunnyPlayer.stop()
                         playerView.showError(it.message)
+                        onPlaybackError?.invoke(it.message)
                     },
                     onOk = { settings ->
                         val withAdTag = adTagOverride?.let { settings.copy(vastTagUrl = it) } ?: settings

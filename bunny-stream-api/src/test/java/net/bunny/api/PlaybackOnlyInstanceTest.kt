@@ -126,6 +126,21 @@ class PlaybackOnlyInstanceTest {
         val request = server.takeRequest()
         assertEquals("/library/$LIBRARY/videos/$VIDEO_ID/play?token=signed&expires=42", request.path)
         assertNull(request.getHeader("AccessKey"))
+        // Without a key nothing else authorizes the call, so a library that rejects requests
+        // without a referrer answers 401 and the player is left without a video URL (#91).
+        assertEquals(BunnyCdn.REFERER, request.getHeader("Referer"))
+    }
+
+    @Test
+    fun `player settings carry the key and the Referer on an instance with a key`() {
+        server.enqueue(json(VIDEO_PLAY_DATA))
+
+        val result = runBlocking { withKey().fetchPlayerSettings(LIBRARY, VIDEO_ID) }
+
+        assertTrue("expected Ok, was $result", result is BunnyResult.Ok)
+        val request = server.takeRequest()
+        assertEquals(KEY, request.getHeader("AccessKey"))
+        assertEquals(BunnyCdn.REFERER, request.getHeader("Referer"))
     }
 
     @Test

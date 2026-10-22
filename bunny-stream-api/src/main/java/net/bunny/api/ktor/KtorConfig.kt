@@ -20,6 +20,7 @@ import io.ktor.http.encodedPath
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.serialization.json.Json
 import net.bunny.api.BuildConfig
+import net.bunny.api.BunnyCdn
 import net.bunny.api.http.MissingAccessKeyException
 import net.bunny.api.http.isPublicPlaybackPath
 
@@ -85,13 +86,22 @@ fun initHttpClient(
     }
 
     client.plugin(HttpSend).intercept { request ->
+        val isPlayback = isPublicPlaybackPath(request.url.encodedPath)
+
         // Same rule as the OkHttp client: a playback-only instance (no key) only reaches the
         // public /play endpoints. Anything else would answer 401, so it is refused before it
         // leaves the device and surfaces as a terminal InvalidState.
         when {
             accessKey != null -> request.header("AccessKey", accessKey)
-            !isPublicPlaybackPath(request.url.encodedPath) ->
+            !isPlayback ->
                 throw MissingAccessKeyException("${request.method.value} ${request.url.encodedPath}")
+        }
+
+        // The /play endpoints get the same Referer the OkHttp client sends. A library that blocks
+        // requests without a referrer answers 401 without it, and on a playback-only instance
+        // there is no AccessKey to authorize the call instead, so the player settings never load.
+        if (isPlayback) {
+            request.header(HttpHeaders.Referrer, BunnyCdn.REFERER)
         }
 
         execute(request)
