@@ -3,6 +3,7 @@ package net.bunny.api.http
 import io.ktor.client.request.get
 import io.ktor.client.statement.HttpResponse
 import kotlinx.coroutines.runBlocking
+import net.bunny.api.BunnyCdn
 import net.bunny.api.ktor.initHttpClient
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
@@ -68,7 +69,26 @@ class PlaybackOnlyTest {
         runBlocking { client.get(server.url("/library/1/videos/v/play").toString()) }
         client.close()
 
-        assertNull(server.takeRequest().getHeader("AccessKey"))
+        val request = server.takeRequest()
+        assertNull(request.getHeader("AccessKey"))
+        assertEquals(BunnyCdn.REFERER, request.getHeader("Referer"))
+    }
+
+    @Test
+    fun `the ktor client sends the Referer only to the playback endpoints`() {
+        // Same rule as the OkHttp client: the referrer is for /play, not for the management API.
+        server.enqueue(MockResponse().setResponseCode(200).setBody("{}"))
+        server.enqueue(MockResponse().setResponseCode(200).setBody("{}"))
+        val client = initHttpClient(accessKey = "key")
+
+        runBlocking {
+            client.get(server.url("/library/1/videos/v/play").toString())
+            client.get(server.url("/library/1/videos/v").toString())
+        }
+        client.close()
+
+        assertEquals(BunnyCdn.REFERER, server.takeRequest().getHeader("Referer"))
+        assertNull(server.takeRequest().getHeader("Referer"))
     }
 
     @Test

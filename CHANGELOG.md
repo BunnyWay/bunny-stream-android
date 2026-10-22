@@ -10,6 +10,21 @@ All notable changes to Bunny Stream Android are documented in this file. The for
 
 ## [Unreleased]
 
+### Fixed
+
+- On a playback-only instance (no API key), VOD failed with "Source error" on libraries that block
+  requests without a referrer. The player settings request to `/videos/{id}/play` went out without
+  the `Referer` header the other `/play` calls send, so the server answered 401 and the player had
+  no video URL. It now sends `Referer: https://iframe.mediadelivery.net/`, as the iOS SDK does.
+  Instances with a key were not affected, because the key authorizes the request. Nothing to
+  change in your app.
+  ([#91](https://github.com/BunnyWay/bunny-stream-android/issues/91))
+- When the player settings could not be loaded, `BunnyStreamPlayer` started playback anyway with
+  an empty video URL, so the real reason was replaced by "Source error" and a
+  `MalformedURLException: no protocol` in logcat. The player now shows the settings error and
+  passes it to `onPlaybackError`, the same way it reports a video that cannot be found. A video
+  that was already playing in the same player stops instead of going on under the error.
+
 ## [4.2.1] - 2026-10-16
 
 ### Added
