@@ -157,7 +157,7 @@ dependencies {
     implementation("androidx.work:work-runtime-ktx:2.11.2")
 
     // JSON processing - Essential for our position storage
-    implementation("com.google.code.gson:gson:2.14.0")
+    implementation("com.google.code.gson:gson:2.15.0")
 
 }
 
