@@ -43,7 +43,7 @@ dependencies {
     implementation("androidx.constraintlayout:constraintlayout:2.2.2")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.10.0")
     implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.10.0")
-    implementation("androidx.fragment:fragment-ktx:1.8.9")
+    implementation("androidx.fragment:fragment-ktx:1.9.1")
 
     // TV-specific dependencies
     implementation("androidx.leanback:leanback:1.2.0")
