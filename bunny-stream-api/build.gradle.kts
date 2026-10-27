@@ -101,11 +101,11 @@ dependencies {
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.11.0")
     // MockEngine — drives BasicUploaderService's upload Flow through real Ktor machinery
     // (progress callbacks, status handling) without a server. Version tracks the ktor client below.
-    testImplementation("io.ktor:ktor-client-mock:3.5.2")
+    testImplementation("io.ktor:ktor-client-mock:3.6.0")
     // MockWebServer — the only way to assert what an instance actually puts on the wire. Used to
     // prove two instances authenticate with their own keys. Pinned to the okhttp version that
     // actually resolves (5.3.2, forced by okhttp-android), not the 4.12.0 BOM below.
-    testImplementation("com.squareup.okhttp3:mockwebserver:5.3.2")
+    testImplementation("com.squareup.okhttp3:mockwebserver:5.5.1")
     // https://developer.android.com/jetpack/androidx/releases/test
     androidTestImplementation("androidx.test.ext:junit:1.3.0")
     // https://developer.android.com/jetpack/androidx/releases/test#espresso
@@ -128,14 +128,14 @@ dependencies {
 
     // Gson
     // https://github.com/google/gson
-    implementation("com.google.code.gson:gson:2.14.0")
+    implementation("com.google.code.gson:gson:2.15.0")
 
     // Ktor
     // https://ktor.io
-    implementation("io.ktor:ktor-client-okhttp:3.5.2")
-    implementation("io.ktor:ktor-client-content-negotiation:3.5.2")
-    implementation("io.ktor:ktor-serialization-kotlinx-json:3.5.2")
-    implementation("io.ktor:ktor-client-logging-jvm:3.5.2")
+    implementation("io.ktor:ktor-client-okhttp:3.6.0")
+    implementation("io.ktor:ktor-client-content-negotiation:3.6.0")
+    implementation("io.ktor:ktor-serialization-kotlinx-json:3.6.0")
+    implementation("io.ktor:ktor-client-logging-jvm:3.6.0")
 
 
     // Tus client libraries (update to newer patch versions if available)
