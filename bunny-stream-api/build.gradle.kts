@@ -96,7 +96,7 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
     // mockk — used to stub the generated [ManageLiveStreamsApi] in the live-stream repository
     // tests. The generated APIs are final classes; mockk handles those without extra config.
-    testImplementation("io.mockk:mockk:1.13.13")
+    testImplementation("io.mockk:mockk:1.14.11")
     // Virtual-time + TestDispatcher for the repository's withContext(coroutineDispatcher) path.
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.11.0")
     // MockEngine — drives BasicUploaderService's upload Flow through real Ktor machinery
