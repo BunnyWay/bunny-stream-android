@@ -4,8 +4,7 @@ updates:
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      interval: "weekly"
-      day: "monday"
+      interval: "monthly"
       time: "08:00"
       timezone: "Etc/UTC"
     open-pull-requests-limit: 5
@@ -24,8 +23,7 @@ updates:
   - package-ecosystem: "gradle"
     directory: "/"
     schedule:
-      interval: "weekly"
-      day: "tuesday"
+      interval: "monthly"
       time: "08:00"
       timezone: "Etc/UTC"
     open-pull-requests-limit: 5
@@ -37,7 +35,7 @@ updates:
       - "gradle"
     # Updates that change what an integrating app has to build with. They are release
     # decisions, taken by hand together with the README and MIGRATING requirements, not
-    # weekly bumps. Patch releases still come through. Drop an entry here when the matching
+    # routine bumps. Patch releases still come through. Drop an entry here when the matching
     # requirement moves.
     ignore:
       # core 1.19 needs compileSdk 37 and Android Gradle plugin 9.1 in the consuming app.
