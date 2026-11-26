@@ -96,7 +96,7 @@ dependencies {
     // https://developers.google.com/cast/docs/android_sender
     implementation("com.google.android.gms:play-services-cast-framework:22.1.0")
     // https://developer.android.com/jetpack/androidx/releases/mediarouter
-    implementation("androidx.mediarouter:mediarouter:1.7.0")
+    implementation("androidx.mediarouter:mediarouter:1.9.0")
 
     // AndroidX Startup
     // https://developer.android.com/jetpack/androidx/releases/startup
