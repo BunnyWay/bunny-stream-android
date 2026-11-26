@@ -94,7 +94,7 @@ dependencies {
     // Explicit (media3-cast also pulls them transitively) because the SDK
     // uses the Cast framework and MediaRouteButton directly.
     // https://developers.google.com/cast/docs/android_sender
-    implementation("com.google.android.gms:play-services-cast-framework:22.1.0")
+    implementation("com.google.android.gms:play-services-cast-framework:23.0.0")
     // https://developer.android.com/jetpack/androidx/releases/mediarouter
     implementation("androidx.mediarouter:mediarouter:1.7.0")
 
