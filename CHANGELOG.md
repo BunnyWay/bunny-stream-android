@@ -10,6 +10,11 @@ All notable changes to Bunny Stream Android are documented in this file. The for
 
 ## [Unreleased]
 
+### Changed
+
+- Dependencies: Gson 2.15.0. Build requirements are unchanged: `compileSdk` 36, `minSdk` 26 and
+  Kotlin 2.2 or newer.
+
 ### Fixed
 
 - On a playback-only instance (no API key), VOD failed with "Source error" on libraries that block
